@@ -1,0 +1,27 @@
+{
+  "name": "dx-pedometer",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview --host",
+    "start": "node server.js",
+    "server": "node server.js"
+  },
+  "dependencies": {
+    "@babel/parser": "^8.0.4",
+    "@emailjs/browser": "^4.4.1",
+    "dotenv": "^16.4.7",
+    "nodemailer": "^6.9.16",
+    "pg": "^8.13.1",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.4",
+    "vite": "^5.4.11"
+  }
+}
