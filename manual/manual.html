@@ -1,0 +1,701 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>万歩計実績表 利用マニュアル</title>
+<style>
+/* ===================== page setup ===================== */
+@page {
+  size: A4;
+  margin: 20mm 18mm 18mm 18mm;
+  @bottom-left {
+    content: "万歩計実績表 利用マニュアル ／ Pedometer Record — User Manual";
+    font-family: "Noto Sans CJK JP"; font-size: 7.5pt; color: #9AA0A6;
+  }
+  @bottom-right {
+    content: counter(page);
+    font-family: "Noto Sans CJK JP"; font-size: 8pt; color: #6B7176;
+  }
+}
+@page cover { margin: 0; @bottom-left { content: none } @bottom-right { content: none } }
+
+:root {
+  --brand: #0C68B3;
+  --brand-dk: #09528F;
+  --ink: #1D2429;
+  --ink2: #5A646C;
+  --dim: #8B949B;
+  --rule: #DEE3E7;
+  --hair: #EDF0F2;
+  --wash: #F5F7F9;
+  --go: #2E7D6B;
+  --warn: #B15A44;
+}
+* { box-sizing: border-box; }
+body {
+  font-family: "Noto Sans CJK JP", sans-serif;
+  color: var(--ink); font-size: 9.6pt; line-height: 1.85;
+  margin: 0; -weasy-hyphens: none;
+}
+p { margin: 0 0 7pt; }
+strong, b { font-weight: 700; }
+
+.en { color: var(--ink2); font-size: 8.8pt; line-height: 1.7; margin-bottom: 10pt; }
+.blue { color: var(--brand); font-weight: 700; }
+.small { font-size: 8.4pt; color: var(--ink2); }
+
+/* ===================== cover ===================== */
+.cover { page: cover; height: 297mm; position: relative; break-after: page; }
+.cover-bar { height: 9mm; background: var(--brand); }
+.cover-inner { padding: 26mm 20mm 0; }
+.cover-eyebrow {
+  font-size: 8.6pt; letter-spacing: .34em; color: var(--brand);
+  font-weight: 700; margin-bottom: 10mm;
+}
+.cover h1 { font-size: 34pt; line-height: 1.22; margin: 0 0 3mm; font-weight: 700; letter-spacing: .01em; }
+.cover h2 { font-size: 15pt; font-weight: 500; color: var(--ink2); margin: 0 0 2mm; letter-spacing: .04em; }
+.cover .sub-en { font-size: 10.5pt; color: var(--dim); margin: 0 0 16mm; letter-spacing: .02em; }
+/* Which edition this is — build.py adds it for the split manuals. */
+.cover .edition { font-size: 13pt; font-weight: 700; color: var(--brand); margin: 0 0 4mm; letter-spacing: .06em; }
+.cover-rule { border-top: 2px solid var(--ink); width: 46mm; margin-bottom: 9mm; }
+.meta { width: 108mm; border-top: 1px solid var(--rule); }
+.meta div { display: flex; border-bottom: 1px solid var(--rule); padding: 3.4mm 0; font-size: 9pt; }
+.meta dt { width: 38mm; color: var(--ink2); margin: 0; }
+.meta dd { margin: 0; font-weight: 700; }
+.cover-foot {
+  position: absolute; left: 20mm; right: 20mm; bottom: 18mm;
+  display: flex; justify-content: space-between; align-items: flex-end;
+  border-top: 1px solid var(--rule); padding-top: 5mm;
+}
+.cover-foot img { height: 8.5mm; }
+.cover-foot span { font-size: 8.4pt; color: var(--dim); }
+
+/* ===================== contents ===================== */
+.toc { break-after: page; }
+.toc h2 { font-size: 15pt; margin: 0 0 1mm; font-weight: 700; }
+.toc .lead-en { color: var(--dim); font-size: 9pt; margin-bottom: 7mm; }
+.toc ol { list-style: none; margin: 0; padding: 0; }
+.toc li { border-bottom: 1px solid var(--hair); padding: 3.1mm 0; font-size: 9.4pt; }
+.toc a { color: var(--ink); text-decoration: none; display: block; }
+.toc .n { color: var(--brand); font-weight: 700; width: 11mm; display: inline-block; }
+.toc .t-en { color: var(--dim); font-size: 8.2pt; }
+.toc a::after { content: target-counter(attr(href), page); float: right; color: var(--ink2); font-size: 9pt; }
+.toc .grp {
+  margin: 7mm 0 2mm; font-size: 8.2pt; letter-spacing: .18em;
+  color: var(--brand); font-weight: 700;
+}
+
+/* ===================== sections ===================== */
+.sec { break-before: page; }
+.sec-h { display: flex; align-items: flex-start; gap: 5mm; margin-bottom: 5mm; }
+.sec-h .num {
+  background: var(--brand); color: #fff; font-size: 12pt; font-weight: 700;
+  width: 13mm; height: 11mm; text-align: center; line-height: 11mm; flex: none;
+  border-radius: 1.5mm;
+}
+.sec-h h2 { font-size: 17pt; margin: 0; font-weight: 700; line-height: 1.3; }
+.sec-h h2 em { display: block; font-style: normal; font-size: 9pt; color: var(--dim); font-weight: 400; margin-top: 0.6mm; }
+.sec > .rule { border-top: 1px solid var(--rule); margin: 0 0 6mm; }
+
+h3 {
+  font-size: 11pt; margin: 8mm 0 3mm; padding-left: 3.4mm;
+  border-left: 3px solid var(--brand); font-weight: 700; line-height: 1.4;
+}
+h3 em { font-style: normal; color: var(--dim); font-weight: 400; font-size: 8.6pt; margin-left: 2mm; }
+
+/* ===================== figures ===================== */
+figure { margin: 6mm 0 5mm; text-align: center; break-inside: avoid; }
+figure img { border: 1px solid var(--rule); border-radius: 1.2mm; display: block; margin: 0 auto; }
+figcaption { font-size: 8pt; color: var(--dim); margin-top: 2.6mm; line-height: 1.6; }
+.w40 img { width: 40%; } .w50 img { width: 50%; } .w58 img { width: 58%; }
+.w66 img { width: 66%; } .w76 img { width: 76%; } .w86 img { width: 86%; }
+.w100 img { width: 100%; }
+
+/* ===================== steps ===================== */
+ol.steps { list-style: none; counter-reset: st; margin: 4mm 0 5mm; padding: 0; }
+ol.steps li {
+  counter-increment: st; position: relative; padding: 3mm 0 3mm 11mm;
+  border-bottom: 1px solid var(--hair); font-size: 9.4pt; break-inside: avoid;
+}
+ol.steps li::before {
+  content: counter(st); position: absolute; left: 0; top: 3.4mm;
+  width: 6.2mm; height: 6.2mm; line-height: 6.2mm; text-align: center;
+  background: var(--brand); color: #fff; border-radius: 50%;
+  font-size: 7.6pt; font-weight: 700;
+}
+ol.steps .en { margin: 0.6mm 0 0; font-size: 8.4pt; }
+
+/* ===================== tables ===================== */
+table { width: 100%; border-collapse: collapse; margin: 4mm 0 5mm; font-size: 9pt; break-inside: avoid; }
+th { background: var(--ink); color: #fff; text-align: left; padding: 2.6mm 3mm; font-size: 8.4pt; font-weight: 700; }
+td { padding: 2.6mm 3mm; border-bottom: 1px solid var(--hair); vertical-align: top; }
+tr:nth-child(even) td { background: var(--wash); }
+td .en { margin: 0.4mm 0 0; font-size: 8pt; }
+td.k { font-weight: 700; width: 34%; }
+td.k .en { font-weight: 400; }
+
+/* ===================== callouts ===================== */
+.note { border-left: 3px solid var(--brand); background: #F2F7FC; padding: 3.6mm 4.4mm; margin: 5mm 0; break-inside: avoid; }
+.note > b:first-child { display: block; font-size: 8.6pt; color: var(--brand); margin-bottom: 1.4mm; }
+.note p b { display: inline; color: inherit; font-size: inherit; margin: 0; }
+.note p { margin: 0 0 3pt; font-size: 8.8pt; line-height: 1.75; }
+.note p:last-child { margin: 0; }
+.note.ok { border-color: var(--go); background: #EEF5F2; }
+.note.ok > b:first-child { color: var(--go); }
+.note.warn { border-color: var(--warn); background: #FBF2EF; }
+.note.warn > b:first-child { color: var(--warn); }
+
+/* ===================== misc ===================== */
+.flow { display: flex; gap: 3mm; margin: 5mm 0 6mm; break-inside: avoid; }
+.flow div {
+  flex: 1; border: 1px solid var(--rule); border-top: 3px solid var(--brand);
+  padding: 3.4mm 3mm; font-size: 8.6pt; line-height: 1.6;
+}
+.flow b { display: block; font-size: 9.4pt; margin-bottom: 1.2mm; }
+.flow span { color: var(--dim); font-size: 7.6pt; display: block; }
+.chip { display: inline-block; border: 1px solid var(--rule); border-radius: 1mm; padding: 0.4mm 2mm; font-size: 8.2pt; }
+.end { margin-top: 12mm; border-top: 1px solid var(--rule); padding-top: 5mm; font-size: 8.4pt; color: var(--dim); text-align: center; line-height: 1.9; }
+</style>
+</head>
+<body>
+
+<!-- ============================ COVER ============================ -->
+<div class="cover">
+  <div class="cover-bar"></div>
+  <div class="cover-inner">
+    <div class="cover-eyebrow">MORABU HANSHIN — HEALTH PROMOTION</div>
+    <div class="cover-rule"></div>
+    <h1>万歩計実績表<br>利用マニュアル</h1>
+    <h2>健康対策推進活動／歩数記録システム</h2>
+    <p class="sub-en">Pedometer Record System — User Manual for participants and administrators</p>
+    <dl class="meta">
+      <div><dt>対象 / For</dt><dd>参加者・総務（管理者）</dd></div>
+      <div><dt>対応端末 / Devices</dt><dd>スマートフォン ／ PC ブラウザ</dd></div>
+      <div><dt>版 / Edition</dt><dd>第 1 版</dd></div>
+      <div><dt>発行日 / Issued</dt><dd>2026年8月18日</dd></div>
+    </dl>
+  </div>
+  <div class="cover-foot">
+    <img src="img/logo.png" alt="モラブ阪神工業株式会社">
+    <span>健康対策委員会 / Health Promotion Committee</span>
+  </div>
+</div>
+
+<!-- ============================ TOC ============================ -->
+<div class="toc">
+  <h2>目次</h2>
+  <p class="lead-en">Contents</p>
+  <div class="grp">参加者の方へ / FOR PARTICIPANTS</div>
+  <ol>
+    <li><a href="#s01"><span class="n">01</span>はじめに ― 本システムについて <span class="t-en">About this system</span></a></li>
+    <li><a href="#s02"><span class="n">02</span>ログイン方法 <span class="t-en">Signing in</span></a></li>
+    <li><a href="#s03"><span class="n">03</span>歩数を入力する（カレンダー） <span class="t-en">Entering steps — calendar</span></a></li>
+    <li><a href="#s04"><span class="n">04</span>リストで入力する <span class="t-en">Entering steps — list</span></a></li>
+    <li><a href="#s05"><span class="n">05</span>提出する <span class="t-en">Submitting</span></a></li>
+    <li><a href="#s06"><span class="n">06</span>マイページを見る <span class="t-en">My page</span></a></li>
+    <li><a href="#s07"><span class="n">07</span>リマインドメールと自動提出 <span class="t-en">Reminders &amp; automatic submission</span></a></li>
+  </ol>
+  <div class="grp">管理者（健康対策委員）の方へ / FOR ADMINISTRATORS</div>
+  <ol>
+    <li><a href="#s08"><span class="n">08</span>集計を見る・万歩計集計表を出力する <span class="t-en">Summary &amp; spreadsheet export</span></a></li>
+    <li><a href="#s09"><span class="n">09</span>完歩賞を確認する <span class="t-en">Walking bonus</span></a></li>
+    <li><a href="#s10"><span class="n">10</span>未提出者にリマインドする <span class="t-en">Outstanding &amp; reminders</span></a></li>
+    <li><a href="#s11"><span class="n">11</span>対象者・地域を管理する <span class="t-en">Participants &amp; regions</span></a></li>
+    <li><a href="#s12"><span class="n">12</span>設定を変更する <span class="t-en">Settings</span></a></li>
+  </ol>
+  <div class="grp">巻末 / APPENDIX</div>
+  <ol>
+    <li><a href="#s13"><span class="n">13</span>年間スケジュールとよくある質問 <span class="t-en">Schedule &amp; FAQ</span></a></li>
+  </ol>
+</div>
+
+<!-- ============================ 01 ============================ -->
+<section class="sec" id="s01">
+  <div class="sec-h"><span class="num">01</span><h2>はじめに ― 本システムについて<em>About this system</em></h2></div>
+  <div class="rule"></div>
+
+  <p class="ja">本システムは、健康対策委員会が実施している健康対策推進活動において、これまで個人ごとに Excel へ記入し、メールや FAX で提出していた万歩計の歩数記録を、Web 上で完結させるためのものです。参加者は毎日の歩数を入力して月末に提出し、健康対策委員はその結果をそのまま集計表として取り出せます。</p>
+  <p class="en">This system replaces the personal Excel form and the email/FAX submissions previously used for the Health Promotion Committee's pedometer activity. Participants enter their daily step counts and submit once a month; the Health Promotion Committee can export the completed master spreadsheet directly.</p>
+
+  <h3>対象期間の考え方<em>How the month is counted</em></h3>
+  <p class="ja">1 か月は、暦どおりではなく <span class="blue">起算日 21 日から翌月 20 日まで</span> です。たとえば「2026年 8月度」は 7月21日から 8月20日までを指します。画面上部には常にこの期間が表示されます。</p>
+  <p class="en">A month runs from the <b>21st to the 20th of the following month</b>, not the calendar month. "2026年 8月度" therefore covers 21 July to 20 August. The period is always shown at the top of the screen.</p>
+
+  <h3>毎月の流れ<em>The monthly cycle</em></h3>
+  <p class="ja">21日から翌月1日までの間に、画面下部の「提出する」ボタンを押して集計表を提出します。</p>
+  <p class="en">Between the 21st and the 1st of the following month, press the 提出する button at the bottom of the screen to submit.</p>
+  <div class="flow">
+    <div><b>21日〜20日</b>毎日の歩数を入力<span>Enter your steps daily</span></div>
+    <div><b>21日〜翌月1日</b>集計表を提出する<span>Press Submit</span></div>
+    <div><b>25日</b>提出のお知らせ<span>Notice</span></div>
+    <div><b>26日</b>リマインドメール配信<span>Reminder email</span></div>
+    <div><b>翌月2日</b>同意者は自動提出<span>Auto-submission</span></div>
+  </div>
+
+  <h3>完歩賞について<em>The walking bonus</em></h3>
+  <p class="ja">対象期間中、<b>1日も欠かさず（土日・祝日を含む）5,000 歩以上</b>を達成した方が完歩賞の対象となり、2,000 円が給与にて支給されます（源泉徴収の対象です）。1 日でも 5,000 歩に届かない日があると対象外となります。</p>
+  <p class="en">Participants who reach <b>5,000 steps or more on every single day, weekends and public holidays included,</b> of the period qualify for the walking bonus of 2,000 yen, paid through payroll and subject to withholding tax. Missing 5,000 on even one day disqualifies the month.</p>
+
+  <div class="note warn">
+    <b>大切なお願い / Please note</b>
+    <p>5,000 歩未満の日があっても、<b>実績の提出は必要です</b>。完歩賞の対象外となる場合でも、参加記録として集計いたします。</p>
+    <p>Even if you did not reach 5,000 steps, <b>you still need to submit</b>. Your record is counted as participation regardless of the bonus.</p>
+  </div>
+</section>
+
+<!-- ============================ 02 ============================ -->
+<section class="sec" id="s02">
+  <div class="sec-h"><span class="num">02</span><h2>ログイン方法<em>Signing in</em></h2></div>
+  <div class="rule"></div>
+
+  <p class="ja">ブラウザでシステムの URL を開くと、ログイン画面が表示されます。<span class="blue">社員番号</span>を入力して「ログイン」を押してください。パスワードは必要ありません。画面右上の <span class="chip">EN</span> で日本語と英語を切り替えられます。</p>
+  <p class="en">Open the system URL in your browser to reach the sign-in screen. Enter your <b>employee number</b> and press ログイン. No password is required. Use <span class="chip">EN</span> at the top right to switch between Japanese and English.</p>
+
+  <figure class="w50">
+    <img src="img/login.png" alt="ログイン画面">
+    <figcaption>▲ ログイン画面。社員番号を入力すると、同意のチェック欄が表示されます。<br>Login screen. The consent box appears once you enter your employee number.</figcaption>
+  </figure>
+
+  <ol class="steps">
+    <li><b>社員番号</b>の欄に、ご自身の社員番号を入力します。<p class="en">Enter your employee number.</p></li>
+    <li>同意欄が表示されたら、内容をお読みのうえ、必要に応じてチェックします（任意）。<p class="en">Read the consent notice and tick it if you wish. This is optional.</p></li>
+    <li><b>ログイン</b>ボタンを押します。<p class="en">Press the ログイン button.</p></li>
+  </ol>
+
+  <h3>社員番号がわからないとき<em>If you do not know your number</em></h3>
+  <p class="ja">健康対策委員会までお問い合わせください。氏名から社員番号を調べる機能は、他人の社員番号でログインできてしまうため廃止しました。</p>
+  <p class="en">Please ask the Health Promotion Committee. The name-search box has been removed: while sign-in uses the employee number alone, it would have let anyone find and use somebody else's.</p>
+
+  <h3>同意について<em>About the consent</em></h3>
+  <p class="ja">チェックすると、次の 2 つに同意したことになります。記録されるのは<b>最初の 1 回のみ</b>で、2 回目以降のチェックは記録に影響しません。</p>
+  <p class="en">Ticking the box means you agree to both of the following. Only your <b>first</b> answer is recorded; ticking it again later changes nothing.</p>
+  <table>
+    <tr><th>内容 / What you agree to</th><th>意味 / What it means</th></tr>
+    <tr>
+      <td class="k">リマインドメールの受信<p class="en">Receiving the reminder</p></td>
+      <td>5,000 歩に届かない月でも、未提出の場合はリマインドメールが届きます。<p class="en">You will be emailed if you have not submitted, even in a month below 5,000 steps.</p></td>
+    </tr>
+    <tr>
+      <td class="k">未提出時の自動提出<p class="en">Automatic submission</p></td>
+      <td>期限（翌月1日）までに提出がない場合、未入力の日を 0 歩として自動的に提出されます。<p class="en">If nothing is submitted by the 1st of the following month, your record is submitted with blank days recorded as 0.</p></td>
+    </tr>
+  </table>
+
+  <div class="note">
+    <b>ヒント / Tip</b>
+    <p>チェックしなくてもログインできます。<b>同意の有無をあとから変更したいときは、健康対策委員会までご連絡ください。</b>委員が対象者の画面で変更します。ご自身の画面からは変更できません。</p>
+    <p>You can sign in either way. <b>To change your answer later, contact the Health Promotion Committee</b> — a committee member changes it on the participants screen. You cannot change it yourself.</p>
+  </div>
+
+  <div class="note warn">
+    <b>注意 / Important</b>
+    <p>現在は社員番号のみでログインします。他の方の社員番号ではログインしないでください。パスワードによる認証は今後追加される予定です。</p>
+    <p>Sign-in currently uses the employee number alone. Please do not sign in with someone else's number. Password authentication will be added later.</p>
+  </div>
+</section>
+
+<!-- ============================ 03 ============================ -->
+<section class="sec" id="s03">
+  <div class="sec-h"><span class="num">03</span><h2>歩数を入力する（カレンダー）<em>Entering steps — calendar view</em></h2></div>
+  <div class="rule"></div>
+
+  <p class="ja">ログインすると、その月度の入力画面が開きます。上部に対象期間・提出状態・合計歩数、その下にカレンダーが並びます。日付をタップすると入力欄が開きます。</p>
+  <p class="en">After signing in you land on the entry screen for the current period: the period and submission status at the top, then your totals, then the calendar. Tap any date to enter a figure.</p>
+
+  <figure class="w100">
+    <img src="img/entry_top.png" alt="歩数入力画面">
+    <figcaption>▲ 入力画面の上部。合計歩数・入力済日数と、日ごとの棒グラフが表示されます。<br>Top of the entry screen: totals, days entered, and the daily bar chart.</figcaption>
+  </figure>
+
+  <h3>画面上部の見方<em>Reading the summary</em></h3>
+  <table>
+    <tr><th>表示 / Item</th><th>内容 / Meaning</th></tr>
+    <tr><td class="k">合計歩数<p class="en">Total steps</p></td><td>対象期間に入力した歩数の合計。<p class="en">Sum of everything entered for the period.</p></td></tr>
+    <tr><td class="k">入力済<p class="en">Entered</p></td><td>入力済みの日数／対象期間の日数。<p class="en">Days entered out of the days in the period.</p></td></tr>
+    <tr><td class="k">棒グラフ<p class="en">Bar chart</p></td><td>1 日 1 本。点線が 5,000 歩の目安です。緑は達成、赤は未達。<p class="en">One bar per day. The dashed line is 5,000. Green met it, red did not.</p></td></tr>
+  </table>
+
+  <h3>カレンダーの色分け<em>Calendar colour coding</em></h3>
+  <figure class="w86">
+    <img src="img/calendar.png" alt="カレンダー">
+    <figcaption>▲ カレンダー。色分けの意味は下の表のとおりです。<br>Calendar. The table below explains the colours.</figcaption>
+  </figure>
+  <table>
+    <tr><th>表示 / Appearance</th><th>意味 / Meaning</th></tr>
+    <tr><td class="k">緑色の数字＋下線<p class="en">Green figure with a rule</p></td><td>5,000 歩以上歩いた日。達成した日は下辺に緑の線が入り、連続していると線がつながって見えます。<p class="en">A day of 5,000 steps or more. The green rule along the bottom joins up across a streak.</p></td></tr>
+    <tr><td class="k">赤色の数字<p class="en">Red figure</p></td><td>5,000 歩未満。この日があると完歩賞の対象外になります。<p class="en">Below 5,000. One such day disqualifies the month.</p></td></tr>
+    <tr><td class="k">灰色のハイフン（–）<p class="en">Grey dash</p></td><td>まだ入力していない日。<p class="en">Not entered yet.</p></td></tr>
+    <tr><td class="k">赤色の背景<p class="en">Red background</p></td><td>日曜日・祝日。祝日は自動で判定されます。<p class="en">Sundays and public holidays, detected automatically.</p></td></tr>
+    <tr><td class="k">青色の背景<p class="en">Blue background</p></td><td>土曜日。<p class="en">Saturdays.</p></td></tr>
+  </table>
+
+  <h3>日付をタップして入力する<em>Entering a day</em></h3>
+  <figure class="w50">
+    <img src="img/numpad.png" alt="歩数入力ポップアップ">
+    <figcaption>▲ 日付をタップすると開く入力欄。前後の日にも移動ができます。<br>The entry popup. You can move to the previous or next day without closing it.</figcaption>
+  </figure>
+  <ol class="steps">
+    <li>カレンダーで入力したい<b>日付をタップ</b>します。<p class="en">Tap the date you want to fill in.</p></li>
+    <li>数字を入力します。歩数は<b>四捨五入をせずに、そのままの数字</b>を入力してください。<p class="en">Type the number. Enter the exact figure — do not round it.</p></li>
+    <li><b>保存</b>を押すと保存されます。<p class="en">Press 保存 to save.</p></li>
+    <li>続けて入力するときは <b>前 / 次</b> で前後の日に移動できます。<p class="en">Use 前 / 次 to move between days without closing the popup.</p></li>
+  </ol>
+
+  <div class="note ok">
+    <b>ポイント / Tip</b>
+    <p>入力は<b>自動で保存</b>されます。「保存」ボタンを押し忘れて閉じても、画面を離れた時点の内容は残ります。提出前であれば何度でも直せます。</p>
+    <p>Entries save <b>automatically</b>. Nothing is lost if you close the screen, and you can correct any day as often as you like before submitting.</p>
+  </div>
+
+  <div class="note warn">
+    <b>注意 / Important</b>
+    <p>歩かなかった日、万歩計を着け忘れた日は、空欄のままにせず <b>0</b> と入力してください。空欄の日が残っていると提出できません。</p>
+    <p>For days you did not walk or forgot the pedometer, enter <b>0</b> rather than leaving the day blank. You cannot submit while any day is empty.</p>
+    <p>1 日あたり <b>100,000 歩以上</b>は入力できません。入力ミスを防ぐためのもので、この上限は設定で変更できます。</p>
+    <p>A single day of <b>100,000 steps or more</b> is refused, to catch a mistyped figure. The limit can be changed in 設定.</p>
+  </div>
+</section>
+
+<!-- ============================ 04 ============================ -->
+<section class="sec" id="s04">
+  <div class="sec-h"><span class="num">04</span><h2>リストで入力する<em>Entering steps — list view</em></h2></div>
+  <div class="rule"></div>
+
+  <p class="ja">まとめて入力したいときは、「日別歩数」の右にある <span class="chip">リスト</span> を押すとリスト表示に切り替わります。紙の実績表と同じ 21 日から翌月 20 日までの並びで、上から順番に入力できます。</p>
+  <p class="en">To fill in several days at once, press <span class="chip">リスト</span> to the right of 日別歩数. The list follows the same 21st-to-20th order as the paper form, so you can work straight down it.</p>
+
+  <figure class="w76">
+    <img src="img/list.png" alt="リスト表示">
+    <figcaption>▲ リスト表示。日付・曜日と入力欄が縦に並びます。日曜日・祝日は赤色、土曜日は青色で表示されます。<br>List view. Sundays and holidays are tinted red, Saturdays blue; each row has its own input box.</figcaption>
+  </figure>
+
+  <ol class="steps">
+    <li>入力欄をタップして歩数を入力します。次の行へはそのまま進めます。<p class="en">Tap a box and type. Move down the rows as you go.</p></li>
+    <li>PC では <b>Enter</b> キーを押すと次の日の入力欄に移ります。<p class="en">On a PC, press <b>Enter</b> to jump to the next day's box.</p></li>
+    <li>入力した内容は自動で保存されます。<p class="en">Everything saves automatically.</p></li>
+    <li>カレンダーに戻るときは <span class="chip">カレンダー</span> を押します。<p class="en">Press カレンダー to switch back.</p></li>
+  </ol>
+
+  <div class="note">
+    <b>ヒント / Tip</b>
+    <p>2月のように日数が少ない月では、存在しない日（2月30日など）は表示されません。</p>
+    <p>In shorter months the dates that do not exist — 30 February, say — are simply not shown.</p>
+  </div>
+</section>
+
+<!-- ============================ 05 ============================ -->
+<section class="sec" id="s05">
+  <div class="sec-h"><span class="num">05</span><h2>提出する<em>Submitting</em></h2></div>
+  <div class="rule"></div>
+
+  <p class="ja">対象期間のすべての日を入力し終えたら、画面下部の<b>提出ボタン</b>を押します。提出は <span class="blue">21 日から翌月 1 日まで</span> の間に行ってください。</p>
+  <p class="en">Once every day of the period has a figure, press the <b>submit button</b> at the bottom of the screen. Submission is open <b>from the 21st until the 1st of the following month</b>.</p>
+
+  <ol class="steps">
+    <li>未入力の日が残っている間は、ボタンには <b>「提出する（未入力 ○日）」</b> と表示され、押せません。<p class="en">While days are still blank the button reads 提出する（未入力 ○日）and stays disabled.</p></li>
+    <li>すべて入力すると <b>「提出する」</b> の表示になります。<b>「提出する」ボタン</b>を押すと確認画面が開きます。<p class="en">When the month is complete the button reads 提出する. Pressing it opens a confirmation.</p></li>
+    <li>合計歩数と完歩賞の判定を確認し、もう一度 <b>「提出する」ボタン</b>を押します。<p class="en">Check your total and bonus status, then press 提出する again.</p></li>
+  </ol>
+
+  <div class="note warn">
+    <b>注意 / Important</b>
+    <p><b>提出後は編集できません。</b>画面には「提出済」と表示され、入力欄は変更できなくなります。修正が必要になった場合は、健康対策委員会へご連絡ください。</p>
+    <p><b>You cannot edit after submitting.</b> The screen shows 提出済 and the fields lock. If you need a correction, contact the Health Promotion Committee.</p>
+  </div>
+
+  <div class="note">
+    <b>ヒント / Tip</b>
+    <p>過去の月度を見たいときは、画面上部の <b>‹ ›</b> で月度を切り替えられます。提出済みの月も内容を確認できます。</p>
+    <p>Use <b>‹ ›</b> at the top of the screen to move between months. Submitted months remain viewable.</p>
+  </div>
+</section>
+
+<!-- ============================ 06 ============================ -->
+<section class="sec" id="s06">
+  <div class="sec-h"><span class="num">06</span><h2>マイページを見る<em>My page</em></h2></div>
+  <div class="rule"></div>
+
+  <p class="ja">画面下部の <span class="chip">マイページ</span> では、その月度の達成状況と、ご自身の登録情報を確認・変更できます。</p>
+  <p class="en">The <span class="chip">マイページ</span> tab at the bottom shows how the current period is going and lets you review and update your own details.</p>
+
+  <figure class="w66">
+    <img src="img/mypage.png" alt="マイページ">
+    <figcaption>▲ マイページ。上段が目標達成状況、下段が登録情報です。<br>My page: target status above, your registered details below.</figcaption>
+  </figure>
+
+  <h3>目標達成状況<em>Target status</em></h3>
+  <table>
+    <tr><th>表示 / Item</th><th>内容 / Meaning</th></tr>
+    <tr><td class="k">達成<p class="en">Met</p></td><td>全て入力済み、かつ全日 5,000 歩以上歩いている状態。<p class="en">Every day entered, and every one of them 5,000 steps or more.</p></td></tr>
+    <tr><td class="k">未達成<p class="en">Not met</p></td><td>全て入力済み、かつ 1 日でも 5,000 歩未満の日がある状態。<p class="en">Every day entered, but at least one of them below 5,000.</p></td></tr>
+    <tr><td class="k">入力中<p class="en">In progress</p></td><td>未入力の日が残っている状態。<p class="en">Some days are still blank.</p></td></tr>
+    <tr><td class="k">未達の日<p class="en">Days below</p></td><td>5,000 歩に届かなかった日数。<p class="en">Number of days under 5,000.</p></td></tr>
+    <tr><td class="k">未入力<p class="en">Blank</p></td><td>まだ入力していない日数。<p class="en">Days not yet entered.</p></td></tr>
+  </table>
+
+  <h3>登録情報の変更<em>Updating your details</em></h3>
+  <p class="ja">所属地域・性別・万歩計№・メールアドレスを変更できます。変更後は <b>プロフィールを保存</b> を押してください。所属地域が変わった場合は、忘れずに更新をお願いします。</p>
+  <p class="en">You can change your region, gender, pedometer number and email address. Press プロフィールを保存 to save. Please keep your region up to date if you transfer.</p>
+
+</section>
+
+<!-- ============================ 07 ============================ -->
+<section class="sec" id="s07">
+  <div class="sec-h"><span class="num">07</span><h2>リマインドメールと自動提出<em>Reminders &amp; automatic submission</em></h2></div>
+  <div class="rule"></div>
+
+  <p class="ja">提出忘れを防ぐため、未提出の方には自動でメールが届きます。この章は参加者の方向けの説明です。</p>
+  <p class="en">To prevent missed submissions, anyone outstanding receives an automatic email. This chapter is for participants.</p>
+
+  <table>
+    <tr><th>日付 / Date</th><th>起こること / What happens</th></tr>
+    <tr><td class="k">20日<p class="en">20th</p></td><td>対象期間の締め。<p class="en">The period closes.</p></td></tr>
+    <tr><td class="k">21日〜翌月1日<p class="en">21st – 1st</p></td><td>提出できる期間。<p class="en">Submission is open.</p></td></tr>
+    <tr><td class="k">25日<p class="en">25th</p></td><td>提出のお知らせ。<p class="en">Notice date.</p></td></tr>
+    <tr><td class="k">26日<p class="en">26th</p></td><td>未提出の方へリマインドメールが届きます。最終締切（翌月1日）が記載されています。<p class="en">A reminder email goes to anyone outstanding, stating the final deadline.</p></td></tr>
+    <tr><td class="k">翌月1日<p class="en">1st</p></td><td>最終締切。<p class="en">Final deadline.</p></td></tr>
+    <tr><td class="k">翌月2日<p class="en">2nd</p></td><td>同意済みで未提出の方は、未入力の日を 0 歩として自動提出されます。<p class="en">For consented participants still outstanding, the record is submitted with blanks as 0.</p></td></tr>
+  </table>
+
+  <h3>自動提出されるとどうなるか<em>What automatic submission does</em></h3>
+  <p class="ja">未入力の日はすべて 0 歩として記録され、「提出済」の状態になります。何も入力していなかった場合は、全日 0 歩として提出されます。<b>自動提出された記録は取り消せません</b>ので、ご自身で入力・提出いただくことをおすすめします。</p>
+  <p class="en">Blank days are recorded as 0 and the month is marked as submitted. If nothing was entered at all, the whole month is submitted as zeros. <b>Automatically submitted records cannot be reopened</b>, so please submit your own figures where you can.</p>
+
+  <div class="note warn">
+    <b>注意 / Important</b>
+    <p>リマインドメールは、原則として<b>会社のメールアドレス</b>へ送信されます。アドレスが変わった場合は、マイページで更新するか健康対策委員までご連絡ください。</p>
+    <p>Reminders are sent to your <b>company address</b>. If it changes, update it on My page or tell the Health Promotion Committee.</p>
+  </div>
+</section>
+
+<!-- ============================ 08 ============================ -->
+<section class="sec" id="s08">
+  <div class="sec-h"><span class="num">08</span><h2>集計を見る・万歩計集計表を出力する<em>Summary &amp; spreadsheet export</em></h2></div>
+  <div class="rule"></div>
+
+  <p class="ja">管理者としてログインすると、集計画面が開きます。ログイン画面で社員番号の代わりに <b>kenkou@morabu.com</b> と入力してください。画面は <b>集計・完歩賞・未提出・対象者・設定</b> の 5 つのタブに分かれています。</p>
+  <p class="en">Sign in with <b>kenkou@morabu.com</b> instead of an employee number to reach the administrator screens: five tabs — Summary, Bonus, Outstanding, Participants and Settings.</p>
+
+  <figure class="w76">
+    <img src="img/admin_summary.png" alt="集計タブ">
+    <figcaption>▲ 集計タブ。対象者数・提出済・完歩賞対象者と、参加者一覧が表示されます。<br>The Summary tab: headline figures and the full participant list.</figcaption>
+  </figure>
+
+  <table>
+    <tr><th>項目 / Item</th><th>内容 / Meaning</th></tr>
+    <tr><td class="k">対象者数<p class="en">Participants</p></td><td>登録されている参加者の人数。<p class="en">Number of registered participants.</p></td></tr>
+    <tr><td class="k">提出済<p class="en">Submitted</p></td><td>その月度を提出済みの人数。<p class="en">How many have submitted this period.</p></td></tr>
+    <tr><td class="k">完歩賞対象者<p class="en">Bonus recipients</p></td><td>全日 5,000 歩以上を達成した人数。<p class="en">How many met 5,000 every day.</p></td></tr>
+  </table>
+
+  <h3>並び替え・絞り込み<em>Sorting and filtering</em></h3>
+  <ol class="steps">
+    <li><b>社員番号</b>または<b>氏名</b>の見出しを押すと、昇順・降順が切り替わります。<p class="en">Press the 社員番号 or 氏名 heading to sort ascending or descending.</p></li>
+    <li><b>検索</b>欄に氏名や社員番号の一部を入れると絞り込めます。<p class="en">Type into 検索 to filter by name or number.</p></li>
+    <li>右の<b>地域</b>で所属地域ごとに絞り込めます。<p class="en">Use the region dropdown to filter by area.</p></li>
+    <li>行をクリックすると、その方の日別の明細が開きます。<p class="en">Click a row to see that person's daily figures.</p></li>
+  </ol>
+
+  <h3>万歩計集計表を出力する<em>Exporting the spreadsheet</em></h3>
+  <p class="ja"><b>万歩計集計表をダウンロード</b>を押すと、現在の月度の集計表が Excel ファイルとして保存されます。ファイルには 2 つのシートが含まれます。</p>
+  <p class="en">Press <b>万歩計集計表をダウンロード</b> to save the current period as a spreadsheet containing two sheets.</p>
+  <table>
+    <tr><th>シート / Sheet</th><th>内容 / Contents</th></tr>
+    <tr><td class="k">2608 など（月度名）<p class="en">Named by period</p></td><td>参加者全員の日別歩数・合計・5,000歩以上の判定・メールアドレス。<p class="en">Daily steps, totals, the 5,000-a-day flag and addresses for everyone.</p></td></tr>
+    <tr><td class="k">完歩賞対象者一覧<p class="en">Bonus recipients</p></td><td>参加人数・社員№・名前・判定（○／－）の 4 列。<p class="en">Four columns: number, employee number, name and ○ / －.</p></td></tr>
+  </table>
+
+  <div class="note ok">
+    <b>ポイント / Tip</b>
+    <p>合計や判定は<b>数式として</b>書き出されます。従来のファイルと同じように、Excel 上で数字を直しても自動で再計算されます。</p>
+    <p>Totals and the qualification mark are written as <b>formulas</b>, so the file recalculates in Excel exactly like the previous one.</p>
+  </div>
+
+  <div class="note">
+    <b>ヒント / Tip</b>
+    <p>複数の方が同時に入力している場合は、<b>再読み込み</b>を押すと最新の状態になります。</p>
+    <p>Press 再読み込み to pull in entries made while you had the screen open.</p>
+  </div>
+</section>
+
+<!-- ============================ 09 ============================ -->
+<section class="sec" id="s09">
+  <div class="sec-h"><span class="num">09</span><h2>完歩賞を確認する<em>Walking bonus</em></h2></div>
+  <div class="rule"></div>
+
+  <p class="ja"><b>完歩賞</b>タブでは、その月度の完歩賞対象者と合計支給額を確認できます。従来の「完歩賞対象者一覧」シートと同じ内容です。</p>
+  <p class="en">The <b>完歩賞</b> tab lists the month's bonus recipients and the total payout — the same content as the existing 完歩賞対象者一覧 sheet.</p>
+
+  <table>
+    <tr><th>表示 / Item</th><th>内容 / Meaning</th></tr>
+    <tr><td class="k">完歩賞対象者<p class="en">Recipients</p></td><td>対象期間中、毎日 5,000 歩以上を達成した人数。<p class="en">People who met 5,000 every day of the period.</p></td></tr>
+    <tr><td class="k">合計支給額<p class="en">Total payout</p></td><td>対象者数 × 2,000 円。個人ごとの金額は保持しません。<p class="en">Recipients × 2,000 yen. Per-person amounts are not stored.</p></td></tr>
+    <tr><td class="k">一覧の ○ / －<p class="en">○ / － in the list</p></td><td>○ が対象、－ が対象外です。<p class="en">○ qualified, － not qualified.</p></td></tr>
+  </table>
+
+  <div class="note warn">
+    <b>注意 / Important</b>
+    <p>基準歩数（5,000 歩）と支給額（2,000 円）は<b>設定タブ</b>で変更できます。変更すると、過去の月度の判定表示にも反映されますのでご注意ください。</p>
+    <p>The 5,000-step threshold and the 2,000-yen amount can be changed in <b>Settings</b>. Changing them also affects how earlier months are displayed.</p>
+  </div>
+</section>
+
+<!-- ============================ 10 ============================ -->
+<section class="sec" id="s10">
+  <div class="sec-h"><span class="num">10</span><h2>未提出者にリマインドする<em>Outstanding &amp; reminders</em></h2></div>
+  <div class="rule"></div>
+
+  <p class="ja"><b>未提出</b>タブでは、まだ提出していない方の一覧、自動提出への同意状況、最終締切が確認できます。</p>
+  <p class="en">The <b>未提出</b> tab shows who has not submitted, whether they consented to automatic submission, and the final deadline.</p>
+
+  <figure class="w76">
+    <img src="img/admin_outstanding.png" alt="未提出タブ">
+    <figcaption>▲ 未提出タブ（英語表示）。最終締切が曜日つきで表示されます。<br>The Outstanding tab, shown in English. The final deadline includes the day of the week.</figcaption>
+  </figure>
+
+  <h3>リマインドメールの文面を確認する<em>Previewing the reminder</em></h3>
+  <p class="ja">各行の <b>文面を表示</b> を押すと、その方に送られるメールの宛先・件名・本文が確認できます。日本語と英語が 1 通にまとめられ、お名前と最終締切が自動で差し込まれます。</p>
+  <p class="en">Press 文面を表示 on any row to see the exact address, subject and body. Japanese and English are combined into one message, with the person's name and the deadline inserted automatically.</p>
+
+  <figure class="w58">
+    <img src="img/mail_preview.png" alt="メール文面">
+    <figcaption>▲ リマインドメールの文面。「本文をコピー」または「メールを開く」から送信できます。<br>The reminder text. Send it with 本文をコピー or メールを開く.</figcaption>
+  </figure>
+
+  <table>
+    <tr><th>ボタン / Button</th><th>機能 / Function</th></tr>
+    <tr><td class="k">未提出者のメールをコピー<p class="en">Copy emails</p></td><td>未提出者全員の会社アドレスをまとめてコピーします。<p class="en">Copies the company addresses of everyone outstanding.</p></td></tr>
+    <tr><td class="k">本文をコピー<p class="en">Copy body</p></td><td>メール本文をコピーします。<p class="en">Copies the message body.</p></td></tr>
+    <tr><td class="k">メールを開く<p class="en">Open in mail</p></td><td>宛先・件名・本文を入れた状態でメールソフトが開きます。<p class="en">Opens your mail client with everything filled in.</p></td></tr>
+    <tr><td class="k">自動提出を実行<p class="en">Run auto-submission</p></td><td>同意済みかつ未提出の方を、未入力の日を 0 歩として提出済みにします。<p class="en">Submits consented, outstanding records with blanks as 0.</p></td></tr>
+  </table>
+
+  <div class="note ok">
+    <b>ポイント / Tip</b>
+    <p>通常、26 日のリマインド送信と翌月 2 日の自動提出は<b>サーバーが自動で実行</b>します。上のボタンは、確認したいときや手動で行いたいときのためのものです。</p>
+    <p>Normally the server sends the reminders on the 26th and runs the auto-submission on the 2nd. These buttons are for checking, or for running it by hand.</p>
+  </div>
+
+  <div class="note warn">
+    <b>注意 / Important</b>
+    <p><b>自動提出された記録は取り消せません。</b>実行前に、未提出者と同意状況をご確認ください。</p>
+    <p><b>Automatically submitted records cannot be reopened.</b> Please check the list before running it.</p>
+  </div>
+</section>
+
+<!-- ============================ 11 ============================ -->
+<section class="sec" id="s11">
+  <div class="sec-h"><span class="num">11</span><h2>対象者・地域を管理する<em>Participants &amp; regions</em></h2></div>
+  <div class="rule"></div>
+
+  <p class="ja"><b>対象者</b>タブで、参加者の追加・編集・削除ができます。入社・退職・異動があった場合はこちらで更新してください。</p>
+  <p class="en">Use the <b>対象者</b> tab to add, edit and remove participants as people join, leave or transfer.</p>
+
+  <figure class="w76">
+    <img src="img/admin_people.png" alt="対象者タブ">
+    <figcaption>▲ 対象者タブ。検索して該当者を探し、編集・削除ができます。<br>The Participants tab: search, then edit or delete.</figcaption>
+  </figure>
+
+  <ol class="steps">
+    <li>新しい方を登録するときは <b>＋ 対象者を追加</b> を押します。<p class="en">Press ＋ 対象者を追加 to register someone new.</p></li>
+    <li>社員番号・氏名・所属地域・性別・万歩計№・メールアドレスを入力し、<b>保存</b>を押します。<p class="en">Fill in the number, name, region, gender, pedometer number and email, then save.</p></li>
+    <li>既存の方は <b>編集</b> から変更、<b>削除</b> で一覧から外せます。<p class="en">Use 編集 to change an existing record, or 削除 to remove it.</p></li>
+  </ol>
+
+  <div class="note warn">
+    <b>注意 / Important</b>
+    <p>社員番号はログイン ID を兼ねています。<b>重複した社員番号は登録できません。</b>また、削除するとその方の入力済みデータは一覧に表示されなくなります。</p>
+    <p>The employee number is also the sign-in ID, so <b>duplicates are rejected</b>. Deleting someone also removes their entries from the lists.</p>
+  </div>
+
+  <h3>地域マスタ<em>Region master</em></h3>
+  <p class="ja">同じ画面の下部で、所属地域の選択肢を追加・削除できます。現在は 神戸／東京／大阪／京都／三田／姫路／請負／その他 の順で登録されています。</p>
+  <p class="en">Below the list you can add or remove the region choices. They are currently ordered Kobe, Tokyo, Osaka, Kyoto, Sanda, Himeji, contractors (請負) and Other.</p>
+</section>
+
+<!-- ============================ 12 ============================ -->
+<section class="sec" id="s12">
+  <div class="sec-h"><span class="num">12</span><h2>設定を変更する<em>Settings</em></h2></div>
+  <div class="rule"></div>
+
+  <p class="ja"><b>設定</b>タブでは、集計ルールと出力形式を変更できます。数値と ID の欄は入力しただけでは反映されません。<b>設定を保存</b>を押してください。押すとすぐに全員の画面へ反映されます。</p>
+  <p class="en">The <b>設定</b> tab holds the aggregation rules and the export format. The number and ID fields are not applied as you type — press <b>設定を保存</b>. Saving takes effect for everyone immediately.</p>
+
+  <figure class="w76">
+    <img src="img/admin_settings.png" alt="設定タブ">
+    <figcaption>▲ 設定タブ。集計ルールと Excel の列構成を変更できます。<br>The Settings tab: rules and Excel layout.</figcaption>
+  </figure>
+
+  <table>
+    <tr><th>設定 / Setting</th><th>内容 / What it does</th></tr>
+    <tr><td class="k">完歩賞の基準歩数<p class="en">Bonus threshold</p></td><td>初期値 5,000 歩。判定と色分けの基準になります。<p class="en">Default 5,000. Drives both the qualification test and the colour coding.</p></td></tr>
+    <tr><td class="k">完歩賞の支給額<p class="en">Bonus amount</p></td><td>初期値 2,000 円。合計支給額の計算に使われます。<p class="en">Default 2,000 yen, used for the total payout.</p></td></tr>
+    <tr><td class="k">1日に入力できる上限歩数<p class="en">Maximum steps per day</p></td><td>初期値 100,000 歩。これ以上の歩数は入力できません。<p class="en">Default 100,000. A day at or above this figure is refused.</p></td></tr>
+    <tr><td class="k">管理者のログインID<p class="en">Administrator IDs</p></td><td>管理者としてログインできる ID。カンマ区切りで複数指定できます。空にはできません。<p class="en">Which IDs can sign in as administrator. Comma separated, and it cannot be left empty.</p></td></tr>
+    <tr><td class="k">提出期間の制限<p class="en">Enforce the window</p></td><td>ON にすると、提出期間外は提出できなくなります。<p class="en">When on, submission is blocked outside the window.</p></td></tr>
+    <tr><td class="k">Excel の列構成<p class="en">Excel layout</p></td><td>「仕様書準拠」は送信方法・支給金額の列なし、「現行ファイル互換」は従来どおり両方の列を含みます。<p class="en">仕様書準拠 omits the submission-method and payout columns; 現行ファイル互換 keeps both.</p></td></tr>
+  </table>
+
+  <div class="note warn">
+    <b>注意 / Important</b>
+    <p><b>管理者のログインID</b>を変更すると、それまでの ID ではログインできなくなります。保存する前に綴りをご確認ください。誤って保存すると、どなたも管理画面に入れなくなります。</p>
+    <p>Changing the <b>administrator ID</b> stops the previous one working. Check the spelling before saving — a typo locks everyone out of the administrator screens.</p>
+    <p>設定画面の下部にある <b>デモデータを生成</b> と <b>この月度のデータを削除</b> は、動作確認用の機能です。運用開始後は使用しないでください。実際の入力データが失われます。</p>
+    <p>The <b>デモデータを生成</b> and <b>この月度のデータを削除</b> buttons at the bottom are for testing only. Do not use them once the system is live — real entries will be lost.</p>
+  </div>
+</section>
+
+<!-- ============================ 13 ============================ -->
+<section class="sec" id="s13">
+  <div class="sec-h"><span class="num">13</span><h2>年間スケジュールとよくある質問<em>Schedule &amp; FAQ</em></h2></div>
+  <div class="rule"></div>
+
+  <h3>毎月のスケジュール<em>The monthly schedule</em></h3>
+  <table>
+    <tr><th>日付 / Date</th><th>参加者 / Participant</th><th>健康対策委員 / Committee</th></tr>
+    <tr><td class="k">21日〜20日</td><td>毎日の歩数を入力<p class="en">Enter steps daily</p></td><td>―</td></tr>
+    <tr><td class="k">21日〜翌月1日</td><td>提出ボタンを押す<p class="en">Submit</p></td><td>集計画面で状況を確認<p class="en">Watch progress</p></td></tr>
+    <tr><td class="k">25日</td><td>―</td><td>提出のお知らせ<p class="en">Notice</p></td></tr>
+    <tr><td class="k">26日</td><td>リマインドメールを受信<p class="en">Reminder arrives</p></td><td>送信結果のサマリーを受信<p class="en">Receive the send summary</p></td></tr>
+    <tr><td class="k">翌月2日</td><td>同意者は自動提出<p class="en">Auto-submission</p></td><td>万歩計集計表を出力し給与へ連携<p class="en">Export the spreadsheet</p></td></tr>
+  </table>
+
+  <h3>よくある質問<em>Frequently asked questions</em></h3>
+  <table>
+    <tr><th>質問 / Question</th><th>回答 / Answer</th></tr>
+    <tr>
+      <td class="k">提出したあとに間違いに気づきました。<p class="en">I found a mistake after submitting.</p></td>
+      <td>ご自身では修正できません。健康対策委員会へご連絡ください。管理者が提出を取り消すと、再び入力できるようになります。<p class="en">You cannot edit it yourself. Contact the committee; an administrator can reopen it. (Automatically submitted records are the exception and cannot be reopened.)</p></td>
+    </tr>
+    <tr>
+      <td class="k">万歩計を着け忘れた日はどうすればよいですか。<p class="en">What if I forgot the pedometer?</p></td>
+      <td><b>0</b> と入力してください。空欄のままでは提出できません。<p class="en">Enter <b>0</b>. You cannot submit with blank days.</p></td>
+    </tr>
+    <tr>
+      <td class="k">5,000 歩に届かない日がありました。提出は必要ですか。<p class="en">I missed 5,000 on some days — do I still submit?</p></td>
+      <td>必要です。完歩賞の対象外でも、参加記録として集計します。<p class="en">Yes. The record is counted as participation even without the bonus.</p></td>
+    </tr>
+    <tr>
+      <td class="k">スマートフォンでも使えますか。<p class="en">Does it work on a phone?</p></td>
+      <td>使えます。ブラウザで URL を開いてください。ホーム画面に追加しておくと便利です。<p class="en">Yes — just open the URL in your browser. Adding it to your home screen makes it quicker.</p></td>
+    </tr>
+    <tr>
+      <td class="k">祝日はどのように扱われますか。<p class="en">How are public holidays handled?</p></td>
+      <td>日本の祝日情報を自動で取得し、カレンダーに色分け表示します。祝日も入力の対象です。<p class="en">Japanese holidays are detected automatically and tinted in the calendar. They still need a figure.</p></td>
+    </tr>
+    <tr>
+      <td class="k">異動して所属地域が変わりました。<p class="en">My region changed.</p></td>
+      <td>マイページの「所属地域」で変更し、保存してください。<p class="en">Change it on My page and save.</p></td>
+    </tr>
+  </table>
+
+  <div class="end">
+    ご不明な点は、健康対策委員会までお問い合わせください。<br>
+    For any questions, please contact the Health Promotion Committee.<br><br>
+    万歩計実績表 利用マニュアル ／ 第 1 版 ／ 2026年8月18日<br>
+    モラブ阪神工業株式会社 健康対策委員会
+  </div>
+</section>
+
+</body>
+</html>
