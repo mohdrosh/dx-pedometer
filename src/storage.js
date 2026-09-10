@@ -207,11 +207,3 @@ export async function apiSaveMe(fields) {
   } catch { return null; }
 }
 
-/** Name search for 社員番号がわからない. Returns [{id, name}]. */
-export async function apiLookup(q) {
-  try {
-    const res = await fetch(`${base()}/api/lookup?q=${encodeURIComponent(q)}`, { credentials: 'same-origin' });
-    if (!res.ok) return [];
-    return (await res.json()).hits || [];
-  } catch { return []; }
-}

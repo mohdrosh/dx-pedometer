@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback, useContext, createCon
 import * as XLSX from 'xlsx';
 import {
   S, registerTrial, saveFeedback, fetchFeedback,
-  IS_LOCAL, fetchBootstrap, apiLogin, apiLogout, apiMe, apiSaveMe, apiLookup,
+  IS_LOCAL, fetchBootstrap, apiLogin, apiLogout, apiMe, apiSaveMe,
 } from './storage';
 import { DEFAULT_REGIONS, DEFAULT_CFG, ROSTER_SEED, orderRegions } from './defaults';
 import emailjs from '@emailjs/browser';
@@ -66,8 +66,6 @@ const STR = {
   loginHint: ['社員番号を入力してください', 'Enter your employee ID'],
   tooMany: ['試行回数が多すぎます。しばらくしてからお試しください。', 'Too many attempts — please wait a moment.'],
   notFound: ['該当する社員番号がありません', 'No matching employee ID'],
-  findId: ['社員番号がわからない', "Can't find your ID?"],
-  searchName: ['氏名で検索', 'Search by name'],
   adminHint: ['管理者は {id} でログイン', 'Administrators: sign in with {id}'],
   logout: ['ログアウト', 'Sign out'],
   admin: ['管理者', 'Administrator'],
@@ -640,19 +638,7 @@ function Login({ cfg, onLogin, onTrial, lang, setLang }) {
   const [id, setId] = useState('');
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
-  const [find, setFind] = useState(false);
-  const [q, setQ] = useState('');
-  const [hits, setHits] = useState([]);
   const [consent, setConsent] = useState(false);
-
-  /* The roster is not in the browser any more, so the name box asks the
-     server. Debounced so a keystroke is not a request. */
-  useEffect(() => {
-    const s = q.trim();
-    if (s.length < 2) { setHits([]); return undefined; }
-    const h = setTimeout(() => { apiLookup(s).then(setHits); }, 250);
-    return () => clearTimeout(h);
-  }, [q]);
 
   const go = async () => {
     const v = id.trim();
@@ -700,18 +686,7 @@ function Login({ cfg, onLogin, onTrial, lang, setLang }) {
         </label>
 
         <button className="btn primary big" disabled={busy} onClick={go}>{t('login')}</button>
-        <button className="linkbtn" onClick={() => setFind(!find)}>{t('findId')}</button>
         <button className="btn trial-cta" onClick={onTrial}>{t('trialSignup')}</button>
-        {find && (
-          <div className="find">
-            <input placeholder={t('searchName')} value={q} onChange={(e) => setQ(e.target.value)} />
-            {hits.map((p) => (
-              <button key={p.id} className="hit" onClick={() => { setId(String(p.id)); setQ(''); setFind(false); }}>
-                <span>{p.name}</span><em>{p.id}</em>
-              </button>
-            ))}
-          </div>
-        )}
 
         <div className="login-foot">
           <span>{t('company')}</span>
@@ -1838,13 +1813,6 @@ function Styles() {
 .linkbtn{background:none;border:0;color:var(--ink-2);font-size:13.5px;
   border-bottom:1px solid var(--rule);padding:0 0 1px;display:block;margin:16px auto 0}
 .linkbtn:hover{color:var(--brand);border-color:var(--brand)}
-.find{margin-top:18px;border-top:1px solid var(--hair);padding-top:16px}
-.find input{margin-bottom:8px}
-.hit{display:flex;justify-content:space-between;align-items:baseline;width:100%;
-  padding:11px 12px;background:none;border:0;border-bottom:1px solid var(--hair);
-  text-align:left;font-size:15px;color:var(--ink)}
-.hit:hover{background:var(--wash)}
-.hit em{font-style:normal;color:var(--dim);font-size:13px}
 .login-foot{margin-top:auto;padding-top:36px;display:flex;flex-direction:column;gap:2px;
   font-size:12.5px;color:var(--dim)}
 .login-foot .foot-hint{margin-top:10px;padding-top:10px;border-top:1px solid var(--hair)}

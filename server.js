@@ -41,7 +41,7 @@ if (!process.env.DATABASE_URL) {
 const {
   initSchema, getKey, setKey, delKey, listKeys, registerTrial, addFeedback, listFeedback,
   createSession, getSession, deleteSession, purgeSessions,
-  getEmployee, updateEmployeeSelf, searchRoster,
+  getEmployee, updateEmployeeSelf,
 } = await import('./src/db.js');
 
 const DIR = path.dirname(fileURLToPath(import.meta.url));
@@ -252,13 +252,6 @@ const server = http.createServer(async (req, res) => {
     /* Everything the sign-in screen needs, and nothing more. */
     if (url.pathname === '/api/bootstrap' && req.method === 'GET') {
       return sendJson(res, 200, { cfg: publicCfg(await getKey('cfg')) });
-    }
-
-    /* Name lookup for 社員番号がわからない. Rate limited because it runs
-       before sign-in: without a cap it is a way to walk the staff list. */
-    if (url.pathname === '/api/lookup' && req.method === 'GET') {
-      if (rateLimited(`lookup:${ip}`, 20, 60_000)) return sendJson(res, 429, { error: 'too_many' });
-      return sendJson(res, 200, { hits: await searchRoster(url.searchParams.get('q')) });
     }
 
     if (url.pathname === '/api/login' && req.method === 'POST') {

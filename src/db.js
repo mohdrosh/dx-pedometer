@@ -337,22 +337,6 @@ export async function updateEmployeeSelf(id, f) {
   return rows.length ? toEmployee(rows[0]) : null;
 }
 
-/**
- * Name lookup for the 社員番号がわからない box, which runs before sign-in.
- * Returns id and name only, never contact details, and never everybody:
- * a blank or one-character query matches nothing.
- */
-export async function searchRoster(q) {
-  const s = String(q || '').trim();
-  if (s.length < 2) return [];
-  const { rows } = await pool.query(
-    `SELECT id, name FROM employees
-     WHERE active AND (name ILIKE $1 OR id LIKE $1) ORDER BY sort_order LIMIT 8`,
-    [`%${s}%`],
-  );
-  return rows.map((r) => ({ id: r.id, name: r.name }));
-}
-
 export async function addFeedback(f) {
   const { rows } = await pool.query(
     `INSERT INTO feedback (name, email, employee_id, category, message, sent)
