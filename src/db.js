@@ -9,6 +9,7 @@
      entries     one row per participant per month (submission state)
      entry_days  one row per day walked
      config      thresholds, regions, admin IDs, settings
+     sessions    one row per signed-in browser
 
    The four functions at the bottom translate the API's keys onto those
    tables:
@@ -85,6 +86,15 @@ export async function initSchema() {
       sent       BOOLEAN NOT NULL DEFAULT FALSE
     );
 
+    CREATE TABLE IF NOT EXISTS sessions (
+      sid         TEXT PRIMARY KEY,
+      employee_id TEXT,
+      is_admin    BOOLEAN NOT NULL DEFAULT FALSE,
+      created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      expires_at  TIMESTAMPTZ NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS sessions_expiry_idx ON sessions(expires_at);
     CREATE INDEX IF NOT EXISTS entries_period_idx ON entries(period);
     CREATE INDEX IF NOT EXISTS entry_days_lookup_idx ON entry_days(period, employee_id);
   `);
@@ -277,6 +287,70 @@ export async function registerTrial(p) {
     [id, p.name, p.region || null, p.gender || null, p.email || null, p.dob || null, rows[0].n],
   );
   return { ok: true, id };
+}
+
+/* ----------------------------- sessions ---------------------------------- */
+/* A session is the only thing that says who a request is from. The browser
+   holds nothing but an opaque id in an httpOnly cookie. */
+
+export async function createSession(sid, employeeId, isAdmin, days) {
+  await pool.query(
+    `INSERT INTO sessions (sid, employee_id, is_admin, expires_at)
+     VALUES ($1,$2,$3, NOW() + ($4 || ' days')::interval)`,
+    [sid, employeeId, !!isAdmin, String(days)],
+  );
+}
+
+export async function getSession(sid) {
+  if (!sid) return null;
+  const { rows } = await pool.query(
+    'SELECT sid, employee_id, is_admin FROM sessions WHERE sid = $1 AND expires_at > NOW()',
+    [sid],
+  );
+  if (!rows.length) return null;
+  return { sid: rows[0].sid, employeeId: rows[0].employee_id, isAdmin: rows[0].is_admin };
+}
+
+export async function deleteSession(sid) {
+  if (sid) await pool.query('DELETE FROM sessions WHERE sid = $1', [sid]);
+}
+
+export async function purgeSessions() {
+  await pool.query('DELETE FROM sessions WHERE expires_at <= NOW()');
+}
+
+/* ------------------------- single-employee access ------------------------ */
+/* Participants never receive the roster, only their own row. */
+
+export async function getEmployee(id) {
+  const { rows } = await pool.query('SELECT * FROM employees WHERE id = $1 AND active', [id]);
+  return rows.length ? toEmployee(rows[0]) : null;
+}
+
+/** Only the fields a participant may change about themselves. */
+export async function updateEmployeeSelf(id, f) {
+  const { rows } = await pool.query(
+    `UPDATE employees SET region = $2, gender = $3, pedometer = $4, email = $5
+     WHERE id = $1 AND active RETURNING *`,
+    [id, f.region || null, f.gender || null, f.pedometer || null, f.email || null],
+  );
+  return rows.length ? toEmployee(rows[0]) : null;
+}
+
+/**
+ * Name lookup for the 社員番号がわからない box, which runs before sign-in.
+ * Returns id and name only, never contact details, and never everybody:
+ * a blank or one-character query matches nothing.
+ */
+export async function searchRoster(q) {
+  const s = String(q || '').trim();
+  if (s.length < 2) return [];
+  const { rows } = await pool.query(
+    `SELECT id, name FROM employees
+     WHERE active AND (name ILIKE $1 OR id LIKE $1) ORDER BY sort_order LIMIT 8`,
+    [`%${s}%`],
+  );
+  return rows.map((r) => ({ id: r.id, name: r.name }));
 }
 
 export async function addFeedback(f) {

@@ -55,6 +55,7 @@ const local = {
 async function call(path, options = {}) {
   const res = await fetch(API.replace(/\/$/, '') + path, {
     headers: { 'Content-Type': 'application/json' },
+    credentials: 'same-origin',
     ...options,
   });
   if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
@@ -141,8 +142,76 @@ export async function saveFeedback(f) {
 
 export async function fetchFeedback() {
   try {
-    const res = await fetch(`${base()}/api/feedback`);
+    const res = await fetch(`${base()}/api/feedback`, { credentials: 'same-origin' });
     const j = await res.json();
     return j.items || [];
+  } catch { return []; }
+}
+
+/* ---------- sign-in ----------
+   The server decides who you are and says so with an httpOnly cookie, so none
+   of this returns anything the page could forge. In localStorage mode there is
+   no server, so the caller falls back to checking the roster itself. */
+
+const post = async (path, body) => {
+  const res = await fetch(base() + path, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'same-origin',
+    body: JSON.stringify(body || {}),
+  });
+  return { status: res.status, body: await res.json().catch(() => ({})) };
+};
+
+export const IS_LOCAL = USE_LOCAL;
+
+/** Public settings for the sign-in screen — no administrator IDs. */
+export async function fetchBootstrap() {
+  try {
+    const res = await fetch(`${base()}/api/bootstrap`, { credentials: 'same-origin' });
+    return (await res.json()).cfg || null;
+  } catch { return null; }
+}
+
+export async function apiLogin(id, consent) {
+  const r = await post('/api/login', { id, consent });
+  if (r.status === 200) return { user: r.body.user };
+  if (r.status === 429) return { error: 'too_many' };
+  return { error: r.body.error || 'not_found' };
+}
+
+export async function apiLogout() {
+  try { await post('/api/logout'); } catch { /* signing out locally is enough */ }
+}
+
+/** Restores a session on reload. Returns null when not signed in. */
+export async function apiMe() {
+  try {
+    const res = await fetch(`${base()}/api/me`, { credentials: 'same-origin' });
+    if (!res.ok) return null;
+    return (await res.json()).user || null;
+  } catch { return null; }
+}
+
+/** Saves the signed-in participant's own details. */
+export async function apiSaveMe(fields) {
+  try {
+    const res = await fetch(`${base()}/api/me`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify(fields),
+    });
+    if (!res.ok) return null;
+    return (await res.json()).user || null;
+  } catch { return null; }
+}
+
+/** Name search for 社員番号がわからない. Returns [{id, name}]. */
+export async function apiLookup(q) {
+  try {
+    const res = await fetch(`${base()}/api/lookup?q=${encodeURIComponent(q)}`, { credentials: 'same-origin' });
+    if (!res.ok) return [];
+    return (await res.json()).hits || [];
   } catch { return []; }
 }

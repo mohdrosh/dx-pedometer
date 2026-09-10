@@ -1,6 +1,10 @@
 import React, { useState, useEffect, useMemo, useCallback, useContext, createContext } from 'react';
 import * as XLSX from 'xlsx';
-import { S, registerTrial, saveFeedback, fetchFeedback } from './storage';
+import {
+  S, registerTrial, saveFeedback, fetchFeedback,
+  IS_LOCAL, fetchBootstrap, apiLogin, apiLogout, apiMe, apiSaveMe, apiLookup,
+} from './storage';
+import { DEFAULT_REGIONS, DEFAULT_CFG, ROSTER_SEED, orderRegions } from './defaults';
 import emailjs from '@emailjs/browser';
 import { reminderMail, companyEmail, deadlineTextJa, deadlineTextEn } from './mail';
 
@@ -13,26 +17,8 @@ import { reminderMail, companyEmail, deadlineTextJa, deadlineTextEn } from './ma
    client (API Gateway + Lambda + DynamoDB/RDS) with no UI changes.
 ============================================================================ */
 
-const ROSTER_SEED = [{"id": "101001", "name": "大西 理弘", "region": "大阪", "gender": "男", "email": "onish-mi@spp.co.jp", "pedometer": "", "active": true}, {"id": "301041", "name": "鎌田 哲", "region": "神戸", "gender": "男", "email": "satosion@hotmail.com", "pedometer": "", "active": true}, {"id": "410045", "name": "土居 孝次", "region": "三田", "gender": "男", "email": "k_doi@morabu.com", "pedometer": "", "active": true}, {"id": "412040", "name": "田中 豊樹", "region": "三田", "gender": "男", "email": "t_tanaka@morabu.com; tanaka.toyoki@zh.mitsubishielectric.co.jp", "pedometer": "", "active": true}, {"id": "712078", "name": "有原 豪", "region": "請負", "gender": "男", "email": "arihara-takeshi.ua@ap.mpec.co.jp", "pedometer": "", "active": true}, {"id": "805046", "name": "堺 省治", "region": "請負", "gender": "男", "email": "s_sakai@morabu.com", "pedometer": "", "active": true}, {"id": "812013", "name": "陳 雲玲", "region": "神戸", "gender": "男", "email": "u_chin@morabu.com; wbcyl561@hotmail.co.jp", "pedometer": "", "active": true}, {"id": "1003045", "name": "田中 寿人", "region": "大阪", "gender": "男", "email": "k_tanaka@morabu.com", "pedometer": "", "active": true}, {"id": "1009029", "name": "大谷 亮輔", "region": "神戸", "gender": "男", "email": "r_ooya@morabu.com", "pedometer": "", "active": true}, {"id": "1011009", "name": "細井 慎吾", "region": "三田", "gender": "男", "email": "s_hosoi@morabu.com", "pedometer": "", "active": true}, {"id": "1011035", "name": "竹中 優也", "region": "大阪", "gender": "男", "email": "y_takenaka@morabu.com", "pedometer": "", "active": true}, {"id": "1211018", "name": "片出 沙奈", "region": "神戸", "gender": "女", "email": "kiiiitius47@gmail.com", "pedometer": "", "active": true}, {"id": "1212001", "name": "森岡 俊介", "region": "請負", "gender": "男", "email": "s_morioka@morabu.com", "pedometer": "", "active": true}, {"id": "1304037", "name": "三谷 修司", "region": "神戸", "gender": "男", "email": "sh_mitani@morabu.com", "pedometer": "", "active": true}, {"id": "1310019", "name": "野村 昇吾", "region": "請負", "gender": "男", "email": "s_nomura@morabu.com", "pedometer": "", "active": true}, {"id": "1310026", "name": "中岡 雅江", "region": "大阪", "gender": "女", "email": "masae_nakaoka@morabu.com", "pedometer": "", "active": true}, {"id": "1401002", "name": "中岡 真佐美", "region": "大阪", "gender": "女", "email": "masami_nakaoka@morabu.com", "pedometer": "", "active": true}, {"id": "1408005", "name": "竹中 神矢", "region": "神戸", "gender": "男", "email": "j_takenaka@morabu.com", "pedometer": "", "active": true}, {"id": "1409010", "name": "山根 冬馬", "region": "姫路", "gender": "男", "email": "t_yamane@morabu.com", "pedometer": "", "active": true}, {"id": "1503058", "name": "中尾 考視", "region": "神戸", "gender": "男", "email": "t_nakao@morabu.com", "pedometer": "", "active": true}, {"id": "1503061", "name": "福島 航", "region": "姫路", "gender": "男", "email": "w_fukushima@morabu.com", "pedometer": "", "active": true}, {"id": "1503066", "name": "松山 和斗", "region": "大阪", "gender": "男", "email": "takuankotyazuke@gmail.com; k_matsuyama@morabu.com", "pedometer": "", "active": true}, {"id": "1510029", "name": "樋口 真希", "region": "神戸", "gender": "女", "email": "m_higuchi@morabu.com", "pedometer": "", "active": true}, {"id": "1510033", "name": "加藤 匠人", "region": "請負", "gender": "男", "email": "ta_kato@morabu.com", "pedometer": "", "active": true}, {"id": "1601030", "name": "包 克", "region": "大阪", "gender": "男", "email": "k_pao@morabu.com", "pedometer": "", "active": true}, {"id": "1602004", "name": "徳田 拓也", "region": "姫路", "gender": "男", "email": "t_tokuda@morabu.com", "pedometer": "", "active": true}, {"id": "1603006", "name": "ダン クワン ファップ", "region": "大阪", "gender": "男", "email": "dangquanphap@gmail.com", "pedometer": "", "active": true}, {"id": "1604001", "name": "ソー トゥン ナゥン", "region": "神戸", "gender": "男", "email": "stnaung22@gmail.com; st_naung@morabu.com", "pedometer": "", "active": true}, {"id": "1608001", "name": "井戸 裕太", "region": "姫路", "gender": "男", "email": "y_ido@morabu.com", "pedometer": "", "active": true}, {"id": "1608002", "name": "井上 晶", "region": "神戸", "gender": "男", "email": "a_inoue@morabu.com", "pedometer": "", "active": true}, {"id": "1608007", "name": "東畑 光", "region": "神戸", "gender": "女", "email": "a_higashibata@morabu.com", "pedometer": "", "active": true}, {"id": "1612005", "name": "寺田 良一", "region": "三田", "gender": "男", "email": "r_terada@morabu.com", "pedometer": "", "active": true}, {"id": "1612017", "name": "山本 彩乃", "region": "神戸", "gender": "女", "email": "a_nakatani@morabu.com", "pedometer": "", "active": true}, {"id": "1701002", "name": "西川 純貴", "region": "神戸", "gender": "男", "email": "j_nishikawa@morabu.com", "pedometer": "", "active": true}, {"id": "1701005", "name": "関 あゆみ", "region": "神戸", "gender": "女", "email": "a_nakamura@morabu.com", "pedometer": "", "active": true}, {"id": "1701009", "name": "坂東 未憂", "region": "神戸", "gender": "女", "email": "m_bando@morabu.com", "pedometer": "", "active": true}, {"id": "1703002", "name": "西森 羽矢人", "region": "姫路", "gender": "男", "email": "h_nishimori@morabu.com", "pedometer": "", "active": true}, {"id": "1704001", "name": "山根 志穂", "region": "姫路", "gender": "女", "email": "s_yamane@morabu.com", "pedometer": "", "active": true}, {"id": "1707004", "name": "岡田 真由美", "region": "神戸", "gender": "女", "email": "m_okada@morabu.com", "pedometer": "", "active": true}, {"id": "1708004", "name": "岳﨑 星孝", "region": "神戸", "gender": "男", "email": "s_takezaki@morabu.com", "pedometer": "", "active": true}, {"id": "1710001", "name": "國本 直美", "region": "大阪", "gender": "女", "email": "n_kunimoto@morabu.com", "pedometer": "", "active": true}, {"id": "1710012", "name": "チャン テー ヒエン", "region": "東京", "gender": "男", "email": "trthehien1602@gmail.com", "pedometer": "", "active": true}, {"id": "1711009", "name": "廣岡 優治", "region": "大阪", "gender": "男", "email": "y_hirooka@morabu.com", "pedometer": "", "active": true}, {"id": "1802006", "name": "島津 真珠", "region": "神戸", "gender": "女", "email": "m_shimadu@morabu.com", "pedometer": "", "active": true}, {"id": "1803007", "name": "高岡 里紗", "region": "神戸", "gender": "女", "email": "r_takaoka@morabu.com", "pedometer": "", "active": true}, {"id": "1803017", "name": "若林 明佳", "region": "神戸", "gender": "女", "email": "m_wakabayashi@morabu.com", "pedometer": "", "active": true}, {"id": "1803018", "name": "貝田 涼馬", "region": "大阪", "gender": "男", "email": "r_kaida@morabu.com", "pedometer": "", "active": true}, {"id": "1803019", "name": "今野 晃輔", "region": "神戸", "gender": "男", "email": "k_imano@morabu.com", "pedometer": "", "active": true}, {"id": "1812006", "name": "濵本 一真", "region": "大阪", "gender": "男", "email": "k_hamamoto@morabu.com", "pedometer": "", "active": true}, {"id": "1901008", "name": "角山 日和", "region": "神戸", "gender": "女", "email": "h_kakuyama@morabu.com", "pedometer": "", "active": true}, {"id": "1901037", "name": "ブイ ドク ディン", "region": "神戸", "gender": "男", "email": "buiducdinh@gmail.com", "pedometer": "", "active": true}, {"id": "1902027", "name": "グエン ハイ ロン", "region": "大阪", "gender": "男", "email": "longnh1504@gmail.com", "pedometer": "", "active": true}, {"id": "1902029", "name": "嶋﨑 澪", "region": "大阪", "gender": "女", "email": "m_shimazaki@morabu.com", "pedometer": "", "active": true}, {"id": "1906020", "name": "中尾 久", "region": "請負", "gender": "男", "email": "h_nakao@morabu.com", "pedometer": "", "active": true}, {"id": "1907044", "name": "福山 七星", "region": "神戸", "gender": "女", "email": "n_fukuyama@morabu.com", "pedometer": "", "active": true}, {"id": "1908010", "name": "藤本 藍", "region": "神戸", "gender": "女", "email": "a_fujimoto@morabu.com", "pedometer": "", "active": true}, {"id": "2110023", "name": "福井 明", "region": "大阪", "gender": "男", "email": "a_fukui@morabu.com", "pedometer": "", "active": true}, {"id": "2111025", "name": "三宅 俊彦", "region": "大阪", "gender": "男", "email": "t_miyake@morabu.com", "pedometer": "", "active": true}, {"id": "2208015", "name": "小野 愛実", "region": "神戸", "gender": "女", "email": "m_ono@morabu.com", "pedometer": "", "active": true}, {"id": "2208025", "name": "末廣 愛美", "region": "大阪", "gender": "女", "email": "m_suehiro@morabu.com", "pedometer": "", "active": true}, {"id": "1612003", "name": "山下 真幸", "region": "神戸", "gender": "女", "email": "ma_yamashita@morabu.com", "pedometer": "", "active": true}, {"id": "2211006", "name": "田村 結音", "region": "京都", "gender": "女", "email": "y_tamura@morabu.com", "pedometer": "", "active": true}, {"id": "1701004", "name": "井上 かれん", "region": "神戸", "gender": "女", "email": "k_seta@morabu.com", "pedometer": "", "active": true}, {"id": "2208009", "name": "西 佳代", "region": "神戸", "gender": "女", "email": "k_nishi@morabu.com", "pedometer": "", "active": true}, {"id": "2302043", "name": "藤本 美鈴", "region": "神戸", "gender": "女", "email": "mi_fujimoto@morabu.com", "pedometer": "", "active": true}, {"id": "2301030", "name": "池田 真悠", "region": "姫路", "gender": "女", "email": "ma_ikeda@morabu.com", "pedometer": "", "active": true}, {"id": "2209027", "name": "永田 吏", "region": "神戸", "gender": "男", "email": "t_nagata@morabu.com", "pedometer": "", "active": true}, {"id": "2209021", "name": "河村 萌香", "region": "大阪", "gender": "女", "email": "m_kawamura@morabu.com", "pedometer": "", "active": true}, {"id": "2208010", "name": "佐々木 歩", "region": "東京", "gender": "男", "email": "a_sasaki@morabu.com", "pedometer": "", "active": true}, {"id": "2302007", "name": "見里 安利紗", "region": "神戸", "gender": "女", "email": "a_misato@morabu.com", "pedometer": "", "active": true}, {"id": "2303038", "name": "花田 周平", "region": "姫路", "gender": "男", "email": "s_hanada@morabu.com", "pedometer": "", "active": true}, {"id": "2303015", "name": "武次 里彩子", "region": "三田", "gender": "女", "email": "r_taketsugu@morabu.com", "pedometer": "", "active": true}, {"id": "2211028", "name": "松田 楓", "region": "三田", "gender": "男", "email": "ka_matsuda@morabu.com", "pedometer": "", "active": true}, {"id": "2302018", "name": "山﨑 央凱", "region": "姫路", "gender": "男", "email": "o_yamasaki@morabu.com", "pedometer": "", "active": true}, {"id": "2301021", "name": "ファム ハイ チェウ", "region": "大阪", "gender": "男", "email": "ph_trieu@morabu.com", "pedometer": "", "active": true}, {"id": "2211014", "name": "長谷川 洋", "region": "姫路", "gender": "男", "email": "y_hasegawa@morabu.com", "pedometer": "", "active": true}, {"id": "2303012", "name": "官野 明子", "region": "姫路", "gender": "女", "email": "a_kanno@morabu.com", "pedometer": "", "active": true}, {"id": "2305008", "name": "太田 絢乃", "region": "姫路", "gender": "女", "email": "a_oota@morabu.com", "pedometer": "", "active": true}, {"id": "2308014", "name": "シング クムド ビラハム", "region": "大阪", "gender": "女", "email": "sk_brahm@morabu.com", "pedometer": "", "active": true}, {"id": "2312028", "name": "チョ ハニー ジン", "region": "請負", "gender": "女", "email": "ch_zin@morabu.com", "pedometer": "", "active": true}, {"id": "2312027", "name": "ニン ヌー ヌー テッ", "region": "姫路", "gender": "女", "email": "hnn_htet@morabu.com", "pedometer": "", "active": true}, {"id": "2303058", "name": "宮原 順子", "region": "請負", "gender": "女", "email": "j_miyahara@morabu.com", "pedometer": "", "active": true}, {"id": "1902010", "name": "吉田 喜美子", "region": "大阪", "gender": "女", "email": "k_yoshida@morabu.com", "pedometer": "", "active": true}, {"id": "2401003", "name": "チョー ミン カン", "region": "東京", "gender": "男", "email": "km_khant@morabu.com", "pedometer": "", "active": true}, {"id": "2308003", "name": "小齊平 秀太", "region": "神戸", "gender": "男", "email": "kosahira@morabu.com", "pedometer": "", "active": true}, {"id": "2309015", "name": "河原田 貴士", "region": "大阪", "gender": "男", "email": "t_kawarada@morabu.com", "pedometer": "", "active": true}, {"id": "2402006", "name": "土田 遥希", "region": "京都", "gender": "男", "email": "h_tsuchida@morabu.com", "pedometer": "", "active": true}, {"id": "2402020", "name": "松村 優樹", "region": "姫路", "gender": "男", "email": "y_matsumura@morabu.com", "pedometer": "", "active": true}, {"id": "2401002", "name": "テッヌェアウン", "region": "神戸", "gender": "女", "email": "tn_aung@morabu.com", "pedometer": "", "active": true}, {"id": "2309011", "name": "鈴木 花恋", "region": "大阪", "gender": "女", "email": "ka_suzuki@morabu.com", "pedometer": "", "active": true}, {"id": "2403030", "name": "村上 結菜", "region": "三田", "gender": "女", "email": "y_murakami@morabu.com", "pedometer": "", "active": true}, {"id": "2312026", "name": "パレーサンダーマウン", "region": "姫路", "gender": "女", "email": "ps_maung@morabu.com", "pedometer": "", "active": true}, {"id": "1705014", "name": "グエン テイ ホン ニュン", "region": "神戸", "gender": "女", "email": "nth_nhung@morabu.com", "pedometer": "", "active": true}, {"id": "2309004", "name": "伊藤 志帆", "region": "神戸", "gender": "女", "email": "s_ito@morabu.com", "pedometer": "", "active": true}, {"id": "2405009", "name": "ピュー ミィン ミャッ", "region": "大阪", "gender": "女", "email": "pm_myat@morabu.com", "pedometer": "", "active": true}, {"id": "2407032", "name": "カニティ ゴウタ厶", "region": "大阪", "gender": "男", "email": "g_kanithi@morabu.com", "pedometer": "", "active": true}, {"id": "2407022", "name": "バンソデ シリキリシナ ラジャバウ", "region": "姫路", "gender": "男", "email": "bs_rajabhau@morabu.com", "pedometer": "", "active": true}, {"id": "2407024", "name": "ボダプンティ ナヴィーン チャイタンヤ", "region": "神戸", "gender": "男", "email": "nc_bodapunti@morabu.com", "pedometer": "", "active": true}, {"id": "2407026", "name": "デラバス ヴィカス", "region": "大阪", "gender": "男", "email": "v_dheravath@morabu.com", "pedometer": "", "active": true}, {"id": "2407027", "name": "ディクシャ", "region": "大阪", "gender": "女", "email": "diksha@morabu.com", "pedometer": "", "active": true}, {"id": "2407029", "name": "ドンカナ サイ キラン", "region": "大阪", "gender": "男", "email": "sk_donkana@morabu.com", "pedometer": "", "active": true}, {"id": "2407036", "name": "モハメド ロシャン", "region": "大阪", "gender": "男", "email": "m_roshan@morabu.com", "pedometer": "", "active": true}, {"id": "2407037", "name": "パテル ニシュ シング", "region": "神戸", "gender": "男", "email": "ns_patel@morabu.com", "pedometer": "", "active": true}, {"id": "2407039", "name": "プラディオット", "region": "大阪", "gender": "男", "email": "pradyot@morabu.com", "pedometer": "", "active": true}, {"id": "2407047", "name": "シャイク ワシム", "region": "姫路", "gender": "男", "email": "w_shaikh@morabu.com", "pedometer": "", "active": true}, {"id": "2406010", "name": "ニェイン ヤダナ ウィン", "region": "神戸", "gender": "女", "email": "ny_win@morabu.com", "pedometer": "", "active": true}, {"id": "2406009", "name": "ティリ ス", "region": "大阪", "gender": "女", "email": "t_su@morabu.com", "pedometer": "", "active": true}, {"id": "2311005", "name": "トウェ トウェ ウィン", "region": "東京", "gender": "女", "email": "tt_win@morabu.com", "pedometer": "", "active": true}, {"id": "2407009", "name": "ラワット アビシェク", "region": "大阪", "gender": "男", "email": "a_rawat@morabu.com", "pedometer": "", "active": true}, {"id": "2408016", "name": "ナン フー フー プウィン ウェー", "region": "大阪", "gender": "女", "email": "nppp_wai@morabu.com", "pedometer": "", "active": true}, {"id": "2306016", "name": "カインカイントエ", "region": "大阪", "gender": "女", "email": "kk_htwe@morabu.com", "pedometer": "", "active": true}, {"id": "2407011", "name": "アグラワル・アディティヤ", "region": "大阪", "gender": "男", "email": "a_agrawal@morabu.com", "pedometer": "", "active": true}, {"id": "2407020", "name": "ラーマン アルカム", "region": "神戸", "gender": "男", "email": "a_rahman@morabu.com", "pedometer": "", "active": true}, {"id": "2407031", "name": "ボラ ガウラヴ", "region": "請負", "gender": "男", "email": "g_borah@morabu.com", "pedometer": "", "active": true}, {"id": "2001011", "name": "得能 優紀", "region": "神戸", "gender": "女", "email": "y_matsui@morabu.com\nyukichi0623.y@gmail.com", "pedometer": "", "active": true}, {"id": "2405008", "name": "チョーミンウー", "region": "大阪", "gender": "男", "email": "km_oo@morabu.com", "pedometer": "", "active": true}, {"id": "2412008", "name": "アウン ミン カン", "region": "大阪", "gender": "男", "email": "am_khant@morabu.com", "pedometer": "", "active": true}, {"id": "2410016", "name": "タン タン トゥエー", "region": "大阪", "gender": "女", "email": "tt_htwe@morabu.com", "pedometer": "", "active": true}, {"id": "2410015", "name": "ス ヤティ チョー", "region": "大阪", "gender": "女", "email": "sy_kyaw@morabu.com", "pedometer": "", "active": true}, {"id": "2410014", "name": "ミイッ セイン", "region": "大阪", "gender": "男", "email": "m_sein@morabu.com", "pedometer": "", "active": true}, {"id": "2502009", "name": "今井 史夏", "region": "神戸", "gender": "女", "email": "fu_imai@morabu.com", "pedometer": "", "active": true}, {"id": "2503012", "name": "今井 新之介", "region": "大阪", "gender": "男", "email": "s_imai@morabu.com", "pedometer": "", "active": true}, {"id": "2502007", "name": "中島 輝汐", "region": "東京", "gender": "男", "email": "ki_nakajima@morabu.com", "pedometer": "", "active": true}, {"id": "2412005", "name": "洪 煒傑", "region": "大阪", "gender": "男", "email": "w_hung@morabu.com", "pedometer": "", "active": true}, {"id": "2104015", "name": "岡本 咲奈", "region": "神戸", "gender": "女", "email": "s_okamoto@morabu.com", "pedometer": "", "active": true}, {"id": "2412003", "name": "巻口 綾菜", "region": "東京", "gender": "女", "email": "a_makiguchi@morabu.com", "pedometer": "", "active": true}, {"id": "2412017", "name": "山田 優希", "region": "大阪", "gender": "女", "email": "y_yamada@morabu.com", "pedometer": "", "active": true}, {"id": "2405012", "name": "福田 光希", "region": "東京", "gender": "男", "email": "ko_fukuda@morabu.com", "pedometer": "", "active": true}, {"id": "2503002", "name": "加藤 悠一郎", "region": "大阪", "gender": "男", "email": "y_kato@morabu.com", "pedometer": "", "active": true}, {"id": "2409014", "name": "橋本 愛莉", "region": "東京", "gender": "女", "email": "a_hashimoto@morabu.com", "pedometer": "", "active": true}, {"id": "2502016", "name": "上本 香奈", "region": "神戸", "gender": "女", "email": "k_uemoto@morabu.com", "pedometer": "", "active": true}, {"id": "2407040", "name": "アサティ・リシャブ", "region": "大阪", "gender": "男", "email": "r_asati@morabu.com", "pedometer": "", "active": true}, {"id": "2412009", "name": "キン ヤダナー ゾー", "region": "大阪", "gender": "女", "email": "ky_zaw@morabu.com", "pedometer": "", "active": true}, {"id": "2412011", "name": "ニェイン イ サン", "region": "大阪", "gender": "女", "email": "ne_san@morabu.com", "pedometer": "", "active": true}, {"id": "2503026", "name": "大森 愛心", "region": "大阪", "gender": "女", "email": "a_oomori@morabu.com", "pedometer": "", "active": true}, {"id": "2412018", "name": "冨嶋 温子", "region": "東京", "gender": "女", "email": "a_tomishima@morabu.com", "pedometer": "", "active": true}, {"id": "2501001", "name": "イ ティンザー テッ", "region": "大阪", "gender": "女", "email": "et_htet@morabu.com", "pedometer": "", "active": true}, {"id": "2501002", "name": "トゥ ナンダー ゾー", "region": "大阪", "gender": "女", "email": "tn_zaw@morabu.com", "pedometer": "", "active": true}, {"id": "2501003", "name": "ミン テイーン テッ", "region": "大阪", "gender": "男", "email": "mt_htet@morabu.com", "pedometer": "", "active": true}, {"id": "2503008", "name": "奥村 友哉", "region": "大阪", "gender": "男", "email": "to_okumura@morabu.com", "pedometer": "", "active": true}, {"id": "2407025", "name": "テイラー ディパック", "region": "大阪", "gender": "男", "email": "d_tailor@morabu.com", "pedometer": "", "active": true}, {"id": "2109047", "name": "渡邉 麻菜実", "region": "神戸", "gender": "女", "email": "ma_watanabe@morabu.com", "pedometer": "", "active": true}, {"id": "2504002", "name": "ユ モン チョー", "region": "大阪", "gender": "女", "email": "ym_kyaw@morabu.com", "pedometer": "", "active": true}, {"id": "2308020", "name": "ス トンドリー トイン", "region": "大阪", "gender": "女", "email": "st_thwin@morabu.com", "pedometer": "", "active": true}, {"id": "2502001", "name": "中田 琉聖", "region": "姫路", "gender": "男", "email": "r_nakata@morabu.com", "pedometer": "", "active": true}, {"id": "2407015", "name": "ヴェルマ アマン クマリ", "region": "神戸", "gender": "女", "email": "ak_verma@morabu.com", "pedometer": "", "active": true}, {"id": "1810036", "name": "松田 瞳", "region": "大阪", "gender": "女", "email": "h_matsuda@morabu.com", "pedometer": "", "active": true}];
 
-const DEFAULT_REGIONS = ['神戸', '東京', '大阪', '京都', '三田', '姫路', '請負', 'その他'];
 
-/* Keeps a stored region list in the order above; anything unrecognised
-   (added by hand in 地域マスタ) keeps its place at the end. */
-const orderRegions = (list) => {
-  const known = DEFAULT_REGIONS.filter((r) => list.includes(r));
-  return [...known, ...list.filter((r) => !DEFAULT_REGIONS.includes(r))];
-};
-
-const DEFAULT_CFG = {
-  regions: DEFAULT_REGIONS,
-  threshold: 5000,
-  bonus: 2000,
-  maxSteps: 100000,
-  adminIds: ['kenkou@morabu.com'],
-  enforceWindow: false,
-  exportLayout: 'spec',
-};
 
 /* --- Japanese public holidays: fallback table, refreshed from the web on load
        (spec 9: 祝日情報は Web 上の日本の祝日データを参照) ------------------- */
@@ -78,6 +64,7 @@ const STR = {
   employeeId: ['社員番号', 'Employee ID'],
   login: ['ログイン', 'Sign in'],
   loginHint: ['社員番号を入力してください', 'Enter your employee ID'],
+  tooMany: ['試行回数が多すぎます。しばらくしてからお試しください。', 'Too many attempts — please wait a moment.'],
   notFound: ['該当する社員番号がありません', 'No matching employee ID'],
   findId: ['社員番号がわからない', "Can't find your ID?"],
   searchName: ['氏名で検索', 'Search by name'],
@@ -147,6 +134,10 @@ const STR = {
   pedometerNo: ['万歩計№', 'Pedometer No.'],
   email: ['メールアドレス', 'Email'],
   saved: ['保存しました', 'Saved'],
+  saveSettings: ['設定を保存', 'Save settings'],
+  saveFailed: ['保存できませんでした', 'Could not save'],
+  unsaved: ['未保存の変更があります', 'You have unsaved changes'],
+  adminIdsRequired: ['管理者IDは1つ以上必要です', 'At least one administrator ID is required'],
   participants: ['対象者数', 'Participants'],
   submittedCount: ['提出済', 'Submitted'],
   bonusCount: ['完歩賞対象者', 'Bonus recipients'],
@@ -644,30 +635,32 @@ function TrialForm({ cfg, onDone, onCancel, toast }) {
 }
 
 /* ============================ Login screen ================================ */
-function Login({ roster, cfg, onLogin, onTrial, lang, setLang }) {
+function Login({ cfg, onLogin, onTrial, lang, setLang }) {
   const t = useT();
   const [id, setId] = useState('');
   const [err, setErr] = useState('');
+  const [busy, setBusy] = useState(false);
   const [find, setFind] = useState(false);
   const [q, setQ] = useState('');
+  const [hits, setHits] = useState([]);
   const [consent, setConsent] = useState(false);
 
-  const hits = useMemo(() => {
-    if (!q.trim()) return [];
-    const s = q.trim().toLowerCase();
-    return roster.filter((p) => p.name.toLowerCase().includes(s) || String(p.id).includes(s)).slice(0, 8);
-  }, [q, roster]);
+  /* The roster is not in the browser any more, so the name box asks the
+     server. Debounced so a keystroke is not a request. */
+  useEffect(() => {
+    const s = q.trim();
+    if (s.length < 2) { setHits([]); return undefined; }
+    const h = setTimeout(() => { apiLookup(s).then(setHits); }, 250);
+    return () => clearTimeout(h);
+  }, [q]);
 
-  const matched = roster.find((x) => String(x.id) === id.trim());
-  const alreadyAsked = !!matched?.consentAsked;
-
-  const go = () => {
+  const go = async () => {
     const v = id.trim();
-    if (!v) return;
-    if (cfg.adminIds.map((a) => a.toLowerCase()).includes(v.toLowerCase())) { onLogin({ admin: true, id: v, name: 'General Affairs' }); return; }
-    const p = roster.find((x) => String(x.id) === v);
-    if (!p) { setErr(t('notFound')); return; }
-    onLogin({ admin: false, ...p }, alreadyAsked ? null : consent);
+    if (!v || busy) return;
+    setBusy(true);
+    const r = await onLogin(v, consent);
+    setBusy(false);
+    if (r?.error) setErr(t(r.error === 'too_many' ? 'tooMany' : 'notFound'));
   };
 
   return (
@@ -695,21 +688,18 @@ function Login({ roster, cfg, onLogin, onTrial, lang, setLang }) {
         </label>
         {err && <div className="err">{err}</div>}
 
-        {matched && !matched.admin && (
-          alreadyAsked ? (
-            matched.consent && <div className="consent done">✓ {t('consentDone')}</div>
-          ) : (
-            <label className="consent">
-              <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} />
-              <span>
-                {t('consentLabel')}
-                <em>{t('consentOptional')}</em>
-              </span>
-            </label>
-          )
-        )}
+        {/* Shown to everyone now: whether this person has already answered is
+            on their roster row, which the sign-in screen can no longer read.
+            The server records it only the first time. */}
+        <label className="consent">
+          <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} />
+          <span>
+            {t('consentLabel')}
+            <em>{t('consentOptional')}</em>
+          </span>
+        </label>
 
-        <button className="btn primary big" onClick={go}>{t('login')}</button>
+        <button className="btn primary big" disabled={busy} onClick={go}>{t('login')}</button>
         <button className="linkbtn" onClick={() => setFind(!find)}>{t('findId')}</button>
         <button className="btn trial-cta" onClick={onTrial}>{t('trialSignup')}</button>
         {find && (
@@ -969,20 +959,17 @@ function StepsTab({ user, cfg, holidays, y, m, setPeriod, toast }) {
 }
 
 /* ========================== Employee: my page ============================= */
-function ProfileTab({ user, cfg, roster, setRoster, toast, y, m }) {
+function ProfileTab({ user, cfg, roster, setRoster, toast, y, m, onUpdated }) {
   const t = useT(); const lang = useLang();
   const pk = periodKey(y, m);
   const [entry, setEntry] = useState(null);
   const [f, setF] = useState({ region: user.region || '', gender: user.gender || '男', pedometer: user.pedometer || '', email: user.email || '' });
-  const [fb, setFb] = useState(null);
 
   useEffect(() => {
     let live = true;
     S.get(entryKey(pk, user.id)).then((e) => { if (live) setEntry(e || { steps: {} }); });
     return () => { live = false; };
   }, [pk, user.id]);
-
-  useEffect(() => { fetchFeedback().then(setFb); }, []);
 
   const days = useMemo(() => periodDays(y, m), [y, m]);
   const steps = entry?.steps || {};
@@ -992,9 +979,18 @@ function ProfileTab({ user, cfg, roster, setRoster, toast, y, m }) {
   const met = done.length > 0 && blank === 0 && below === 0;
   const state = blank === days.length ? '—' : blank > 0 ? t('inProgress') : met ? t('hit') : t('notHit');
 
+  /* Writing the whole roster back to save one person's own details meant any
+     participant could rewrite everybody. This sends only their own fields, and
+     the server ignores whose they claim to be. */
   const save = async () => {
-    const next = roster.map((p) => (String(p.id) === String(user.id) ? { ...p, ...f } : p));
-    setRoster(next); await S.set('roster', next); toast(t('saved'));
+    if (IS_LOCAL) {
+      const next = roster.map((p) => (String(p.id) === String(user.id) ? { ...p, ...f } : p));
+      setRoster(next); await S.set('roster', next); toast(t('saved'));
+      return;
+    }
+    const updated = await apiSaveMe(f);
+    if (!updated) { toast(t('saveFailed')); return; }
+    onUpdated(updated); toast(t('saved'));
   };
   return (
     <div className="tabbody">
@@ -1029,23 +1025,6 @@ function ProfileTab({ user, cfg, roster, setRoster, toast, y, m }) {
         </label>
         <button className="btn primary big" onClick={save}>{t('saveProfile')}</button>
       </div>
-      <div className="sechead"><span>{t('fbList')}</span></div>
-      <div className="tablewrap">
-        <table className="tbl">
-          <thead><tr><th>{t('name')}</th><th>{t('fbCategory')}</th><th>{t('fbMessage')}</th></tr></thead>
-          <tbody>
-            {(fb || []).map((x) => (
-              <tr key={x.id}>
-                <td>{x.name || '—'}<div className="muted sm">{new Date(x.at).toLocaleDateString()}</div></td>
-                <td className="muted">{x.category}</td>
-                <td className="wrapcell">{x.message}</td>
-              </tr>
-            ))}
-            {fb && !fb.length && <tr><td colSpan={3} className="pad muted">{t('noData')}</td></tr>}
-          </tbody>
-        </table>
-      </div>
-
     </div>
   );
 }
@@ -1525,23 +1504,54 @@ function SettingsAdmin({ cfg, setCfg, toast, onDemo, onWipe }) {
   const [fb, setFb] = useState(null);
   const upd = async (patch) => { const c = { ...cfg, ...patch }; setCfg(c); await S.set('cfg', c); };
   useEffect(() => { fetchFeedback().then(setFb); }, []);
+
+  /* The typed fields are held as a draft and written on 保存. Saving on every
+     keystroke used to store each half-typed value: clearing 基準歩数 wrote 0,
+     and editing the administrator ID wrote 'k', 'ke', 'ken'… any of which
+     could lock the last administrator out mid-word. */
+  const [draft, setDraft] = useState({
+    threshold: String(cfg.threshold), bonus: String(cfg.bonus),
+    maxSteps: String(cfg.maxSteps), adminIds: cfg.adminIds.join(', '),
+  });
+  const set = (k) => (e) => setDraft((d) => ({ ...d, [k]: e.target.value }));
+  const dirty = draft.threshold !== String(cfg.threshold)
+    || draft.bonus !== String(cfg.bonus)
+    || draft.maxSteps !== String(cfg.maxSteps)
+    || draft.adminIds !== cfg.adminIds.join(', ');
+
+  const saveRules = async () => {
+    const ids = draft.adminIds.split(',').map((x) => x.trim()).filter(Boolean);
+    if (!ids.length) { toast(t('adminIdsRequired')); return; }
+    await upd({
+      threshold: Number(draft.threshold) || 0,
+      bonus: Number(draft.bonus) || 0,
+      maxSteps: Number(draft.maxSteps) || 0,
+      adminIds: ids,
+    });
+    setDraft((d) => ({ ...d, adminIds: ids.join(', ') }));
+    toast(t('saved'));
+  };
   return (
     <>
       <div className="card">
         <strong>{t('rules')}</strong>
         <label className="fld"><span>{t('threshold')}</span>
-          <input type="number" value={cfg.threshold} onChange={(e) => upd({ threshold: Number(e.target.value) || 0 })} />
+          <input type="number" value={draft.threshold} onChange={set('threshold')} />
         </label>
         <label className="fld"><span>{t('bonusAmount')}</span>
-          <input type="number" value={cfg.bonus} onChange={(e) => upd({ bonus: Number(e.target.value) || 0 })} />
+          <input type="number" value={draft.bonus} onChange={set('bonus')} />
         </label>
         <label className="fld"><span>{t('maxSteps')}</span>
-          <input type="number" value={cfg.maxSteps} onChange={(e) => upd({ maxSteps: Number(e.target.value) || 0 })} />
+          <input type="number" value={draft.maxSteps} onChange={set('maxSteps')} />
         </label>
         <p className="muted sm">{t('maxStepsNote')}</p>
         <label className="fld"><span>{t('adminIds')}</span>
-          <input value={cfg.adminIds.join(', ')} onChange={(e) => upd({ adminIds: e.target.value.split(',').map((s) => s.trim()).filter(Boolean) })} />
+          <input value={draft.adminIds} onChange={set('adminIds')} />
         </label>
+        <div className="navrow">
+          <button className="btn primary" disabled={!dirty} onClick={saveRules}>{t('saveSettings')}</button>
+          {dirty && <span className="muted sm">{t('unsaved')}</span>}
+        </div>
         <label className="check">
           <input type="checkbox" checked={cfg.enforceWindow} onChange={(e) => upd({ enforceWindow: e.target.checked })} />
           <span>{t('enforceWindow')}</span>
@@ -1581,8 +1591,63 @@ export default function App() {
 
   const toast = useCallback((msg) => { setToastMsg(msg); setTimeout(() => setToastMsg(''), 2200); }, []);
 
+  /* Sign-in is a server call: it checks the number, records consent the first
+     time, and returns the one record this person is allowed to see. */
+  const signIn = useCallback(async (id, consent) => {
+    if (IS_LOCAL) {
+      const rr = (await S.get('roster')) || [];
+      const c = (await S.get('cfg')) || DEFAULT_CFG;
+      const admin = (c.adminIds || []).map((a) => String(a).toLowerCase()).includes(id.toLowerCase());
+      const p = rr.find((x) => String(x.id) === id);
+      if (!admin && !p) return { error: 'not_found' };
+      if (p && consent !== null && consent !== undefined && !p.consentAsked) {
+        const next = rr.map((x) => (String(x.id) === String(p.id)
+          ? { ...x, consent: !!consent, consentAsked: true, consentAt: Date.now() } : x));
+        setRoster(next); await S.set('roster', next);
+      }
+      const u = admin ? { admin: true, id, name: '健康対策委員' } : { admin: false, ...p };
+      setUser(u); setTab(admin ? 'admin' : 'entry');
+      return { user: u };
+    }
+    const r = await apiLogin(id, consent);
+    if (r.error) return r;
+    setUser(r.user);
+    setTab(r.user.admin ? 'admin' : 'entry');
+    if (r.user.admin) {
+      const [full, rr] = await Promise.all([S.get('cfg'), S.get('roster')]);
+      if (full) setCfg({ ...DEFAULT_CFG, ...full });
+      setRoster(rr || []);
+    }
+    return r;
+  }, []);
+
+  const signOut = useCallback(async () => {
+    if (!IS_LOCAL) await apiLogout();
+    setUser(null); setRoster([]); setTab('entry');
+  }, []);
+
+  /* Signed-out browsers get the public settings only, and no roster at all.
+     The roster is loaded after sign-in, and only for an administrator. */
   useEffect(() => {
     (async () => {
+      if (!IS_LOCAL) {
+        const [pub, who] = await Promise.all([fetchBootstrap(), apiMe()]);
+        setCfg({ ...DEFAULT_CFG, ...(pub || {}) });
+        if (who) {
+          setUser(who);
+          setTab(who.admin ? 'admin' : 'entry');
+          if (who.admin) {
+            const [full, rr] = await Promise.all([S.get('cfg'), S.get('roster')]);
+            if (full) setCfg({ ...DEFAULT_CFG, ...full });
+            setRoster(rr || []);
+          } else {
+            setRoster([]);
+          }
+        } else {
+          setRoster([]);
+        }
+        return;
+      }
       const [c, r] = await Promise.all([S.get('cfg'), S.get('roster')]);
       let cc = c ? { ...DEFAULT_CFG, ...c } : DEFAULT_CFG;
       const ordered = orderRegions(cc.regions || DEFAULT_REGIONS);
@@ -1628,22 +1693,17 @@ export default function App() {
         <div className="app theme-seiji"><Styles />
           <Login
             onTrial={() => setShowTrial(true)}
-            roster={roster} cfg={cfg} lang={lang} setLang={setLang}
-            onLogin={async (u, consent) => {
-              if (!u.admin && consent !== null && consent !== undefined) {
-                const next = roster.map((p) => (String(p.id) === String(u.id)
-                  ? { ...p, consent: !!consent, consentAsked: true, consentAt: Date.now() } : p));
-                setRoster(next); await S.set('roster', next);
-              }
-              setUser(u); setTab(u.admin ? 'admin' : 'entry');
-            }}
+            cfg={cfg} lang={lang} setLang={setLang}
+            onLogin={signIn}
           />
         </div>
       </LangCtx.Provider>
     );
   }
 
-  const me = user.admin ? user : roster.find((p) => String(p.id) === String(user.id)) || user;
+  const me = user.admin || !IS_LOCAL
+    ? user
+    : roster.find((p) => String(p.id) === String(user.id)) || user;
 
   return (
     <LangCtx.Provider value={lang}>
@@ -1659,13 +1719,13 @@ export default function App() {
           </div>
           <div className="hdr-r">
             <button className="mini" onClick={() => setLang(lang === 'ja' ? 'en' : 'ja')}>{lang === 'ja' ? 'EN' : '日本語'}</button>
-            <button className="mini" onClick={() => setUser(null)}>{tt('logout')}</button>
+            <button className="mini" onClick={signOut}>{tt('logout')}</button>
           </div>
         </header>
 
         <main className="main">
           {!user.admin && tab === 'profile' ? (
-            <ProfileTab user={me} cfg={cfg} roster={roster} setRoster={setRoster} toast={toast} y={y} m={m} />
+            <ProfileTab user={me} cfg={cfg} roster={roster} setRoster={setRoster} toast={toast} y={y} m={m} onUpdated={setUser} />
           ) : mod !== 'steps' ? (
             <div className="pad center">
               <div className="soonbox">
