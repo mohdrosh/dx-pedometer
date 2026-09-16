@@ -198,13 +198,22 @@ const STR = {
   trialCount: ['お試し登録', 'Trial users'],
   feedback: ['ご意見・不具合の報告', 'Feedback'],
   fbSend: ['送信する', 'Send'],
-  fbThanks: ['ありがとうございました。送信しました。', 'Thank you — your feedback was sent.'],
+  fbThanks: ['ありがとうございました。受け付けました。', 'Thank you — your feedback has been received.'],
   fbCategory: ['種類', 'Category'],
   fbBug: ['不具合', 'Bug'],
   fbRequest: ['要望・提案', 'Request'],
   fbOther: ['その他', 'Other'],
   fbMessage: ['内容', 'Message'],
   fbList: ['いただいたご意見', 'Feedback received'],
+  fbTab: ['ご意見', 'Feedback'],
+  fbWhen: ['受信日時', 'Received'],
+  fbFrom: ['送信者', 'From'],
+  fbNone: ['まだご意見はありません', 'No feedback yet'],
+  fbCount: ['{n}件', '{n} received'],
+  fbMailed: ['通知済', 'Notified'],
+  fbNotMailed: ['未通知', 'Not notified'],
+  fbMailOff: ['メール通知は未設定です。ご意見はこの画面で確認してください。', 'Email notification is not configured — read feedback here.'],
+  fbAnonymous: ['管理者', 'Administrator'],
   required: ['必須', 'Required'],
   company: ['モラブ阪神工業株式会社', 'Morabu Hanshin Kogyo Co., Ltd.'],
   eyebrow: ['健康対策推進活動', 'Health Promotion Activity'],
@@ -1125,6 +1134,7 @@ function AdminTab({ cfg, setCfg, roster, setRoster, y, m, setPeriod, toast, holi
         <button className={sub === 'bonus' ? 'on' : ''} onClick={() => setSub('bonus')}>{t('bonusTab')}</button>
         <button className={sub === 'rem' ? 'on' : ''} onClick={() => setSub('rem')}>{t('unsubmitted')}</button>
         <button className={sub === 'people' ? 'on' : ''} onClick={() => setSub('people')}>{t('people')}</button>
+        <button className={sub === 'fb' ? 'on' : ''} onClick={() => setSub('fb')}>{t('fbTab')}</button>
         <button className={sub === 'set' ? 'on' : ''} onClick={() => setSub('set')}>{t('settings')}</button>
       </div>
 
@@ -1227,6 +1237,8 @@ function AdminTab({ cfg, setCfg, roster, setRoster, y, m, setPeriod, toast, holi
       )}
 
       {sub === 'people' && <PeopleAdmin cfg={cfg} setCfg={setCfg} roster={roster} setRoster={setRoster} toast={toast} />}
+
+      {sub === 'fb' && <FeedbackAdmin />}
 
       {sub === 'set' && (
         <SettingsAdmin cfg={cfg} setCfg={setCfg} toast={toast} onDemo={genDemo} onWipe={wipe} />
@@ -1469,6 +1481,69 @@ function PeopleAdmin({ cfg, setCfg, roster, setRoster, toast }) {
           </>
         )}
       </Modal>
+    </>
+  );
+}
+
+/* ============================ Admin: feedback ============================= */
+/* Everything submitted through ご意見・不具合の報告. It used to be rendered on
+   マイページ, where every participant could read everyone else's; it belongs
+   here, and the endpoint behind it is administrator-only. */
+function FeedbackAdmin() {
+  const t = useT(); const lang = useLang();
+  const [items, setItems] = useState(null);
+
+  useEffect(() => { fetchFeedback().then(setItems); }, []);
+
+  const when = (ms) => new Date(ms).toLocaleString(lang === 'ja' ? 'ja-JP' : 'en-GB', {
+    year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit',
+  });
+
+  if (!items) return <div className="pad muted">{t('loading')}</div>;
+
+  return (
+    <>
+      <div className="sechead">
+        <span>{t('fbList')}</span>
+        <em className="muted sm">{t('fbCount').replace('{n}', String(items.length))}</em>
+      </div>
+
+      {!items.length ? (
+        <div className="pad muted">{t('fbNone')}</div>
+      ) : (
+        <div className="tablewrap">
+          <table className="tbl">
+            <thead>
+              <tr>
+                <th>{t('fbWhen')}</th>
+                <th>{t('fbFrom')}</th>
+                <th>{t('fbCategory')}</th>
+                <th>{t('fbMessage')}</th>
+                <th>{t('status')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((x) => (
+                <tr key={x.id}>
+                  <td>{when(x.at)}</td>
+                  <td>
+                    {x.name || t('fbAnonymous')}
+                    {x.employeeId && <div className="muted sm">{x.employeeId}</div>}
+                    {x.email && <div className="muted sm">{x.email}</div>}
+                  </td>
+                  <td className="muted">{x.category}</td>
+                  <td className="wrapcell">{x.message}</td>
+                  <td className="muted sm">{x.sent ? t('fbMailed') : t('fbNotMailed')}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      <div className="card soft">
+        <p className="muted sm">{t('fbMailOff')}</p>
+      </div>
     </>
   );
 }
@@ -2060,7 +2135,9 @@ a.btn{text-decoration:none;text-align:center;display:inline-block}
 .trial-cta:hover{background:var(--brand-wash)}
 .pill.trial{margin-left:7px;border-color:var(--brand);color:var(--brand);background:var(--brand-wash);
   font-weight:600;font-size:11px;padding:1px 7px}
-.wrapcell{white-space:normal;max-width:360px;line-height:1.6}
+/* Needs the td to out-specify the nowrap on .tbl td — as a bare class it
+   lost on specificity, so long messages ran under the next column. */
+.tbl td.wrapcell{white-space:normal;min-width:260px;max-width:460px;line-height:1.6}
 
 .soonbox{border:1px solid var(--rule);padding:46px 20px;margin:24px 14px;border-radius:5px}
 .soonicon{font-size:20px;font-weight:600;margin-bottom:10px}
