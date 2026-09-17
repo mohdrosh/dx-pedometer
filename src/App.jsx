@@ -66,7 +66,6 @@ const STR = {
   loginHint: ['社員番号を入力してください', 'Enter your employee ID'],
   tooMany: ['試行回数が多すぎます。しばらくしてからお試しください。', 'Too many attempts — please wait a moment.'],
   notFound: ['該当する社員番号がありません', 'No matching employee ID'],
-  adminHint: ['管理者は {id} でログイン', 'Administrators: sign in with {id}'],
   logout: ['ログアウト', 'Sign out'],
   admin: ['管理者', 'Administrator'],
   soon: ['準備中', 'Coming soon'],
@@ -642,7 +641,7 @@ function TrialForm({ cfg, onDone, onCancel, toast }) {
 }
 
 /* ============================ Login screen ================================ */
-function Login({ cfg, onLogin, onTrial, lang, setLang }) {
+function Login({ onLogin, onTrial, lang, setLang }) {
   const t = useT();
   const [id, setId] = useState('');
   const [err, setErr] = useState('');
@@ -700,7 +699,6 @@ function Login({ cfg, onLogin, onTrial, lang, setLang }) {
         <div className="login-foot">
           <span>{t('company')}</span>
           <span>{t('moduleSub')}</span>
-          <span className="foot-hint">{t('adminHint').replace('{id}', cfg.adminIds[0] || '')}</span>
         </div>
       </div>
     </div>
@@ -1743,7 +1741,7 @@ export default function App() {
         <div className="app theme-seiji"><Styles />
           <Login
             onTrial={() => setShowTrial(true)}
-            cfg={cfg} lang={lang} setLang={setLang}
+            lang={lang} setLang={setLang}
             onLogin={signIn}
           />
         </div>
@@ -1890,7 +1888,6 @@ function Styles() {
 .linkbtn:hover{color:var(--brand);border-color:var(--brand)}
 .login-foot{margin-top:auto;padding-top:36px;display:flex;flex-direction:column;gap:2px;
   font-size:12.5px;color:var(--dim)}
-.login-foot .foot-hint{margin-top:10px;padding-top:10px;border-top:1px solid var(--hair)}
 
 /* ---- chrome ------------------------------------------------------------ */
 .hdr{display:flex;justify-content:space-between;align-items:center;gap:12px;
