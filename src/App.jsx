@@ -158,15 +158,23 @@ const STR = {
   addPerson: ['対象者を追加', 'Add participant'],
   edit: ['編集', 'Edit'],
   remove: ['削除', 'Delete'],
-  removeConfirm: ['この対象者を削除しますか？', 'Delete this participant?'],
+  removeConfirm: ['この対象者を削除しますか？\n記録は残り、「削除済みを表示」から確認・復元できます。',
+    'Remove this participant?\nTheir records are kept and can be seen or restored from 削除済みを表示.'],
+  restore: ['復元', 'Restore'],
+  restored: ['復元しました', 'Restored'],
+  removed: ['削除しました', 'Removed'],
+  showDeleted: ['削除済みを表示', 'Show removed'],
+  deletedTag: ['削除済み', 'Removed'],
+  deletedNote: ['削除した対象者は一覧と集計から外れますが、記録は残ります。ログインはできません。',
+    'A removed participant drops out of the list and the totals, but their records are kept. They cannot sign in.'],
   regionMaster: ['地域マスタ', 'Region master'],
   addRegion: ['地域を追加', 'Add region'],
   rules: ['集計ルール', 'Aggregation rules'],
   threshold: ['完歩賞の基準歩数', 'Bonus threshold (steps)'],
   bonusAmount: ['完歩賞の支給額（円）', 'Bonus amount (JPY)'],
   adminIds: ['管理者のログインID（カンマ区切り）', 'Administrator IDs (comma separated)'],
-  maxSteps: ['1日に入力できる上限歩数', 'Maximum steps per day'],
-  maxStepsNote: ['この歩数以上は入力できません。', 'Entries of this many steps or more are rejected.'],
+  maxSteps: ['1日に入力できる上限歩数（この歩数以上は入力できません。）',
+    'Maximum steps per day (entries of this many steps or more are rejected)'],
   overMax: ['{n}歩以上は入力できません', 'Enter fewer than {n} steps'],
   enforceWindow: ['提出期間の制限を有効にする', 'Enforce the submission window'],
   enforceNote: ['デモ中はOFFのままにするといつでも提出できます。', 'Leave off during the demo so submission works any day.'],
@@ -1366,10 +1374,14 @@ function PeopleAdmin({ cfg, setCfg, roster, setRoster, toast }) {
   const t = useT();
   const [q, setQ] = useState('');
   const [withTrial, setWithTrial] = useState(true);
+  const [withDeleted, setWithDeleted] = useState(false);
   const [edit, setEdit] = useState(null);
   const [newRegion, setNewRegion] = useState('');
 
-  const save = async (next) => { setRoster(next); await S.set('roster', next); toast(t('saved')); };
+  const save = async (next, quiet) => {
+    setRoster(next); await S.set('roster', next);
+    if (!quiet) toast(t('saved'));
+  };
 
   const commit = async () => {
     const f = edit;
@@ -1386,12 +1398,23 @@ function PeopleAdmin({ cfg, setCfg, roster, setRoster, toast }) {
     await save(next); setEdit(null);
   };
 
+  /* 削除 marks the row inactive instead of deleting it. 健康対策委員会 asked
+     for a removed participant's figures to stay readable, and the aggregation
+     already skips anyone who is not active — so does sign-in. */
   const del = async (id) => {
     if (!window.confirm(t('removeConfirm'))) return;
-    await save(roster.filter((p) => String(p.id) !== String(id)));
+    await save(roster.map((p) => (String(p.id) === String(id) ? { ...p, active: false } : p)), true);
+    toast(t('removed'));
   };
 
+  const restore = async (id) => {
+    await save(roster.map((p) => (String(p.id) === String(id) ? { ...p, active: true } : p)), true);
+    toast(t('restored'));
+  };
+
+  const deletedCount = roster.filter((p) => p.active === false).length;
   const shown = roster
+    .filter((p) => (withDeleted ? true : p.active !== false))
     .filter((p) => withTrial || !p.trial)
     .filter((p) => !q.trim() || p.name.includes(q) || String(p.id).includes(q));
 
@@ -1408,18 +1431,33 @@ function PeopleAdmin({ cfg, setCfg, roster, setRoster, toast }) {
           <input type="checkbox" checked={withTrial} onChange={(e) => setWithTrial(e.target.checked)} />
           <span>{t('showTrial')}</span>
         </label>
+        <label className="check">
+          <input type="checkbox" checked={withDeleted} onChange={(e) => setWithDeleted(e.target.checked)} />
+          <span>{t('showDeleted')}{deletedCount ? `（${deletedCount}）` : ''}</span>
+        </label>
+        <p className="muted sm">{t('deletedNote')}</p>
         <div className="tablewrap">
           <table className="tbl">
             <thead><tr><th>{t('employeeId')}</th><th>{t('name')}</th><th>{t('region')}</th><th>{t('gender')}</th><th /></tr></thead>
             <tbody>
               {shown.map((p) => (
-                <tr key={p.id}>
+                <tr key={p.id} className={p.active === false ? 'gone' : ''}>
                   <td className="mono">{p.id}</td>
-                  <td>{p.name}{p.trial && <span className="pill trial">{t('trialTag')}</span>}</td>
+                  <td>
+                    {p.name}
+                    {p.trial && <span className="pill trial">{t('trialTag')}</span>}
+                    {p.active === false && <span className="pill gone">{t('deletedTag')}</span>}
+                  </td>
                   <td className="muted">{p.region}</td><td className="muted">{p.gender}</td>
                   <td className="right">
-                    <button className="mini" onClick={() => setEdit({ ...p, _orig: p.id })}>{t('edit')}</button>
-                    <button className="mini danger" onClick={() => del(p.id)}>{t('remove')}</button>
+                    {p.active === false ? (
+                      <button className="mini" onClick={() => restore(p.id)}>{t('restore')}</button>
+                    ) : (
+                      <>
+                        <button className="mini" onClick={() => setEdit({ ...p, _orig: p.id })}>{t('edit')}</button>
+                        <button className="mini danger" onClick={() => del(p.id)}>{t('remove')}</button>
+                      </>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -1557,23 +1595,33 @@ function SettingsAdmin({ cfg, setCfg, toast, onDemo, onWipe }) {
      keystroke used to store each half-typed value: clearing 基準歩数 wrote 0,
      and editing the administrator ID wrote 'k', 'ke', 'ken'… any of which
      could lock the last administrator out mid-word. */
+  /* Figures are grouped as 5,000 rather than 5000, which a number input
+     cannot do — it rejects the comma — so these are text fields that keep the
+     digits and re-group them as you type. */
+  const grouped = (v) => {
+    const digits = String(v).replace(/[^\d]/g, '');
+    return digits === '' ? '' : nf(Number(digits));
+  };
+  const plain = (v) => Number(String(v).replace(/[^\d]/g, '')) || 0;
+
   const [draft, setDraft] = useState({
-    threshold: String(cfg.threshold), bonus: String(cfg.bonus),
-    maxSteps: String(cfg.maxSteps), adminIds: cfg.adminIds.join(', '),
+    threshold: grouped(cfg.threshold), bonus: grouped(cfg.bonus),
+    maxSteps: grouped(cfg.maxSteps), adminIds: cfg.adminIds.join(', '),
   });
+  const setNum = (k) => (e) => setDraft((d) => ({ ...d, [k]: grouped(e.target.value) }));
   const set = (k) => (e) => setDraft((d) => ({ ...d, [k]: e.target.value }));
-  const dirty = draft.threshold !== String(cfg.threshold)
-    || draft.bonus !== String(cfg.bonus)
-    || draft.maxSteps !== String(cfg.maxSteps)
+  const dirty = draft.threshold !== grouped(cfg.threshold)
+    || draft.bonus !== grouped(cfg.bonus)
+    || draft.maxSteps !== grouped(cfg.maxSteps)
     || draft.adminIds !== cfg.adminIds.join(', ');
 
   const saveRules = async () => {
     const ids = draft.adminIds.split(',').map((x) => x.trim()).filter(Boolean);
     if (!ids.length) { toast(t('adminIdsRequired')); return; }
     await upd({
-      threshold: Number(draft.threshold) || 0,
-      bonus: Number(draft.bonus) || 0,
-      maxSteps: Number(draft.maxSteps) || 0,
+      threshold: plain(draft.threshold),
+      bonus: plain(draft.bonus),
+      maxSteps: plain(draft.maxSteps),
       adminIds: ids,
     });
     setDraft((d) => ({ ...d, adminIds: ids.join(', ') }));
@@ -1584,15 +1632,14 @@ function SettingsAdmin({ cfg, setCfg, toast, onDemo, onWipe }) {
       <div className="card">
         <strong>{t('rules')}</strong>
         <label className="fld"><span>{t('threshold')}</span>
-          <input type="number" value={draft.threshold} onChange={set('threshold')} />
+          <input inputMode="numeric" value={draft.threshold} onChange={setNum('threshold')} />
         </label>
         <label className="fld"><span>{t('bonusAmount')}</span>
-          <input type="number" value={draft.bonus} onChange={set('bonus')} />
+          <input inputMode="numeric" value={draft.bonus} onChange={setNum('bonus')} />
         </label>
         <label className="fld"><span>{t('maxSteps')}</span>
-          <input type="number" value={draft.maxSteps} onChange={set('maxSteps')} />
+          <input inputMode="numeric" value={draft.maxSteps} onChange={setNum('maxSteps')} />
         </label>
-        <p className="muted sm">{t('maxStepsNote')}</p>
         <label className="fld"><span>{t('adminIds')}</span>
           <input value={draft.adminIds} onChange={set('adminIds')} />
         </label>
@@ -2130,6 +2177,10 @@ a.btn{text-decoration:none;text-align:center;display:inline-block}
 .fld-note{display:block;font-style:normal;font-size:12px;color:var(--dim);margin-top:5px}
 .trial-cta{width:100%;margin-top:20px;border-color:var(--brand);color:var(--brand)}
 .trial-cta:hover{background:var(--brand-wash)}
+/* a removed participant, shown only when 削除済みを表示 is ticked */
+.tbl tr.gone td{color:var(--dim)}
+.pill.gone{margin-left:7px;border-color:var(--rule-2);color:var(--dim);background:var(--wash);
+  font-weight:600;font-size:11px;padding:1px 7px}
 .pill.trial{margin-left:7px;border-color:var(--brand);color:var(--brand);background:var(--brand-wash);
   font-weight:600;font-size:11px;padding:1px 7px}
 /* Needs the td to out-specify the nowrap on .tbl td — as a bare class it
