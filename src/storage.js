@@ -2,7 +2,7 @@
    Storage adapter — the ONE file to change when you move to AWS.
 
    The app only ever calls S.get / S.set / S.del / S.list, all async.
-   Keys look like:  cfg | roster | st:2608:1810036
+   Keys look like:  cfg | roster | st:2608:1234567
 
    Two modes, chosen automatically:
 

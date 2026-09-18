@@ -683,7 +683,9 @@ function Login({ onLogin, onTrial, lang, setLang }) {
         <label className="fld">
           <span>{t('employeeId')}</span>
           <input
-            value={id} inputMode="numeric" autoComplete="off" placeholder="1810036"
+            /* An example, not a colleague. This used to be a real employee
+               number, displayed to everyone who opened the sign-in page. */
+            value={id} inputMode="numeric" autoComplete="off" placeholder="1234567"
             onChange={(e) => { setId(e.target.value); setErr(''); }}
             onKeyDown={(e) => e.key === 'Enter' && go()}
           />

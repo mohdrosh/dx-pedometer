@@ -24,8 +24,8 @@ Stop it with `Ctrl + C`.
 
 | | |
 |---|---|
-| An employee | any ID from the roster, e.g. `1810036` — or click 社員番号がわからない and search by name |
-| The administrator | `admin` |
+| An employee | their employee number, e.g. `1234567` |
+| The administrator | the administrator address listed in `adminIds` in the settings |
 
 Data starts empty. To see the admin screens with content: log in as `admin` → 設定 → **デモデータを生成**.
 

@@ -16,7 +16,7 @@
 
      'cfg'                -> config
      'roster'             -> employees
-     'st:2608:1810036'    -> entries + entry_days
+     'st:2608:1234567'    -> entries + entry_days
 
    Works against Supabase, Amazon RDS, or a local Postgres — only the
    connection string changes.
