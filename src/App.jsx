@@ -607,7 +607,7 @@ function TrialForm({ cfg, onDone, onCancel, toast }) {
     <div className="login">
       <div className="login-inner">
         <div className="login-top">
-          <img className="logo" src="/morabu-logo.png" alt="" />
+          <img className="logo" src={`${import.meta.env.BASE_URL}morabu-logo.png`} alt="" />
           <button className="lang" onClick={onCancel}>✕</button>
         </div>
         <div className="login-title">
@@ -669,7 +669,7 @@ function Login({ onLogin, onTrial, lang, setLang }) {
     <div className="login">
       <div className="login-inner">
         <div className="login-top">
-          <img className="logo" src="/morabu-logo.png" alt={t('company')} />
+          <img className="logo" src={`${import.meta.env.BASE_URL}morabu-logo.png`} alt={t('company')} />
           <button className="lang" onClick={() => setLang(lang === 'ja' ? 'en' : 'ja')}>
             {lang === 'ja' ? 'EN' : '日本語'}
           </button>
@@ -1287,7 +1287,9 @@ function RemindersAdmin({ cfg, roster, entries, y, m, onReload, toast, setBusy }
 
   const out = (entries == null) ? [] : roster.filter((p) => !entries[p.id]?.submitted);
   const auto = (entries == null) ? [] : roster.filter((p) => entries[p.id]?.auto);
-  const url = typeof window !== 'undefined' ? window.location.origin : '';
+  const url = typeof window !== 'undefined'
+    ? window.location.origin + import.meta.env.BASE_URL.replace(/\/$/, '')
+    : '';
 
   const mailFor = (p) => reminderMail({ name: p.name, y, m, consent: !!p.consent, url });
 
@@ -1806,7 +1808,7 @@ export default function App() {
         <Styles />
         <header className="hdr">
           <div className="hdr-l">
-            <img className="hdr-mark" src="/morabu-mark.png" alt="" />
+            <img className="hdr-mark" src={`${import.meta.env.BASE_URL}morabu-mark.png`} alt="" />
             <div className="hdr-txt">
               <div className="hdr-t">{tt('mainTitle')}</div>
               <div className="hdr-s">{me.name}{me.region ? `／${me.region}` : ''}{user.admin ? `／${tt('admin')}` : ''}</div>

@@ -24,6 +24,13 @@
    Vite dev proxy locally. Set VITE_STORAGE=local to fall back to the browser
    only (no server needed, but data stays on one machine). */
 const API = import.meta.env.VITE_API_URL || '';
+
+/* Where /api lives. VITE_API_URL wins when it is set; otherwise the API sits
+   under whatever path the app itself is served from. Serving the app from a
+   sub-path — nginx proxying /pedometer/ to it, say — used to leave these calls
+   pointing at /api on the domain root, which is a different application or a
+   404, and every sign-in came back looking like a bad employee number. */
+const apiBase = () => (API || import.meta.env.BASE_URL || '').replace(/\/$/, '');
 const USE_LOCAL = import.meta.env.VITE_STORAGE === 'local';
 const PREFIX = 'dx:';
 
@@ -53,7 +60,7 @@ const local = {
 
 /* ---------- HTTP adapter (shared server / AWS) ---------- */
 async function call(path, options = {}) {
-  const res = await fetch(API.replace(/\/$/, '') + path, {
+  const res = await fetch(apiBase() + path, {
     headers: { 'Content-Type': 'application/json' },
     credentials: 'same-origin',
     ...options,
@@ -108,7 +115,7 @@ export const STORAGE_MODE = USE_LOCAL ? 'localStorage (this browser only)' : `se
 
 
 /* ---------- endpoints that are not key/value ---------- */
-const base = () => API.replace(/\/$/, '');
+const base = apiBase;
 
 /** Trial self-registration. Returns {ok:true,id} or {error:'exists'|...}. */
 export async function registerTrial(person) {
