@@ -99,12 +99,29 @@ inside paragraphs stays inline. That is deliberate; do not change the
 Defined once in `:root`. `--brand` (#0C68B3) is sampled from the Morabu
 Hanshin logo and matches the app.
 
+## Screenshots
+
+Every screenshot in `img/` is taken against **`demo-roster.json`**, twenty-four
+invented people — 山田 太郎 and friends, employee numbers in the 90xxxxx range,
+addresses at `example.com`. None of them exist.
+
+They used to be taken against the real roster, which put 147 colleagues' names,
+employee numbers and addresses into a document that gets emailed around.
+健康対策委員会 asked for that to stop. **Do not retake a screenshot against real
+data.** Load the demo roster first:
+
+1. start the app against a throwaway database
+2. sign in as the administrator
+3. `PUT /api/kv` with `{"key":"roster","value":<contents of demo-roster.json>}`
+4. enter some steps as 9000001 so the charts are not empty
+
 ## Known gaps
 
 - No screenshot for chapter 09 (完歩賞 tab) — written as a table instead
-- `img/mail_preview.png` shows `http://localhost:5173`; retake once the
-  production URL is fixed. Every other screenshot was retaken from the
-  current app
+- `img/mail_preview.png` carries whatever address the browser was on when it
+  was taken — the reminder body is built from `window.location.origin`, so a
+  screenshot from a test machine shows that machine. Retake it on the live
+  site to get the real URL in there
 - Issue date on the cover is still 2026年8月18日 — update when reissuing,
   and raise the edition from 第 1 版
 - Chapter 02 states there is no password. Update when password login ships;
