@@ -131,5 +131,3 @@ data.** Load the demo roster first:
   to be split into two — reminder email, and automatic submission — and that
   is on hold pending a discussion, so the app and the manual both still show
   one
-- The screenshots carry real names and addresses from the roster. Fine for an
-  internal document; worth remembering before it goes anywhere else
