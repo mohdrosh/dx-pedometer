@@ -522,10 +522,16 @@ function Ribbon({ days, steps, threshold }) {
 }
 
 /* =========================== feedback widget ============================== */
+/* The EmailJS template is shared with the ごみ管理 system — the free plan
+   allows two, and both are spoken for. Nothing about it is waste-specific:
+   the recipients arrive as to_email and the heading as subject, so the two
+   systems stay apart as long as each sends its own. Send the variable names
+   that template expects, not names of our own. */
 const EMAILJS = {
   service: import.meta.env.VITE_EMAILJS_SERVICE_ID || '',
   template: import.meta.env.VITE_EMAILJS_TEMPLATE_ID || '',
   key: import.meta.env.VITE_EMAILJS_PUBLIC_KEY || '',
+  to: import.meta.env.VITE_EMAILJS_TO || '',
 };
 
 function FeedbackButton({ user, toast }) {
@@ -545,12 +551,26 @@ function FeedbackButton({ user, toast }) {
       message: f.message.trim(),
     };
     let sent = false;
-    if (EMAILJS.service && EMAILJS.template && EMAILJS.key) {
+    if (EMAILJS.service && EMAILJS.template && EMAILJS.key && EMAILJS.to) {
+      /* 区分 and 社員番号 have no field of their own in the shared template,
+         so they go at the top of the body. */
+      const body = [
+        `区分　　：${payload.category}`,
+        `お名前　：${payload.name || '（管理者）'}`,
+        `社員番号：${payload.employeeId || '－'}`,
+        '',
+        payload.message,
+      ].join('\n');
       try {
         await emailjs.send(EMAILJS.service, EMAILJS.template, {
-          name: payload.name, email: payload.email, employee_id: payload.employeeId,
-          category: payload.category, message: payload.message,
-          app_name: '万歩計実績表',
+          subject: `【万歩計実績表】ご意見（${payload.category}）`,
+          from_name: `${payload.name || '管理者'}（万歩計実績表）`,
+          /* An administrator has no address of their own, so replies go back
+             to the committee rather than nowhere. */
+          from_email: payload.email || EMAILJS.to.split(',')[0].trim(),
+          message: body,
+          image_attached: '（画像の添付はありません）',
+          to_email: EMAILJS.to,
         }, { publicKey: EMAILJS.key });
         sent = true;
       } catch (e) {
