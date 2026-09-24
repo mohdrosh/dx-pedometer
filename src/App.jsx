@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback, useContext, createCon
 import * as XLSX from 'xlsx';
 import {
   S, registerTrial, saveFeedback, fetchFeedback,
-  IS_LOCAL, fetchBootstrap, apiLogin, apiLogout, apiMe, apiSaveMe,
+  IS_LOCAL, fetchBootstrap, apiLogin, apiLogout, apiMe, apiSaveMe, setLeaving,
 } from './storage';
 import { DEFAULT_REGIONS, DEFAULT_CFG, ROSTER_SEED, orderRegions } from './defaults';
 import emailjs from '@emailjs/browser';
@@ -149,6 +149,9 @@ const STR = {
   sortBy: ['並び替え', 'Sort'],
   asc: ['昇順', 'Asc'],
   desc: ['降順', 'Desc'],
+  saving: ['保存中…', 'Saving…'],
+  savedOk: ['保存済み', 'Saved'],
+  saveFail: ['保存できませんでした。通信を確認してください。', 'Could not save — check your connection.'],
   unlock: ['提出を取り消す', 'Reopen'],
   unlockDone: ['提出を取り消しました', 'Reopened for editing'],
   detail: ['明細', 'Detail'],
@@ -768,6 +771,12 @@ function StepsTab({ user, cfg, holidays, y, m, setPeriod, toast }) {
   const timer = React.useRef(null);
   const latest = React.useRef(null);
   const listRef = React.useRef(null);
+  /* When the oldest unwritten change was made. Typing restarts the debounce,
+     so without a ceiling on it a person filling the form without pausing
+     never triggers a write at all — which is how a whole month's entry could
+     be lost to a reload while logging out saved it. */
+  const oldest = React.useRef(0);
+  const [saveState, setSaveState] = useState('');
 
   /* On a PC the list is filled top to bottom, so Enter should behave like
      Tab and land on the next day rather than doing nothing. */
@@ -777,17 +786,42 @@ function StepsTab({ user, cfg, holidays, y, m, setPeriod, toast }) {
     if (nx) { nx.focus(); nx.select(); } else el.blur();
   };
 
+  const MAX_WAIT = 1500;
+
+  const write = async () => {
+    timer.current = null; oldest.current = 0;
+    setSaveState('saving');
+    const ok = await S.set(entryKey(pk, user.id), { ...latest.current, updatedAt: Date.now() });
+    setSaveState(ok ? 'saved' : 'error');
+    return ok;
+  };
+
   const persist = (next, immediate) => {
     setEntry(next); latest.current = next;
+    if (!oldest.current) oldest.current = Date.now();
     if (timer.current) clearTimeout(timer.current);
-    const write = () => S.set(entryKey(pk, user.id), { ...latest.current, updatedAt: Date.now() });
-    if (immediate) return write();
+    if (immediate || Date.now() - oldest.current >= MAX_WAIT) return write();
     timer.current = setTimeout(write, 500);
+    setSaveState('saving');
     return Promise.resolve();
   };
 
-  useEffect(() => () => {
-    if (timer.current) { clearTimeout(timer.current); if (latest.current) S.set(entryKey(pk, user.id), latest.current); }
+  /* Closing or reloading the tab cancels an ordinary fetch, so the last
+     changes went with it. keepalive lets the browser finish the write. */
+  useEffect(() => {
+    const flush = () => {
+      if (!timer.current || !latest.current) return;
+      clearTimeout(timer.current); timer.current = null; oldest.current = 0;
+      setLeaving(entryKey(pk, user.id), { ...latest.current, updatedAt: Date.now() });
+    };
+    const onHide = () => { if (document.visibilityState === 'hidden') flush(); };
+    window.addEventListener('pagehide', flush);
+    document.addEventListener('visibilitychange', onHide);
+    return () => {
+      window.removeEventListener('pagehide', flush);
+      document.removeEventListener('visibilitychange', onHide);
+      flush();
+    };
   }, [pk, user.id]);
 
   /* A day above the ceiling is refused outright rather than silently
@@ -796,23 +830,24 @@ function StepsTab({ user, cfg, holidays, y, m, setPeriod, toast }) {
   const overMax = (val) => val !== '' && val != null && Number(val) >= maxSteps;
   const warnMax = () => toast(t('overMax').replace('{n}', nf(maxSteps)));
 
-  const saveDay = async (iso, val) => {
+  const saveDay = async (iso, val, immediate) => {
     if (overMax(val)) { warnMax(); return false; }
     const base = latest.current || entry;
     const next = { ...base, steps: { ...(base.steps || {}) } };
     if (val === '' || val == null) delete next.steps[iso];
     else next.steps[iso] = Math.max(0, Number(val));
-    await persist(next);
+    await persist(next, immediate);
     return true;
   };
 
   const openDay = (iso) => { if (locked) return; setEditIso(iso); setDraft(steps[iso] != null ? String(steps[iso]) : ''); };
+  /* 保存 means saved. Nothing about this one is worth batching. */
   const commit = async () => {
-    if (!await saveDay(editIso, draft === '' ? '' : Number(draft))) return;
+    if (!await saveDay(editIso, draft === '' ? '' : Number(draft), true)) return;
     setEditIso(null);
   };
   const step = async (dir) => {
-    if (!await saveDay(editIso, draft === '' ? '' : Number(draft))) return;
+    if (!await saveDay(editIso, draft === '' ? '' : Number(draft), true)) return;
     const i = days.findIndex((d) => d.iso === editIso) + dir;
     if (i < 0 || i >= days.length) { setEditIso(null); return; }
     const nx = days[i].iso;
@@ -878,6 +913,11 @@ function StepsTab({ user, cfg, holidays, y, m, setPeriod, toast }) {
 
       <div className="sechead">
         <span>{t('entryHead')}</span>
+        {!locked && saveState && (
+          <span className={'savestate ' + saveState}>
+            {saveState === 'saving' ? t('saving') : saveState === 'saved' ? t('savedOk') : t('saveFail')}
+          </span>
+        )}
         <div className="seg">
           <button className={view === 'cal' ? 'on' : ''} onClick={() => setView('cal')}>{t('calendar')}</button>
           <button className={view === 'list' ? 'on' : ''} onClick={() => setView('list')}>{t('list')}</button>
@@ -1999,6 +2039,11 @@ function Styles() {
 .sechead{display:flex;justify-content:space-between;align-items:center;gap:12px;
   padding:12px 14px 11px;border-bottom:1px solid var(--rule-2);background:var(--wash)}
 .sechead>span{font-size:13px;font-weight:600;color:var(--ink-2)}
+/* Sits next to the heading rather than between it and the view switch. */
+.sechead>span.savestate{margin-right:auto;font-weight:500;font-size:12px}
+.savestate.saving{color:var(--dim)}
+.savestate.saved{color:var(--go)}
+.savestate.error{color:var(--warn);font-weight:600}
 
 .row2,.row3,.row4{display:flex;border-bottom:1px solid var(--hair)}
 .row4{flex-wrap:wrap}

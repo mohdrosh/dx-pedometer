@@ -111,6 +111,25 @@ export const S = {
   },
 };
 
+/* A write that has to survive the page going away. `keepalive` lets the
+   browser finish the request after the tab is closed or reloaded, which an
+   ordinary fetch does not — closing the tab used to cancel the last save. */
+export function setLeaving(key, value) {
+  if (USE_LOCAL) return local.set(key, value);
+  try {
+    return fetch(apiBase() + '/api/kv', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      keepalive: true,
+      body: JSON.stringify({ key, value }),
+    });
+  } catch (e) {
+    console.warn('storage.setLeaving failed', key, e);
+    return null;
+  }
+}
+
 export const STORAGE_MODE = USE_LOCAL ? 'localStorage (this browser only)' : `server (${API || 'same origin'})`;
 
 

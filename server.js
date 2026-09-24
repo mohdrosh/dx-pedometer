@@ -135,6 +135,21 @@ function periodDays(y, m) {
   return out;
 }
 
+/* A record marked submitted with days still blank locks its owner out of a
+   period they have not finished — the calendar stops opening and only an
+   administrator can reopen it. The client disables the button, but the
+   client is not a guard, so refuse it here too. Administrators are exempt:
+   auto-submission fills the blanks with 0 before it sets the flag, and the
+   committee's own tooling has to be able to correct a record. */
+function submittedTooEarly(key, value) {
+  if (!value || value.submitted !== true) return false;
+  const m = /^st:(\d{2})(\d{2}):/.exec(key);
+  if (!m) return false;
+  const steps = value.steps || {};
+  return periodDays(2000 + Number(m[1]), Number(m[2]))
+    .some((iso) => steps[iso] == null || steps[iso] === '');
+}
+
 function tokyoNow() {
   const p = new Intl.DateTimeFormat('en-CA', {
     timeZone: 'Asia/Tokyo', year: 'numeric', month: '2-digit', day: '2-digit',
@@ -357,6 +372,9 @@ const server = http.createServer(async (req, res) => {
         const body = await readBody(req).catch(() => null);
         if (!body || !body.key) return sendJson(res, 400, { error: 'key required' });
         if (!mayTouchKey(sess, body.key, true)) return deny(res, 403);
+        if (!sess.isAdmin && submittedTooEarly(body.key, body.value)) {
+          return sendJson(res, 400, { error: 'incomplete' });
+        }
         await setKey(body.key, body.value);
         return sendJson(res, 200, { key: body.key, ok: true });
       }
