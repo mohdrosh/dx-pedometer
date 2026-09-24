@@ -556,7 +556,6 @@ function FeedbackButton({ user, toast }) {
          so they go at the top of the body. */
       const body = [
         `区分　　：${payload.category}`,
-        `お名前　：${payload.name || '（管理者）'}`,
         `社員番号：${payload.employeeId || '－'}`,
         '',
         payload.message,
@@ -564,7 +563,10 @@ function FeedbackButton({ user, toast }) {
       try {
         await emailjs.send(EMAILJS.service, EMAILJS.template, {
           subject: `【万歩計実績表】ご意見（${payload.category}）`,
-          from_name: `${payload.name || '管理者'}（万歩計実績表）`,
+          /* The shared template puts this in the From Name, so the system
+             comes first — otherwise the mail reads as if another system
+             sent it. */
+          from_name: `万歩計実績表（${payload.name || '管理者'}）`,
           /* An administrator has no address of their own, so replies go back
              to the committee rather than nowhere. */
           from_email: payload.email || EMAILJS.to.split(',')[0].trim(),
