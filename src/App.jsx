@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback, useContext, createContext } from 'react';
 import * as XLSX from 'xlsx';
+import MoraBot, { MORABOT_CSS } from './MoraBot';
 import {
   S, registerTrial, saveFeedback, fetchFeedback,
   IS_LOCAL, fetchBootstrap, apiLogin, apiLogout, apiMe, apiSaveMe, setLeaving,
@@ -149,6 +150,21 @@ const STR = {
   sortBy: ['並び替え', 'Sort'],
   asc: ['昇順', 'Asc'],
   desc: ['降順', 'Desc'],
+  botAlt: ['モラボット', 'MoraBot'],
+  botHello: ['こんにちは！\n今日も歩きましたか？', 'Hello! Did you get your steps in today?'],
+  today: ['きょう', 'Today'],
+  goalSteps: ['目標 {n}歩', 'Goal {n} steps'],
+  toGoal: ['あと {n}歩でゴール', '{n} steps to go'],
+  goalHit: ['今日のゴール達成！', 'Today\u2019s goal reached'],
+  notWalkedYet: ['入力するとモラボットが歩きはじめます', 'Enter a day and MoraBot sets off'],
+  bonusWon: ['完歩賞 獲得', '完歩賞 earned'],
+  bonusWonNote: ['全日 {n}歩を達成しました。おめでとうございます！', 'Every day cleared {n} steps. Congratulations!'],
+  periodShort: ['今回は届きませんでした', 'Not quite, this time'],
+  periodShortNote: ['また来月いっしょに歩きましょう。', 'Let\u2019s walk again next month.'],
+  hitTitle: ['やりましたね！', 'Nicely done'],
+  hitBody: ['{d}　{n}歩', '{d} — {n} steps'],
+  hitCount: ['今月これで {n}日目 の達成です', 'That is day {n} this month'],
+  hitClose: ['つづける', 'Carry on'],
   saving: ['保存中…', 'Saving…'],
   savedOk: ['保存済み', 'Saved'],
   saveFail: ['保存できませんでした。通信を確認してください。', 'Could not save — check your connection.'],
@@ -700,6 +716,11 @@ function Login({ onLogin, onTrial, lang, setLang }) {
           </button>
         </div>
 
+        <div className="login-hello">
+          <MoraBot pose="wave" title={t('botAlt')} />
+          <p className="bubble">{t('botHello')}</p>
+        </div>
+
         <div className="login-title">
           <span className="eyebrow">{t('eyebrow')}</span>
           <h1>{t('mainTitle')}</h1>
@@ -749,6 +770,7 @@ function StepsTab({ user, cfg, holidays, y, m, setPeriod, toast }) {
   const [editIso, setEditIso] = useState(null);
   const [draft, setDraft] = useState('');
   const [askSubmit, setAskSubmit] = useState(false);
+  const [hit, setHit] = useState(null);
 
   const days = useMemo(() => periodDays(y, m), [y, m]);
   const slots = useMemo(() => formSlots(y, m), [y, m]);
@@ -834,9 +856,24 @@ function StepsTab({ user, cfg, holidays, y, m, setPeriod, toast }) {
     if (overMax(val)) { warnMax(); return false; }
     const base = latest.current || entry;
     const next = { ...base, steps: { ...(base.steps || {}) } };
+    const before = base.steps?.[iso];
     if (val === '' || val == null) delete next.steps[iso];
     else next.steps[iso] = Math.max(0, Number(val));
     await persist(next, immediate);
+    /* Only on the way up, and only once per day — editing a number that is
+       already over the line should not set off the confetti again. */
+    const goal = Number(cfg.threshold) || 5000;
+    const was = before == null || before === '' ? -1 : Number(before);
+    const now = next.steps[iso];
+    if (now != null && now >= goal && was < goal) {
+      const d = days.find((x) => x.iso === iso);
+      setHit({
+        iso,
+        steps: now,
+        label: d ? `${d.mon}月${d.dom}日` : iso,
+        count: days.filter((x) => Number(next.steps[x.iso]) >= goal).length,
+      });
+    }
     return true;
   };
 
@@ -859,6 +896,38 @@ function StepsTab({ user, cfg, holidays, y, m, setPeriod, toast }) {
     await persist({ ...base, submitted: true, submittedAt: Date.now() }, true);
     setAskSubmit(false); toast(t('submitted'));
   };
+
+  /* Today's line on the track. He only ever walks forward: the tumble is
+     saved for a period that has closed short, so nobody is met by a fallen
+     mascot at nine in the morning for not having walked yet. */
+  const todayIso = isoOf(new Date());
+  const companion = useMemo(() => {
+    const d = days.find((x) => x.iso === todayIso);
+    if (!d) return null;
+    const raw = steps[d.iso];
+    const has = raw != null && raw !== '';
+    const val = has ? Number(raw) : null;
+    const goal = Number(cfg.threshold) || 5000;
+    const done = has && val >= goal;
+    return {
+      mon: d.mon, dom: d.dom, steps: val, done,
+      pose: done ? 'cheer' : has && val > 0 ? 'walk' : 'idle',
+      pct: Math.min(100, Math.round(((val || 0) / goal) * 100)),
+      note: done ? t('goalHit')
+        : has && val > 0 ? t('toGoal').replace('{n}', nf(goal - val))
+        : t('notWalkedYet'),
+    };
+  }, [days, steps, cfg.threshold, todayIso, lang]);
+
+  /* Once the period is over, how it went. */
+  const result = useMemo(() => {
+    const over = new Date() > periodEnd(y, m);
+    if (!over || !filled.length) return null;
+    const goal = Number(cfg.threshold) || 5000;
+    return qualified
+      ? { kind: 'bonus', title: t('bonusWon'), note: t('bonusWonNote').replace('{n}', nf(goal)) }
+      : { kind: 'short', title: t('periodShort'), note: t('periodShortNote') };
+  }, [y, m, qualified, filled.length, cfg.threshold, lang]);
 
   const dayClass = (d) => {
     const hol = holidays[d.iso];
@@ -896,6 +965,38 @@ function StepsTab({ user, cfg, holidays, y, m, setPeriod, toast }) {
         {locked ? t('submitted') : t('notSubmitted')}
         {locked && <em>{t('lockedNote')}</em>}
       </div>
+
+      {companion && (
+        <div className="card companion">
+          <div className="crow">
+            <span className="clabel">{t('today')} {companion.mon}/{companion.dom}</span>
+            <span className="cgoal">{t('goalSteps').replace('{n}', nf(cfg.threshold))}</span>
+          </div>
+          <div className="track">
+            <div className="walker" style={{ '--p': companion.pct / 100 }}>
+              <MoraBot pose={companion.pose} />
+            </div>
+            <div className="goalpost" />
+            <div className="rail" />
+            <div className="railfill" style={{ width: `${companion.pct}%` }} />
+          </div>
+          <div className="crow foot">
+            <strong className="csteps">{companion.steps == null ? '–' : nf(companion.steps)}</strong>
+            <span className="cunit">{companion.steps == null ? '' : (lang === 'ja' ? '歩' : 'steps')}</span>
+            <span className={'cnote' + (companion.done ? ' ok' : '')}>{companion.note}</span>
+          </div>
+        </div>
+      )}
+
+      {result && (
+        <div className={'card result ' + result.kind}>
+          <div className="rbot"><MoraBot pose={result.kind === 'bonus' ? 'flag' : 'tumble'} /></div>
+          <div>
+            <strong>{result.title}</strong>
+            <p>{result.note}</p>
+          </div>
+        </div>
+      )}
 
       <div className="card">
         <div className="row2">
@@ -997,6 +1098,27 @@ function StepsTab({ user, cfg, holidays, y, m, setPeriod, toast }) {
           </div>
           <button className="btn primary big" onClick={commit}>{t('save')}</button>
         </div>
+      </Modal>
+
+      <Modal open={!!hit} onClose={() => setHit(null)} title={t('goalHit')}>
+        {hit && (
+          <div className="hit">
+            <div className="confetti" aria-hidden="true">
+              <i style={{ left: '8%',  background: '#FF9934', animationDelay: '0s' }} />
+              <i style={{ left: '22%', background: '#1F50B9', animationDelay: '.35s' }} />
+              <i style={{ left: '37%', background: '#138708', animationDelay: '.9s' }} />
+              <i style={{ left: '52%', background: '#FF9934', animationDelay: '.15s' }} />
+              <i style={{ left: '67%', background: '#4A78D6', animationDelay: '.7s' }} />
+              <i style={{ left: '81%', background: '#138708', animationDelay: '1.2s' }} />
+              <i style={{ left: '93%', background: '#1F50B9', animationDelay: '.5s' }} />
+            </div>
+            <div className="hitbot"><MoraBot pose="cheer" /></div>
+            <h2>{t('hitTitle')}</h2>
+            <p>{t('hitBody').replace('{d}', hit.label).replace('{n}', nf(hit.steps))}</p>
+            <p className="muted sm">{t('hitCount').replace('{n}', hit.count)}</p>
+            <button className="btn primary big" onClick={() => setHit(null)}>{t('hitClose')}</button>
+          </div>
+        )}
       </Modal>
 
       <Modal open={askSubmit} onClose={() => setAskSubmit(false)} title={t('submitConfirmTitle')}>
@@ -1930,7 +2052,7 @@ export default function App() {
 /* ================================ Styles ================================== */
 function Styles() {
   return (
-    <style>{`
+    <style>{MORABOT_CSS + `
 /* ---------------------------------------------------------------------------
    Type: Inter for Latin and every figure (real tabular numerals, so step
    counts align in a column), Noto Sans JP for Japanese. Both are drawn for
@@ -2036,6 +2158,59 @@ function Styles() {
 .periodbar button:hover{background:var(--wash)}
 .card{background:#fff;border-bottom:1px solid var(--rule);padding:16px 14px}
 .card.soft{background:var(--wash)}
+/* ---- モラボット ---------------------------------------------------------- */
+.login-hello{display:flex;align-items:flex-end;gap:6px;margin:6px 0 2px}
+.login-hello .mbot{width:104px;height:118px;flex:0 0 auto}
+.login-hello .bubble{margin:0 0 24px;background:var(--sat-wash);border-radius:14px 14px 14px 3px;
+  padding:11px 14px;font-size:13px;font-weight:500;color:var(--ink);line-height:1.5;white-space:pre-line}
+
+.companion{padding:14px 16px 13px}
+.companion .crow{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+.companion .clabel{font-size:12px;font-weight:700;color:var(--ink-2)}
+.companion .cgoal{font-size:11px;color:var(--dim)}
+.companion .track{position:relative;height:104px;margin-top:4px}
+/* He travels between the rail's ends rather than being centred on them,
+   so at 0% he stands at the start line instead of half off the card. */
+.companion .walker{position:absolute;bottom:19px;width:80px;height:90px;margin-left:-40px;
+  left:calc(40px + (100% - 80px) * var(--p, 0));
+  transition:left .9s cubic-bezier(.33,.1,.3,1)}
+.companion .rail{position:absolute;left:0;right:0;bottom:8px;height:10px;border-radius:5px;background:var(--hair)}
+.companion .railfill{position:absolute;left:0;bottom:8px;height:10px;border-radius:5px;background:var(--brand);
+  transition:width .9s cubic-bezier(.33,.1,.3,1)}
+.companion .goalpost{position:absolute;right:0;bottom:18px;width:2px;height:26px;background:var(--rule-2)}
+.companion .goalpost::after{content:"";position:absolute;right:2px;top:0;width:17px;height:12px;
+  background:var(--go);border-radius:2px 0 0 2px}
+.companion .foot{margin-top:10px}
+.companion .csteps{font-size:26px;font-weight:700;color:var(--ink);letter-spacing:-.01em}
+.companion .cunit{font-size:12px;color:var(--dim);margin:0 auto 0 5px}
+.companion .cnote{font-size:12px;font-weight:500;color:var(--brand);text-align:right}
+.companion .cnote.ok{color:var(--go)}
+
+.result{display:flex;align-items:center;gap:14px;padding:14px 16px}
+.result .rbot{width:94px;height:104px;flex:0 0 auto}
+.result strong{display:block;font-size:15px;font-weight:700;color:var(--ink)}
+.result p{margin:4px 0 0;font-size:12px;color:var(--ink-2);line-height:1.6}
+.result.bonus{background:var(--go-wash);border-color:#BFDCD4}
+.result.short{background:var(--wash)}
+
+.hit{position:relative;text-align:center;padding:4px 2px 2px;overflow:hidden}
+.hit .hitbot{position:relative;width:150px;height:170px;margin:0 auto}
+.hit h2{position:relative;margin:14px 0 0;font-size:22px;font-weight:700;color:var(--ink)}
+.hit p{position:relative;margin:8px 0 0;font-size:13px;color:var(--ink-2);line-height:1.7}
+.hit .btn{position:relative;margin-top:18px}
+.hit .confetti{position:absolute;inset:0;pointer-events:none}
+.hit .confetti i{position:absolute;top:0;width:8px;height:12px;border-radius:2px;
+  animation:hitFall 2.3s linear infinite}
+@keyframes hitFall{
+  0%{transform:translateY(-30px) rotate(0);opacity:0}
+  14%{opacity:1}
+  100%{transform:translateY(230px) rotate(520deg);opacity:0}
+}
+@media(prefers-reduced-motion:reduce){
+  .hit .confetti i{animation:none;opacity:0}
+  .companion .walker,.companion .railfill{transition:none}
+}
+
 .sechead{display:flex;justify-content:space-between;align-items:center;gap:12px;
   padding:12px 14px 11px;border-bottom:1px solid var(--rule-2);background:var(--wash)}
 .sechead>span{font-size:13px;font-weight:600;color:var(--ink-2)}
