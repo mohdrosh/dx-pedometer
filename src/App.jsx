@@ -150,6 +150,10 @@ const STR = {
   sortBy: ['並び替え', 'Sort'],
   asc: ['昇順', 'Asc'],
   desc: ['降順', 'Desc'],
+  dateOrder: ['日付の並び', 'Order'],
+  orderAsc: ['21日 → 翌月20日', '21st → 20th'],
+  orderDesc: ['翌月20日 → 21日', '20th → 21st'],
+  orderFlip: ['切り替え', 'switch'],
   botAlt: ['モラボット', 'MoraBot'],
   botHello: ['こんにちは！\n今日も歩きましたか？', 'Hello! Did you get your steps in today?'],
   today: ['きょう', 'Today'],
@@ -803,13 +807,33 @@ function StepsTab({ user, cfg, holidays, y, m, setPeriod, toast }) {
      be lost to a reload while logging out saved it. */
   const oldest = React.useRef(0);
   const [saveState, setSaveState] = useState('');
+  /* Which way the list runs. Remembered per browser, since it follows the
+     pedometer someone owns rather than anything about the period. */
+  const [desc, setDesc] = useState(() => {
+    try { return localStorage.getItem('dx:listDesc') === '1'; } catch { return false; }
+  });
+  const flipOrder = () => setDesc((v) => {
+    try { localStorage.setItem('dx:listDesc', v ? '0' : '1'); } catch { /* private window */ }
+    return !v;
+  });
 
-  /* On a PC the list is filled top to bottom, so Enter should behave like
-     Tab and land on the next day rather than doing nothing. */
-  const focusNext = (el) => {
+  /* Enter behaves like Tab so the list can be filled without reaching for
+     the mouse. It also goes backwards — Shift+Enter, or the arrow keys —
+     because a pedometer that lists yesterday first is filled bottom to top,
+     and getting stuck at a typo with no way back up is maddening. */
+  const focusStep = (el, dir) => {
     const boxes = [...(listRef.current?.querySelectorAll('input:not([disabled])') || [])];
-    const nx = boxes[boxes.indexOf(el) + 1];
-    if (nx) { nx.focus(); nx.select(); } else el.blur();
+    const nx = boxes[boxes.indexOf(el) + dir];
+    if (nx) { nx.focus(); nx.select(); } else if (dir > 0) el.blur();
+  };
+  const listKey = (e) => {
+    const dir = e.key === 'Enter' ? (e.shiftKey ? -1 : 1)
+      : e.key === 'ArrowDown' ? 1
+      : e.key === 'ArrowUp' ? -1
+      : 0;
+    if (!dir) return;
+    e.preventDefault();
+    focusStep(e.target, dir);
   };
 
   const MAX_WAIT = 1500;
@@ -1047,7 +1071,14 @@ function StepsTab({ user, cfg, holidays, y, m, setPeriod, toast }) {
         </div>
       ) : (
         <div className="listv" ref={listRef}>
-          {slots.filter((sl) => !sl.none).map((sl) => {
+          <div className="ordbar">
+            <span>{t('dateOrder')}</span>
+            <button type="button" className="ordbtn" onClick={flipOrder}>
+              {desc ? t('orderDesc') : t('orderAsc')}
+              <em>{t('orderFlip')}</em>
+            </button>
+          </div>
+          {(() => { const rows = slots.filter((sl) => !sl.none); return desc ? [...rows].reverse() : rows; })().map((sl) => {
             const v = steps[sl.iso];
             const hol = holidays[sl.iso];
             return (
@@ -1061,7 +1092,7 @@ function StepsTab({ user, cfg, holidays, y, m, setPeriod, toast }) {
                     const raw = e.target.value.replace(/[^\d]/g, '');
                     saveDay(sl.iso, raw === '' ? '' : Number(raw));
                   }}
-                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); focusNext(e.target); } }}
+                  onKeyDown={listKey}
                   className={v != null && v !== '' ? (Number(v) >= cfg.threshold ? 'go' : 'short') : ''}
                 />
               </div>
@@ -2157,6 +2188,14 @@ function Styles() {
 .periodbar button:hover{background:var(--wash)}
 .card{background:#fff;border-bottom:1px solid var(--rule);padding:16px 14px}
 .card.soft{background:var(--wash)}
+.ordbar{display:flex;align-items:center;gap:10px;padding:9px 14px;border-bottom:1px solid var(--hair);
+  background:var(--wash);font-size:12px;color:var(--ink-2)}
+.ordbtn{font:inherit;font-size:12px;font-weight:600;color:var(--brand);background:#fff;
+  border:1px solid var(--rule);border-radius:8px;padding:7px 11px;margin-left:auto;cursor:pointer;
+  display:flex;align-items:center;gap:7px;min-height:34px}
+.ordbtn em{font-style:normal;font-weight:500;font-size:11px;color:var(--dim)}
+.ordbtn:hover{border-color:var(--brand)}
+
 /* ---- モラボット ---------------------------------------------------------- */
 .login-hello{display:flex;align-items:flex-end;gap:6px;margin:6px 0 2px}
 .login-hello .mbot{width:104px;height:118px;flex:0 0 auto}
