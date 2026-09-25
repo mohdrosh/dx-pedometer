@@ -80,12 +80,6 @@ export default function MoraBot({ pose = 'idle', title, style }) {
             )}
           </g>
 
-          {standing && (
-            <>
-              <ellipse cx="556" cy="958" rx="44" ry="78" fill="#4A78D6" />
-              <ellipse cx="1044" cy="958" rx="44" ry="78" fill="#4A78D6" />
-            </>
-          )}
           <rect x="630" y="869" width="340" height="194" rx="70" fill="#138708" />
           <circle cx="800" cy="966" r="50" fill="none" stroke="#FFFFFF" strokeWidth="8" />
 
@@ -123,6 +117,13 @@ export default function MoraBot({ pose = 'idle', title, style }) {
               <path className="mb-sweat" d="M1042 404 Q1092 474 1092 500 a50 50 0 0 1-100 0 Q992 474 1042 404 Z" fill="#8ED3F4" />
             )}
           </g>
+
+          {standing && (
+            <>
+              <ellipse className="mb-oval-l" cx="556" cy="958" rx="44" ry="78" fill="#4A78D6" />
+              <ellipse className="mb-oval-r" cx="1044" cy="958" rx="44" ry="78" fill="#4A78D6" />
+            </>
+          )}
         </g>
 
         {pose === 'cheer' && (
@@ -156,6 +157,8 @@ export const MORABOT_CSS = `
 .mbot .mb-foot-r{transform-origin:892px 1085px}
 .mbot .mb-shadow{transform-origin:800px 1142px}
 .mbot .mb-pennant{transform-origin:1163px 977px}
+.mbot .mb-oval-l,.mbot .mb-oval-r{transform-box:view-box}
+.mbot .mb-oval-r{transform-origin:1044px 1030px}
 
 /* A face that never blinks reads as a picture; one that does reads as
    somebody being there. Every pose keeps it. */
@@ -174,7 +177,12 @@ export const MORABOT_CSS = `
 .mbot-wave .mb-body,.mbot-hello .mb-body{animation:mbFloat 2.6s ease-in-out infinite}
 .mbot-wave .mb-head,.mbot-hello .mb-head{animation:mbTilt 2.6s ease-in-out infinite}
 .mbot-wave .mb-antenna,.mbot-hello .mb-antenna{animation:mbAnt 2.6s ease-in-out infinite}
-.mbot-wave .mb-arm-r,.mbot-hello .mb-arm-r{animation:mbWave .62s ease-in-out infinite}
+.mbot-wave .mb-arm-r{animation:mbWave .62s ease-in-out infinite}
+@keyframes mbHelloWave{
+  0%,100%{transform:translate(70px,-88px) rotate(-11deg)}
+  50%{transform:translate(78px,-100px) rotate(-33deg)}
+}
+.mbot-hello .mb-oval-r{animation:mbHelloWave .62s ease-in-out infinite}
 
 /* --- the walk ------------------------------------------------------------
    Each foot is planted for half the stride, sliding backwards at an even
