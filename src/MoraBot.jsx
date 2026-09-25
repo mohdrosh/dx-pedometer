@@ -12,7 +12,8 @@
 
    Poses
      idle    standing, breathing, blinking
-     wave    waving hello                     — the sign-in screen
+     hello   the logo's standing drawing, waving — the sign-in screen
+     wave    waving, in the action drawing
      walk    a full walk cycle                — today's progress bar
      cheer   arms up with stars               — today reached 5,000
      flag    holding the pennant              — 完歩賞 earned
@@ -23,10 +24,16 @@
 ========================================================================== */
 import React from 'react';
 
-const CLOSED_EYES = new Set(['cheer', 'flag', 'tumble']);
+const CLOSED_EYES = new Set(['hello', 'cheer', 'flag', 'tumble']);
+/* 'hello' is the standing drawing from the logo — closed eyes, the pale
+   blue ovals, the small squared feet. Her action poses drop all three, so
+   they are drawn only here, where he is standing still and sits next to
+   people's memory of the mark itself. */
+const STANDING = new Set(['hello']);
 
 export default function MoraBot({ pose = 'idle', title, style }) {
   const closed = CLOSED_EYES.has(pose);
+  const standing = STANDING.has(pose);
   return (
     <svg
       className={`mbot mbot-${pose}`}
@@ -48,8 +55,17 @@ export default function MoraBot({ pose = 'idle', title, style }) {
       <ellipse className="mb-shadow" cx="800" cy="1142" rx="239" ry="45" fill="#DFE2E9" />
 
       <g className="mb-lean">
-        <ellipse className="mb-foot-l" cx="708" cy="1085" rx="90" ry="51" fill="#0B2A6B" />
-        <ellipse className="mb-foot-r" cx="892" cy="1085" rx="90" ry="51" fill="#0B2A6B" />
+        {standing ? (
+          <>
+            <rect className="mb-foot-l" x="672" y="1055" width="90" height="44" rx="22" fill="#0B2A6B" />
+            <rect className="mb-foot-r" x="838" y="1055" width="90" height="44" rx="22" fill="#0B2A6B" />
+          </>
+        ) : (
+          <>
+            <ellipse className="mb-foot-l" cx="708" cy="1085" rx="90" ry="51" fill="#0B2A6B" />
+            <ellipse className="mb-foot-r" cx="892" cy="1085" rx="90" ry="51" fill="#0B2A6B" />
+          </>
+        )}
 
         <g className="mb-body">
           <rect className="mb-arm-l" x="406" y="606" width="78" height="136" rx="39" fill="#FF9934" />
@@ -64,6 +80,12 @@ export default function MoraBot({ pose = 'idle', title, style }) {
             )}
           </g>
 
+          {standing && (
+            <>
+              <ellipse cx="556" cy="958" rx="44" ry="78" fill="#4A78D6" />
+              <ellipse cx="1044" cy="958" rx="44" ry="78" fill="#4A78D6" />
+            </>
+          )}
           <rect x="630" y="869" width="340" height="194" rx="70" fill="#138708" />
           <circle cx="800" cy="966" r="50" fill="none" stroke="#FFFFFF" strokeWidth="8" />
 
@@ -149,10 +171,10 @@ export const MORABOT_CSS = `
 .mbot-idle .mb-antenna{animation:mbAnt 2.8s ease-in-out infinite}
 
 @keyframes mbWave{0%,100%{transform:rotate(-8deg)}50%{transform:rotate(-46deg)}}
-.mbot-wave .mb-body{animation:mbFloat 2.6s ease-in-out infinite}
-.mbot-wave .mb-head{animation:mbTilt 2.6s ease-in-out infinite}
-.mbot-wave .mb-antenna{animation:mbAnt 2.6s ease-in-out infinite}
-.mbot-wave .mb-arm-r{animation:mbWave .62s ease-in-out infinite}
+.mbot-wave .mb-body,.mbot-hello .mb-body{animation:mbFloat 2.6s ease-in-out infinite}
+.mbot-wave .mb-head,.mbot-hello .mb-head{animation:mbTilt 2.6s ease-in-out infinite}
+.mbot-wave .mb-antenna,.mbot-hello .mb-antenna{animation:mbAnt 2.6s ease-in-out infinite}
+.mbot-wave .mb-arm-r,.mbot-hello .mb-arm-r{animation:mbWave .62s ease-in-out infinite}
 
 /* --- the walk ------------------------------------------------------------
    Each foot is planted for half the stride, sliding backwards at an even

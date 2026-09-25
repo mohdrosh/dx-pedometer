@@ -162,8 +162,8 @@ const STR = {
   periodShort: ['今回は届きませんでした', 'Not quite, this time'],
   periodShortNote: ['また来月いっしょに歩きましょう。', 'Let\u2019s walk again next month.'],
   hitTitle: ['やりましたね！', 'Nicely done'],
-  hitBody: ['{d}　{n}歩', '{d} — {n} steps'],
-  hitCount: ['今月これで {n}日目 の達成です', 'That is day {n} this month'],
+  hitBody: ['{d}　合計 {n}歩', '{d} — {n} steps in total'],
+  hitCount: ['{n}日すべてで {g}歩を達成しました', 'All {n} days cleared {g} steps'],
   hitClose: ['つづける', 'Carry on'],
   saving: ['保存中…', 'Saving…'],
   savedOk: ['保存済み', 'Saved'],
@@ -717,7 +717,7 @@ function Login({ onLogin, onTrial, lang, setLang }) {
         </div>
 
         <div className="login-hello">
-          <MoraBot pose="wave" title={t('botAlt')} />
+          <MoraBot pose="hello" title={t('botAlt')} />
           <p className="bubble">{t('botHello')}</p>
         </div>
 
@@ -770,7 +770,10 @@ function StepsTab({ user, cfg, holidays, y, m, setPeriod, toast }) {
   const [editIso, setEditIso] = useState(null);
   const [draft, setDraft] = useState('');
   const [askSubmit, setAskSubmit] = useState(false);
-  const [hit, setHit] = useState(null);
+  const [hit, setHit] = useState(false);
+  /* Null until the saved record has loaded, so a month that was already
+     complete when the screen opened does not congratulate you again. */
+  const wasQualified = React.useRef(null);
 
   const days = useMemo(() => periodDays(y, m), [y, m]);
   const slots = useMemo(() => formSlots(y, m), [y, m]);
@@ -778,6 +781,7 @@ function StepsTab({ user, cfg, holidays, y, m, setPeriod, toast }) {
   useEffect(() => {
     let live = true;
     setEntry(null);
+    wasQualified.current = null;
     S.get(entryKey(pk, user.id)).then((e) => { if (live) setEntry(e || { steps: {}, submitted: false }); });
     return () => { live = false; };
   }, [pk, user.id]);
@@ -856,24 +860,9 @@ function StepsTab({ user, cfg, holidays, y, m, setPeriod, toast }) {
     if (overMax(val)) { warnMax(); return false; }
     const base = latest.current || entry;
     const next = { ...base, steps: { ...(base.steps || {}) } };
-    const before = base.steps?.[iso];
     if (val === '' || val == null) delete next.steps[iso];
     else next.steps[iso] = Math.max(0, Number(val));
     await persist(next, immediate);
-    /* Only on the way up, and only once per day — editing a number that is
-       already over the line should not set off the confetti again. */
-    const goal = Number(cfg.threshold) || 5000;
-    const was = before == null || before === '' ? -1 : Number(before);
-    const now = next.steps[iso];
-    if (now != null && now >= goal && was < goal) {
-      const d = days.find((x) => x.iso === iso);
-      setHit({
-        iso,
-        steps: now,
-        label: d ? `${d.mon}月${d.dom}日` : iso,
-        count: days.filter((x) => Number(next.steps[x.iso]) >= goal).length,
-      });
-    }
     return true;
   };
 
@@ -928,6 +917,16 @@ function StepsTab({ user, cfg, holidays, y, m, setPeriod, toast }) {
       ? { kind: 'bonus', title: t('bonusWon'), note: t('bonusWonNote').replace('{n}', nf(goal)) }
       : { kind: 'short', title: t('periodShort'), note: t('periodShortNote') };
   }, [y, m, qualified, filled.length, cfg.threshold, lang]);
+
+  /* People often fill the whole month in one sitting, so congratulating a
+     single day meant a popup to dismiss after every number. It waits for
+     the month to be complete instead — which is the 完歩賞 itself. */
+  useEffect(() => {
+    if (!entry) return;
+    if (wasQualified.current === null) { wasQualified.current = qualified; return; }
+    if (qualified && !wasQualified.current) setHit(true);
+    wasQualified.current = qualified;
+  }, [qualified, entry]);
 
   const dayClass = (d) => {
     const hol = holidays[d.iso];
@@ -1100,7 +1099,7 @@ function StepsTab({ user, cfg, holidays, y, m, setPeriod, toast }) {
         </div>
       </Modal>
 
-      <Modal open={!!hit} onClose={() => setHit(null)} title={t('goalHit')}>
+      <Modal open={hit} onClose={() => setHit(false)} title={t('bonusWon')}>
         {hit && (
           <div className="hit">
             <div className="confetti" aria-hidden="true">
@@ -1112,11 +1111,11 @@ function StepsTab({ user, cfg, holidays, y, m, setPeriod, toast }) {
               <i style={{ left: '81%', background: '#138708', animationDelay: '1.2s' }} />
               <i style={{ left: '93%', background: '#1F50B9', animationDelay: '.5s' }} />
             </div>
-            <div className="hitbot"><MoraBot pose="cheer" /></div>
+            <div className="hitbot"><MoraBot pose="flag" /></div>
             <h2>{t('hitTitle')}</h2>
-            <p>{t('hitBody').replace('{d}', hit.label).replace('{n}', nf(hit.steps))}</p>
-            <p className="muted sm">{t('hitCount').replace('{n}', hit.count)}</p>
-            <button className="btn primary big" onClick={() => setHit(null)}>{t('hitClose')}</button>
+            <p>{t('hitBody').replace('{d}', `${y}年 ${m}月度`).replace('{n}', nf(total))}</p>
+            <p className="muted sm">{t('hitCount').replace('{n}', days.length).replace('{g}', nf(cfg.threshold))}</p>
+            <button className="btn primary big" onClick={() => setHit(false)}>{t('hitClose')}</button>
           </div>
         )}
       </Modal>
