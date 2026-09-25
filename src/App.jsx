@@ -244,7 +244,6 @@ const STR = {
   fbNotMailed: ['未通知', 'Not notified'],
   fbMailOff: ['メール通知は未設定です。ご意見はこの画面で確認してください。', 'Email notification is not configured — read feedback here.'],
   fbAnonymous: ['管理者', 'Administrator'],
-  required: ['必須', 'Required'],
   company: ['モラブ阪神工業株式会社', 'Morabu Hanshin Kogyo Co., Ltd.'],
   eyebrow: ['健康対策推進活動', 'Health Promotion Activity'],
   mainTitle: ['万歩計実績表', 'Pedometer Record'],
