@@ -593,7 +593,10 @@ function FeedbackButton({ user, toast }) {
              to the committee rather than nowhere. */
           from_email: payload.email || EMAILJS.to.split(',')[0].trim(),
           message: body,
-          image_attached: '（画像の添付はありません）',
+          /* The shared template prints whatever goes in this slot; the
+             ごみ管理 form puts a picture there. This form has no upload,
+             so it sends nothing and the line disappears. */
+          image_attached: '',
           to_email: EMAILJS.to,
         }, { publicKey: EMAILJS.key });
         sent = true;
