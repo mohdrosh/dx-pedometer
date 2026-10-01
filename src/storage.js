@@ -58,13 +58,28 @@ const local = {
   },
 };
 
+/* A session lasts a week, and a tab left open outlives it. Every call then
+   comes back 401 while the screen still looks signed in — steps and feedback
+   failed silently that way, and people were told their entry had been saved
+   when the server had refused it. The app registers a handler here so one
+   refusal can end the session properly instead. Sign-in is exempt: a 401
+   there means a bad employee number, not an expired session. */
+let onLost = null;
+export function onSessionLost(fn) { onLost = fn; }
+function noteStatus(res, path) {
+  if (res.status === 401 && !String(path).includes('/api/login')) {
+    try { onLost?.(); } catch { /* never let this break the caller */ }
+  }
+  return res;
+}
+
 /* ---------- HTTP adapter (shared server / AWS) ---------- */
 async function call(path, options = {}) {
-  const res = await fetch(apiBase() + path, {
+  const res = noteStatus(await fetch(apiBase() + path, {
     headers: { 'Content-Type': 'application/json' },
     credentials: 'same-origin',
     ...options,
-  });
+  }), path);
   if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
   return res.json();
 }
@@ -154,12 +169,13 @@ export async function registerTrial(person) {
 /** Store feedback. Delivery by email is handled separately (EmailJS). */
 export async function saveFeedback(f) {
   try {
-    const res = await fetch(`${base()}/api/feedback`, {
+    const res = noteStatus(await fetch(`${base()}/api/feedback`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
       body: JSON.stringify(f),
-    });
-    return await res.json();
+    }), '/api/feedback');
+    return res.ok ? await res.json() : null;
   } catch (e) {
     console.warn('feedback save failed', e);
     return null;
@@ -168,7 +184,7 @@ export async function saveFeedback(f) {
 
 export async function fetchFeedback() {
   try {
-    const res = await fetch(`${base()}/api/feedback`, { credentials: 'same-origin' });
+    const res = noteStatus(await fetch(`${base()}/api/feedback`, { credentials: 'same-origin' }), '/api/feedback');
     const j = await res.json();
     return j.items || [];
   } catch { return []; }
@@ -180,12 +196,12 @@ export async function fetchFeedback() {
    no server, so the caller falls back to checking the roster itself. */
 
 const post = async (path, body) => {
-  const res = await fetch(base() + path, {
+  const res = noteStatus(await fetch(base() + path, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     credentials: 'same-origin',
     body: JSON.stringify(body || {}),
-  });
+  }), path);
   return { status: res.status, body: await res.json().catch(() => ({})) };
 };
 
@@ -222,12 +238,12 @@ export async function apiMe() {
 /** Saves the signed-in participant's own details. */
 export async function apiSaveMe(fields) {
   try {
-    const res = await fetch(`${base()}/api/me`, {
+    const res = noteStatus(await fetch(`${base()}/api/me`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'same-origin',
       body: JSON.stringify(fields),
-    });
+    }), '/api/me');
     if (!res.ok) return null;
     return (await res.json()).user || null;
   } catch { return null; }

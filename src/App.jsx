@@ -4,6 +4,7 @@ import MoraBot, { MORABOT_CSS } from './MoraBot';
 import {
   S, registerTrial, saveFeedback, fetchFeedback,
   IS_LOCAL, fetchBootstrap, apiLogin, apiLogout, apiMe, apiSaveMe, setLeaving,
+  onSessionLost,
 } from './storage';
 import { DEFAULT_REGIONS, DEFAULT_CFG, ROSTER_SEED, orderRegions } from './defaults';
 import emailjs from '@emailjs/browser';
@@ -150,6 +151,7 @@ const STR = {
   sortBy: ['並び替え', 'Sort'],
   asc: ['昇順', 'Asc'],
   desc: ['降順', 'Desc'],
+  sessionGone: ['ログインの有効期限が切れました。お手数ですが、もう一度ログインしてください。', 'Your session has expired. Please sign in again.'],
   dateOrder: ['日付の並び', 'Order'],
   orderAsc: ['21日 → 翌月20日', '21st → 20th'],
   orderDesc: ['翌月20日 → 21日', '20th → 21st'],
@@ -696,7 +698,7 @@ function TrialForm({ cfg, onDone, onCancel, toast }) {
 }
 
 /* ============================ Login screen ================================ */
-function Login({ onLogin, onTrial, lang, setLang }) {
+function Login({ onLogin, onTrial, lang, setLang, notice }) {
   const t = useT();
   const [id, setId] = useState('');
   const [err, setErr] = useState('');
@@ -742,6 +744,7 @@ function Login({ onLogin, onTrial, lang, setLang }) {
             onKeyDown={(e) => e.key === 'Enter' && go()}
           />
         </label>
+        {notice === 'expired' && !err && <div className="notice">{t('sessionGone')}</div>}
         {err && <div className="err">{err}</div>}
 
         {/* Shown to everyone now: whether this person has already answered is
@@ -1907,6 +1910,7 @@ export default function App() {
   const [cfg, setCfg] = useState(null);
   const [roster, setRoster] = useState(null);
   const [user, setUser] = useState(null);
+  const [expired, setExpired] = useState(false);
   const [mod, setMod] = useState('steps');
   const [tab, setTab] = useState('entry');
   const [holidays, setHolidays] = useState(HOLIDAYS_FALLBACK);
@@ -1948,7 +1952,19 @@ export default function App() {
 
   const signOut = useCallback(async () => {
     if (!IS_LOCAL) await apiLogout();
-    setUser(null); setRoster([]); setTab('entry');
+    setUser(null); setRoster([]); setTab('entry'); setExpired(false);
+  }, []);
+
+  /* A session lasts a week and a tab left open outlives it. Every call then
+     comes back refused while the screen still looks signed in, so steps and
+     feedback failed quietly and people were told their entry had been saved.
+     One refusal now ends the session here, and says why. */
+  useEffect(() => {
+    onSessionLost(() => {
+      setUser((u) => { if (u) setExpired(true); return null; });
+      setRoster([]); setTab('entry');
+    });
+    return () => onSessionLost(null);
   }, []);
 
   /* Signed-out browsers get the public settings only, and no roster at all.
@@ -2020,6 +2036,7 @@ export default function App() {
             onTrial={() => setShowTrial(true)}
             lang={lang} setLang={setLang}
             onLogin={signIn}
+            notice={expired ? 'expired' : null}
           />
         </div>
       </LangCtx.Provider>
@@ -2204,6 +2221,9 @@ function Styles() {
 .cell.ahead .dnum,.cell.ahead .dval{color:var(--faint)}
 .lrow.ahead .ld,.lrow.ahead .ld em{color:var(--faint)}
 .lrow.ahead input:disabled{background:var(--wash);color:var(--faint)}
+
+.notice{background:var(--sat-wash);border:1px solid #C7D7E8;color:var(--ink);
+  border-radius:11px;padding:12px 14px;font-size:12.5px;line-height:1.65;margin:0 0 14px}
 
 .ordbar{display:flex;align-items:center;gap:10px;padding:9px 14px;border-bottom:1px solid var(--hair);
   background:var(--wash);font-size:12px;color:var(--ink-2)}
