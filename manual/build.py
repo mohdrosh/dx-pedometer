@@ -28,12 +28,12 @@ EDITIONS = {
         'keep': ['s01', 's02', 's03', 's04', 's05', 's06', 's07', 's13'],
         'for': '参加者',
         'sub': 'Pedometer Record System — User Manual for participants',
-        'groups': {'管理者（健康対策委員）の方へ / FOR ADMINISTRATORS': None},
+        'groups': {'管理者（健康対策委員会）の方へ / FOR ADMINISTRATORS': None},
     },
     '管理者用': {
         'file': '万歩計実績表_利用マニュアル_管理者用.pdf',
         'keep': ['s01', 's08', 's09', 's10', 's11', 's12', 's13'],
-        'for': '健康対策委員（管理者）',
+        'for': '健康対策委員会（管理者）',
         'sub': 'Pedometer Record System — Administrator Manual',
         # 01 is the only chapter left above the administrator ones, so its
         # group gets a heading of its own rather than repeating theirs.
@@ -42,7 +42,7 @@ EDITIONS = {
     '全体': {
         'file': '万歩計実績表_利用マニュアル_全体.pdf',
         'keep': None,                      # everything, numbering untouched
-        'for': '参加者・健康対策委員（管理者）',
+        'for': '参加者・健康対策委員会（管理者）',
         'sub': 'Pedometer Record System — User Manual for participants and administrators',
         'groups': {},
     },

@@ -91,11 +91,11 @@ const STR = {
   incomplete: ['未入力あり', 'Incomplete'],
   submitted: ['提出済', 'Submitted'],
   notSubmitted: ['未提出', 'Not submitted'],
-  submit: ['提出する', 'Submit'],
+  submit: ['実績表を提出', 'Submit Record'],
   submitConfirmTitle: ['提出しますか？', 'Submit this month?'],
   submitConfirmBody: ['提出後は修正できません。', 'You cannot edit after submitting.'],
   cancel: ['キャンセル', 'Cancel'],
-  confirm: ['提出する', 'Submit'],
+  confirm: ['実績表を提出', 'Submit Record'],
   lockedNote: ['提出済みのため編集できません。修正が必要な場合は総務へ連絡してください。', 'Locked after submission. Contact General Affairs if you need a correction.'],
   missingNote: ['未入力の日があります。歩かなかった日は 0 を入力してください。', 'Some days are blank. Enter 0 for days you did not walk.'],
   windowClosed: ['提出期間外です', 'Outside the submission window'],
@@ -141,7 +141,7 @@ const STR = {
   submittedCount: ['提出済', 'Submitted'],
   bonusCount: ['完歩賞対象者', 'Bonus recipients'],
   payout: ['合計支給額', 'Total payout'],
-  download: ['万歩計集計表をダウンロード', 'Download Excel'],
+  download: ['万歩計実績表をダウンロード', 'Download Excel'],
   exportLayout: ['Excelの列構成', 'Excel column layout'],
   layoutSpec: ['仕様書準拠（送信方法・支給金額なし）', 'Per spec (no submission-method / payout columns)'],
   layoutLegacy: ['現行ファイル互換（送信方法・支給金額あり）', 'Legacy compatible (keeps both columns)'],
@@ -1934,7 +1934,7 @@ export default function App() {
           ? { ...x, consent: !!consent, consentAsked: true, consentAt: Date.now() } : x));
         setRoster(next); await S.set('roster', next);
       }
-      const u = admin ? { admin: true, id, name: '健康対策委員' } : { admin: false, ...p };
+      const u = admin ? { admin: true, id, name: '健康対策委員会' } : { admin: false, ...p };
       setUser(u); setTab(admin ? 'admin' : 'entry');
       return { user: u };
     }

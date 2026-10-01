@@ -195,9 +195,9 @@ td.k .en { font-weight: 400; }
     <li><a href="#s06"><span class="n">06</span>マイページを見る <span class="t-en">My page</span></a></li>
     <li><a href="#s07"><span class="n">07</span>リマインドメールと自動提出 <span class="t-en">Reminders &amp; automatic submission</span></a></li>
   </ol>
-  <div class="grp">管理者（健康対策委員）の方へ / FOR ADMINISTRATORS</div>
+  <div class="grp">管理者（健康対策委員会）の方へ / FOR ADMINISTRATORS</div>
   <ol>
-    <li><a href="#s08"><span class="n">08</span>集計を見る・万歩計集計表を出力する <span class="t-en">Summary &amp; spreadsheet export</span></a></li>
+    <li><a href="#s08"><span class="n">08</span>集計を見る・万歩計実績表を出力する <span class="t-en">Summary &amp; spreadsheet export</span></a></li>
     <li><a href="#s09"><span class="n">09</span>完歩賞を確認する <span class="t-en">Walking bonus</span></a></li>
     <li><a href="#s10"><span class="n">10</span>未提出者にリマインドする <span class="t-en">Outstanding &amp; reminders</span></a></li>
     <li><a href="#s11"><span class="n">11</span>対象者・地域を管理する <span class="t-en">Participants &amp; regions</span></a></li>
@@ -214,7 +214,7 @@ td.k .en { font-weight: 400; }
   <div class="sec-h"><span class="num">01</span><h2>はじめに ― 本システムについて<em>About this system</em></h2></div>
   <div class="rule"></div>
 
-  <p class="ja">本システムは、健康対策委員会が実施している健康対策推進活動において、これまで個人ごとに Excel へ記入し、メールや FAX で提出していた万歩計の歩数記録を、Web 上で完結させるためのものです。参加者は毎日の歩数を入力して月末に提出し、健康対策委員はその結果をそのまま集計表として取り出せます。</p>
+  <p class="ja">本システムは、健康対策委員会が実施している健康対策推進活動において、これまで個人ごとに Excel へ記入し、メールや FAX で提出していた万歩計の歩数記録を、Web 上で完結させるためのものです。参加者は毎日の歩数を入力して月末に提出し、健康対策委員会はその結果をそのまま実績表として取り出せます。</p>
   <p class="en">This system replaces the personal Excel form and the email/FAX submissions previously used for the Health Promotion Committee's pedometer activity. Participants enter their daily step counts and submit once a month; the Health Promotion Committee can export the completed master spreadsheet directly.</p>
 
   <h3>対象期間の考え方<em>How the month is counted</em></h3>
@@ -222,15 +222,17 @@ td.k .en { font-weight: 400; }
   <p class="en">A month runs from the <b>21st to the 20th of the following month</b>, not the calendar month. "2026年 8月度" therefore covers 21 July to 20 August. The period is always shown at the top of the screen.</p>
 
   <h3>毎月の流れ<em>The monthly cycle</em></h3>
-  <p class="ja">21日から翌月1日までの間に、画面下部の「提出する」ボタンを押して集計表を提出します。</p>
-  <p class="en">Between the 21st and the 1st of the following month, press the 提出する button at the bottom of the screen to submit.</p>
+  <p class="ja">歩数は「前月 21 日〜今月 20 日」の 1 か月分をまとめて提出します。記録期間が終わったら、今月 21 日〜翌月 1 日の間に、画面下部の「実績表を提出」ボタンを押してください。<br>※ここでの「今月」は、記録期間が終わる月（20 日がある月）のことです。</p>
+  <p class="en">Steps are submitted for one period at a time, from the 21st of the previous month to the 20th of this month. After the period ends, press the 実績表を提出 (Submit Record) button at the bottom of the screen between the 21st of this month and the 1st of next month.<br>Note: "This month" means the month in which the recording period ends — the month containing the 20th.</p>
   <div class="flow">
-    <div><b>21日〜20日</b>毎日の歩数を入力<span>Enter your steps daily</span></div>
-    <div><b>21日〜翌月1日</b>集計表を提出する<span>Press Submit</span></div>
-    <div><b>25日</b>提出のお知らせ<span>Notice</span></div>
-    <div><b>26日</b>リマインドメール配信<span>Reminder email</span></div>
-    <div><b>翌月2日</b>同意者は実績表の自動提出<span>Auto-submission</span></div>
+    <div><b>前月21日〜今月20日</b>記録期間：毎日の歩数を入力<span>Recording period: enter steps daily</span></div>
+    <div><b>今月21日〜翌月1日</b>提出期間：「実績表を提出」を押す<span>Submission period: press Submit Record</span></div>
+    <div><b>今月26日</b>未提出の方へリマインドメール<span>Reminder email if not yet submitted</span></div>
+    <div><b>翌月1日</b>提出締切<span>Final deadline</span></div>
+    <div><b>翌月2日</b>未提出の実績表を自動提出（同意者のみ）<span>Auto-submission (consented only)</span></div>
   </div>
+  <p class="ja"><b>【例】</b>9月21日〜10月20日の分の場合：10月21日〜11月1日に提出、10月26日にリマインド、11月2日に自動提出。</p>
+  <p class="en"><b>Example:</b> for Sep 21 – Oct 20, submit between Oct 21 and Nov 1, reminder on Oct 26, auto-submission on Nov 2.</p>
 
   <h3>完歩賞について<em>The walking bonus</em></h3>
   <p class="ja">対象期間中、<b>1日も欠かさず（土日・祝日を含む）5,000 歩以上</b>を達成した方が完歩賞の対象となり、2,000 円が給与にて支給されます（源泉徴収の対象です）。1 日でも 5,000 歩に届かない日があると対象外となります。</p>
@@ -393,8 +395,8 @@ td.k .en { font-weight: 400; }
 
   <ol class="steps">
     <li>未入力の日が残っている間は、ボタンには <b>「提出する（未入力 ○日）」</b> と表示され、押せません。<p class="en">While days are still blank the button reads 提出する（未入力 ○日）and stays disabled.</p></li>
-    <li>すべて入力すると <b>「提出する」</b> の表示になります。<b>「提出する」ボタン</b>を押すと確認画面が開きます。<p class="en">When the month is complete the button reads 提出する. Pressing it opens a confirmation.</p></li>
-    <li>合計歩数と完歩賞の判定を確認し、もう一度 <b>「提出する」ボタン</b>を押します。<p class="en">Check your total and bonus status, then press 提出する again.</p></li>
+    <li>すべて入力すると <b>「実績表を提出」</b> の表示になります。<b>「実績表を提出」ボタン</b>を押すと確認画面が開きます。<p class="en">When the month is complete the button reads 実績表を提出 (Submit Record). Pressing it opens a confirmation.</p></li>
+    <li>合計歩数と完歩賞の判定を確認し、もう一度 <b>「実績表を提出」ボタン</b>を押します。<p class="en">Check your total and bonus status, then press 実績表を提出 again.</p></li>
   </ol>
 
   <div class="note warn">
@@ -444,17 +446,16 @@ td.k .en { font-weight: 400; }
   <div class="sec-h"><span class="num">07</span><h2>リマインドメールと自動提出<em>Reminders &amp; automatic submission</em></h2></div>
   <div class="rule"></div>
 
-  <p class="ja">提出忘れを防ぐため、未提出の方には自動でメールが届きます。この章は参加者の方向けの説明です。</p>
-  <p class="en">To prevent missed submissions, anyone outstanding receives an automatic email. This chapter is for participants.</p>
+  <p class="ja">提出忘れを防ぐため、提出期間中にまだ実績表を提出していない方へ自動でメールが届きます。この章は参加者の方向けの説明です。</p>
+  <p class="en">To prevent missed submissions, anyone who has not yet submitted during the submission period receives an automatic email. This chapter is for participants.</p>
 
   <table>
     <tr><th>日付 / Date</th><th>起こること / What happens</th></tr>
-    <tr><td class="k">20日<p class="en">20th</p></td><td>対象期間の締め。<p class="en">The period closes.</p></td></tr>
-    <tr><td class="k">21日〜翌月1日<p class="en">21st – 1st</p></td><td>提出できる期間。<p class="en">Submission is open.</p></td></tr>
-    <tr><td class="k">25日<p class="en">25th</p></td><td>提出のお知らせ。<p class="en">Notice date.</p></td></tr>
-    <tr><td class="k">26日<p class="en">26th</p></td><td>未提出の方へリマインドメールが届きます。最終締切（翌月1日）が記載されています。<p class="en">A reminder email goes to anyone outstanding, stating the final deadline.</p></td></tr>
-    <tr><td class="k">翌月1日<p class="en">1st</p></td><td>最終締切。<p class="en">Final deadline.</p></td></tr>
-    <tr><td class="k">翌月2日<p class="en">2nd</p></td><td>同意済みで未提出の方は、未入力の日を 0 歩として自動提出されます。<p class="en">For consented participants still outstanding, the record is submitted with blanks as 0.</p></td></tr>
+    <tr><td class="k">今月20日<p class="en">20th of this month</p></td><td>記録期間の最終日。<p class="en">Last day of the recording period.</p></td></tr>
+    <tr><td class="k">今月21日〜翌月1日<p class="en">21st of this month – 1st of next month</p></td><td>提出期間。「実績表を提出」ボタンで提出できます。<p class="en">Submission period. Submit with the 実績表を提出 (Submit Record) button.</p></td></tr>
+    <tr><td class="k">今月26日<p class="en">26th of this month</p></td><td>まだ実績表を提出していない方へリマインドメールが届きます。メールには最終締切日（翌月1日）が書かれています。<p class="en">A reminder email is sent to anyone who has not yet submitted. It shows the final deadline, the 1st of next month.</p></td></tr>
+    <tr><td class="k">翌月1日<p class="en">1st of next month</p></td><td>提出締切。<p class="en">Final deadline.</p></td></tr>
+    <tr><td class="k">翌月2日<p class="en">2nd of next month</p></td><td>自動提出に同意している方で、まだ実績表を提出していない場合は、未入力の日を 0 歩として実績表が自動で提出されます。同意していない方は自動提出されません。設定はマイページで変更できます。<p class="en">If you have consented to auto-submission and have not submitted, your record is submitted automatically with blank days counted as 0 steps. If you have not consented, nothing is submitted. You can change this setting on My Page.</p></td></tr>
   </table>
 
   <h3>自動提出されるとどうなるか<em>What automatic submission does</em></h3>
@@ -463,14 +464,14 @@ td.k .en { font-weight: 400; }
 
   <div class="note warn">
     <b>注意 / Important</b>
-    <p>リマインドメールは、原則として<b>会社のメールアドレス</b>へ送信されます。アドレスが変わった場合は、マイページで更新するか健康対策委員までご連絡ください。</p>
+    <p>リマインドメールは、原則として<b>会社のメールアドレス</b>へ送信されます。アドレスが変わった場合は、マイページで更新するか健康対策委員会までご連絡ください。</p>
     <p>Reminders are sent to your <b>company address</b>. If it changes, update it on My page or tell the Health Promotion Committee.</p>
   </div>
 </section>
 
 <!-- ============================ 08 ============================ -->
 <section class="sec" id="s08">
-  <div class="sec-h"><span class="num">08</span><h2>集計を見る・万歩計集計表を出力する<em>Summary &amp; spreadsheet export</em></h2></div>
+  <div class="sec-h"><span class="num">08</span><h2>集計を見る・万歩計実績表を出力する<em>Summary &amp; spreadsheet export</em></h2></div>
   <div class="rule"></div>
 
   <p class="ja">管理者としてログインすると、集計画面が開きます。ログイン画面で社員番号の代わりに <b>kenkou@morabu.com</b> と入力してください。画面は <b>集計・完歩賞・未提出・対象者・ご意見・設定</b> の 6 つのタブに分かれています。</p>
@@ -496,9 +497,9 @@ td.k .en { font-weight: 400; }
     <li>行をクリックすると、その方の日別の明細が開きます。<p class="en">Click a row to see that person's daily figures.</p></li>
   </ol>
 
-  <h3>万歩計集計表を出力する<em>Exporting the spreadsheet</em></h3>
-  <p class="ja"><b>万歩計集計表をダウンロード</b>を押すと、現在の月度の集計表が Excel ファイルとして保存されます。ファイルには 2 つのシートが含まれます。</p>
-  <p class="en">Press <b>万歩計集計表をダウンロード</b> to save the current period as a spreadsheet containing two sheets.</p>
+  <h3>万歩計実績表を出力する<em>Exporting the spreadsheet</em></h3>
+  <p class="ja"><b>万歩計実績表をダウンロード</b>を押すと、現在の月度の実績表が Excel ファイルとして保存されます。ファイルには 2 つのシートが含まれます。</p>
+  <p class="en">Press <b>万歩計実績表をダウンロード</b> to save the current period as a spreadsheet containing two sheets.</p>
   <table>
     <tr><th>シート / Sheet</th><th>内容 / Contents</th></tr>
     <tr><td class="k">2608 など（月度名）<p class="en">Named by period</p></td><td>参加者全員の日別歩数・合計・5,000歩以上の判定・メールアドレス。<p class="en">Daily steps, totals, the 5,000-a-day flag and addresses for everyone.</p></td></tr>
@@ -657,12 +658,12 @@ td.k .en { font-weight: 400; }
 
   <h3>毎月のスケジュール<em>The monthly schedule</em></h3>
   <table>
-    <tr><th>日付 / Date</th><th>参加者 / Participant</th><th>健康対策委員 / Committee</th></tr>
-    <tr><td class="k">21日〜20日</td><td>毎日の歩数を入力<p class="en">Enter steps daily</p></td><td>―</td></tr>
-    <tr><td class="k">21日〜翌月1日</td><td>実績表を提出する<p class="en">Submit the record</p></td><td>集計画面で状況を確認<p class="en">Watch progress</p></td></tr>
-    <tr><td class="k">25日</td><td>―</td><td>提出のお知らせ<p class="en">Notice</p></td></tr>
-    <tr><td class="k">26日</td><td>リマインドメールを受信<p class="en">Reminder arrives</p></td><td>送信結果のサマリーを受信<p class="en">Receive the send summary</p></td></tr>
-    <tr><td class="k">翌月2日</td><td>同意者は実績表の自動提出<p class="en">Auto-submission of the record</p></td><td>Excel を出力し実績表の確認。確認後、要経費申請書の作成<p class="en">Export, check the records, then raise the expense request</p></td></tr>
+    <tr><th>日付 / Date</th><th>参加者 / Participant</th><th>健康対策委員会 / Health Committee</th></tr>
+    <tr><td class="k">前月21日〜今月20日</td><td>毎日の歩数を入力<p class="en">Enter steps daily</p></td><td>―</td></tr>
+    <tr><td class="k">今月21日〜翌月1日</td><td>実績表を提出<p class="en">Submit Record</p></td><td>集計画面で提出状況を確認<p class="en">Check submission status on the summary screen</p></td></tr>
+    <tr><td class="k">今月26日</td><td>まだ提出していない場合、リマインドメールが届く<p class="en">Reminder email if not yet submitted</p></td><td>送信人数と送信先の一覧がメールで届く<p class="en">Receive an email with the number of reminders sent and the list of recipients</p></td></tr>
+    <tr><td class="k">翌月1日</td><td>提出締切<p class="en">Final deadline</p></td><td>―</td></tr>
+    <tr><td class="k">翌月2日</td><td>自動提出に同意している場合、未提出分が自動提出される<p class="en">Auto-submission if you have consented</p></td><td>Excel を出力して実績を確認し、経費申請書を作成<p class="en">Export to Excel, check the records, then prepare the expense request</p></td></tr>
   </table>
 
   <h3>よくある質問<em>Frequently asked questions</em></h3>
