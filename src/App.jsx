@@ -892,7 +892,16 @@ function StepsTab({ user, cfg, holidays, y, m, setPeriod, toast }) {
     return true;
   };
 
-  const openDay = (iso) => { if (locked) return; setEditIso(iso); setDraft(steps[iso] != null ? String(steps[iso]) : ''); };
+  /* A day that has not happened yet cannot have a step count, and a figure
+     typed into one is either a mistake or a guess. Both are worse than a
+     blank. ISO dates compare correctly as plain strings. */
+  const todayIso = isoOf(new Date());
+  const isFuture = (iso) => iso > todayIso;
+
+  const openDay = (iso) => {
+    if (locked || isFuture(iso)) return;
+    setEditIso(iso); setDraft(steps[iso] != null ? String(steps[iso]) : '');
+  };
   /* 保存 means saved. Nothing about this one is worth batching. */
   const commit = async () => {
     if (!await saveDay(editIso, draft === '' ? '' : Number(draft), true)) return;
@@ -915,7 +924,6 @@ function StepsTab({ user, cfg, holidays, y, m, setPeriod, toast }) {
   /* Today's line on the track. He only ever walks forward: the tumble is
      saved for a period that has closed short, so nobody is met by a fallen
      mascot at nine in the morning for not having walked yet. */
-  const todayIso = isoOf(new Date());
   const companion = useMemo(() => {
     const d = days.find((x) => x.iso === todayIso);
     if (!d) return null;
@@ -1062,7 +1070,9 @@ function StepsTab({ user, cfg, holidays, y, m, setPeriod, toast }) {
             return (
               <button
                 key={d.iso}
-                className={`cell ${dayClass(d)} ${has ? (Number(v) >= cfg.threshold ? 'go' : 'short') : 'blank'} ${locked ? 'lock' : ''}`}
+                type="button"
+                disabled={isFuture(d.iso)}
+                className={`cell ${dayClass(d)} ${has ? (Number(v) >= cfg.threshold ? 'go' : 'short') : 'blank'} ${locked ? 'lock' : ''} ${isFuture(d.iso) ? 'ahead' : ''}`}
                 onClick={() => openDay(d.iso)}
               >
                 <span className="dnum">{d.dom}</span>
@@ -1084,11 +1094,11 @@ function StepsTab({ user, cfg, holidays, y, m, setPeriod, toast }) {
             const v = steps[sl.iso];
             const hol = holidays[sl.iso];
             return (
-              <div key={sl.iso} className={'lrow ' + dayClass(sl)}>
+              <div key={sl.iso} className={'lrow ' + dayClass(sl) + (isFuture(sl.iso) ? ' ahead' : '')}>
                 <span className="ld">{sl.mon}/{sl.dom}<em>{(lang === 'ja' ? DOW_JA : DOW_EN)[sl.dow]}</em></span>
                 {hol && <span className="hol">{hol}</span>}
                 <input
-                  inputMode="numeric" disabled={locked} value={v == null ? '' : v}
+                  inputMode="numeric" disabled={locked || isFuture(sl.iso)} value={v == null ? '' : v}
                   placeholder="0"
                   onChange={(e) => {
                     const raw = e.target.value.replace(/[^\d]/g, '');
@@ -2190,6 +2200,11 @@ function Styles() {
 .periodbar button:hover{background:var(--wash)}
 .card{background:#fff;border-bottom:1px solid var(--rule);padding:16px 14px}
 .card.soft{background:var(--wash)}
+.cell.ahead{background:var(--wash);cursor:default}
+.cell.ahead .dnum,.cell.ahead .dval{color:var(--faint)}
+.lrow.ahead .ld,.lrow.ahead .ld em{color:var(--faint)}
+.lrow.ahead input:disabled{background:var(--wash);color:var(--faint)}
+
 .ordbar{display:flex;align-items:center;gap:10px;padding:9px 14px;border-bottom:1px solid var(--hair);
   background:var(--wash);font-size:12px;color:var(--ink-2)}
 .ordbtn{font:inherit;font-size:12px;font-weight:600;color:var(--brand);background:#fff;
