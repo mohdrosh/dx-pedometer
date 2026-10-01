@@ -152,6 +152,11 @@ const STR = {
   asc: ['昇順', 'Asc'],
   desc: ['降順', 'Desc'],
   sessionGone: ['ログインの有効期限が切れました。お手数ですが、もう一度ログインしてください。', 'Your session has expired. Please sign in again.'],
+  email2: ['プライベートのメールアドレス（任意）', 'Personal email address (optional)'],
+  email2Use: ['このアドレスにもお知らせを送る', 'Send notifications to this address too'],
+  email2Note: ['チェックを外すと会社のアドレスにのみ届きます。', 'Unticked, mail goes to your company address only.'],
+  consentHere: ['この設定はいつでも変更できます。', 'You can change this at any time.'],
+  consentAdminNote: ['本人がマイページで変更することもできます。', 'The participant can also change this on My Page.'],
   dateOrder: ['日付の並び', 'Order'],
   orderAsc: ['21日 → 翌月20日', '21st → 20th'],
   orderDesc: ['翌月20日 → 21日', '20th → 21st'],
@@ -1184,7 +1189,11 @@ function ProfileTab({ user, cfg, roster, setRoster, toast, y, m, onUpdated }) {
   const t = useT(); const lang = useLang();
   const pk = periodKey(y, m);
   const [entry, setEntry] = useState(null);
-  const [f, setF] = useState({ region: user.region || '', gender: user.gender || '男', pedometer: user.pedometer || '', email: user.email || '' });
+  const [f, setF] = useState({
+    region: user.region || '', gender: user.gender || '男',
+    pedometer: user.pedometer || '', email: user.email || '',
+    email2: user.email2 || '', email2On: !!user.email2On, consent: !!user.consent,
+  });
 
   useEffect(() => {
     let live = true;
@@ -1244,6 +1253,27 @@ function ProfileTab({ user, cfg, roster, setRoster, toast, y, m, onUpdated }) {
         <label className="fld"><span>{t('email')}</span>
           <input value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} />
         </label>
+
+        <label className="fld"><span>{t('email2')}</span>
+          <input
+            value={f.email2} inputMode="email" placeholder="example@gmail.com"
+            onChange={(e) => setF({ ...f, email2: e.target.value })}
+          />
+        </label>
+        <label className="chk">
+          <input
+            type="checkbox" checked={f.email2On}
+            disabled={!f.email2.includes('@')}
+            onChange={(e) => setF({ ...f, email2On: e.target.checked })}
+          />
+          <span>{t('email2Use')}<em>{t('email2Note')}</em></span>
+        </label>
+
+        <label className="chk">
+          <input type="checkbox" checked={f.consent} onChange={(e) => setF({ ...f, consent: e.target.checked })} />
+          <span>{t('consentLabel')}<em>{t('consentHere')}</em></span>
+        </label>
+
         <button className="btn primary big" onClick={save}>{t('saveProfile')}</button>
       </div>
     </div>
@@ -1622,7 +1652,11 @@ function PeopleAdmin({ cfg, setCfg, roster, setRoster, toast }) {
     const dup = roster.some((p) => String(p.id) === String(f.id) && String(p.id) !== String(f._orig));
     if (dup) { toast(t('duplicateId')); return; }
     const next = f.isNew
-      ? [...roster, { id: String(f.id), name: f.name, region: f.region, gender: f.gender, email: f.email || '', pedometer: f.pedometer || '', active: true }]
+      ? [...roster, {
+        id: String(f.id), name: f.name, region: f.region, gender: f.gender,
+        email: f.email || '', email2: f.email2 || '', email2On: !!f.email2On,
+        pedometer: f.pedometer || '', consent: !!f.consent, active: true,
+      }]
       : roster.map((p) => {
         if (String(p.id) !== String(f._orig)) return p;
         const { isNew, _orig, ...rest } = f;
@@ -1656,7 +1690,7 @@ function PeopleAdmin({ cfg, setCfg, roster, setRoster, toast }) {
       <div className="card">
         <div className="navrow wrap">
           <input className="grow" placeholder={t('search')} value={q} onChange={(e) => setQ(e.target.value)} />
-          <button className="btn primary" onClick={() => setEdit({ isNew: true, id: '', name: '', region: cfg.regions[0], gender: '男', email: '', pedometer: '' })}>
+          <button className="btn primary" onClick={() => setEdit({ isNew: true, id: '', name: '', region: cfg.regions[0], gender: '男', email: '', email2: '', email2On: false, consent: false, pedometer: '' })}>
             + {t('addPerson')}
           </button>
         </div>
@@ -1742,6 +1776,21 @@ function PeopleAdmin({ cfg, setCfg, roster, setRoster, toast }) {
             </label>
             <label className="fld"><span>{t('email')}</span>
               <input value={edit.email || ''} onChange={(e) => setEdit({ ...edit, email: e.target.value })} />
+            </label>
+            <label className="fld"><span>{t('email2')}</span>
+              <input value={edit.email2 || ''} onChange={(e) => setEdit({ ...edit, email2: e.target.value })} />
+            </label>
+            <label className="chk">
+              <input
+                type="checkbox" checked={!!edit.email2On}
+                disabled={!String(edit.email2 || '').includes('@')}
+                onChange={(e) => setEdit({ ...edit, email2On: e.target.checked })}
+              />
+              <span>{t('email2Use')}</span>
+            </label>
+            <label className="chk">
+              <input type="checkbox" checked={!!edit.consent} onChange={(e) => setEdit({ ...edit, consent: e.target.checked })} />
+              <span>{t('consent')}<em>{t('consentAdminNote')}</em></span>
             </label>
             <div className="navrow">
               <button className="btn ghost" onClick={() => setEdit(null)}>{t('cancel')}</button>
@@ -2221,6 +2270,12 @@ function Styles() {
 .cell.ahead .dnum,.cell.ahead .dval{color:var(--faint)}
 .lrow.ahead .ld,.lrow.ahead .ld em{color:var(--faint)}
 .lrow.ahead input:disabled{background:var(--wash);color:var(--faint)}
+
+.chk{display:flex;gap:11px;align-items:flex-start;padding:4px 0 10px}
+.chk input{width:19px;height:19px;margin:2px 0 0;flex:0 0 auto;accent-color:var(--brand)}
+.chk input:disabled{opacity:.4}
+.chk>span{font-size:12.5px;color:var(--ink);line-height:1.65}
+.chk em{display:block;margin-top:5px;font-style:normal;font-size:11px;color:var(--dim)}
 
 .notice{background:var(--sat-wash);border:1px solid #C7D7E8;color:var(--ink);
   border-radius:11px;padding:12px 14px;font-size:12.5px;line-height:1.65;margin:0 0 14px}

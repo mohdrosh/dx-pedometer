@@ -28,7 +28,7 @@ if (fs.existsSync('.env.local')) dotenv.config({ path: '.env.local' });
 else if (fs.existsSync('.env')) dotenv.config();
 
 const nodemailer = (await import('nodemailer')).default;
-import { reminderMail, summaryMail, companyEmail } from './src/mail.js';
+import { reminderMail, summaryMail, reminderRecipients } from './src/mail.js';
 import { DEFAULT_CFG, ROSTER_SEED, orderRegions } from './src/defaults.js';
 
 if (!process.env.DATABASE_URL) {
@@ -167,10 +167,10 @@ async function sendReminders(y, m) {
   for (const p of people) {
     const e = await getKey(`st:${periodKey(y, m)}:${p.id}`);
     if (e && e.submitted) continue;
-    const to = companyEmail(p.email);
-    if (!to) { console.warn(`no company address for ${p.id} ${p.name}`); continue; }
+    const to = reminderRecipients(p);
+    if (!to.length) { console.warn(`no address for ${p.id} ${p.name}`); continue; }
     const { subject, body } = reminderMail({ name: p.name, y, m, consent: !!p.consent, url: APP_URL });
-    try { await send(to, subject, body); sent.push(p); }
+    try { await send(to.join(', '), subject, body); sent.push(p); }
     catch (err) { console.error(`send failed ${p.id}`, err.message); }
   }
   if (ADMIN_EMAIL) {

@@ -24,6 +24,18 @@ export function companyEmail(raw) {
   return work || list[0];
 }
 
+/** Who a reminder goes to. The company address always; the personal one
+    the participant added only while they leave its tick on, which is the
+    whole point of the tick — they can stop it reaching their phone without
+    deleting the address. */
+export function reminderRecipients(p) {
+  const work = companyEmail(p.email);
+  const out = work ? [work] : [];
+  const personal = String(p.email2 || '').trim();
+  if (p.email2On && personal.includes('@') && !out.includes(personal)) out.push(personal);
+  return out;
+}
+
 /** Period m of year y closes on the 20th; the final deadline is the 1st of the
     following month. Reminders go out on the 26th. */
 export function finalDeadline(y, m) {

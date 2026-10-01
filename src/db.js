@@ -103,6 +103,11 @@ export async function initSchema() {
   await pool.query(`
     ALTER TABLE employees ADD COLUMN IF NOT EXISTS trial BOOLEAN NOT NULL DEFAULT FALSE;
     ALTER TABLE employees ADD COLUMN IF NOT EXISTS dob DATE;
+    /* A second, personal address people can add themselves, used for
+       reminders only while they leave the flag on. Kept apart from the
+       company address so turning it off never risks losing that one. */
+    ALTER TABLE employees ADD COLUMN IF NOT EXISTS email2 TEXT;
+    ALTER TABLE employees ADD COLUMN IF NOT EXISTS email2_on BOOLEAN NOT NULL DEFAULT FALSE;
   `);
 }
 
@@ -120,6 +125,8 @@ const toEmployee = (r) => ({
   region: r.region || '',
   gender: r.gender || '',
   email: r.email || '',
+  email2: r.email2 || '',
+  email2On: !!r.email2_on,
   pedometer: r.pedometer || '',
   active: r.active,
   consent: r.consent,
@@ -143,18 +150,21 @@ async function setRoster(list) {
       const p = list[i];
       await client.query(
         `INSERT INTO employees (id, name, region, gender, email, pedometer, active,
-                                consent, consent_asked, consent_at, sort_order, trial, dob)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+                                consent, consent_asked, consent_at, sort_order, trial, dob,
+                                email2, email2_on)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
          ON CONFLICT (id) DO UPDATE SET
            name = EXCLUDED.name, region = EXCLUDED.region, gender = EXCLUDED.gender,
            email = EXCLUDED.email, pedometer = EXCLUDED.pedometer, active = EXCLUDED.active,
            consent = EXCLUDED.consent, consent_asked = EXCLUDED.consent_asked,
            consent_at = EXCLUDED.consent_at, sort_order = EXCLUDED.sort_order,
-           trial = EXCLUDED.trial, dob = EXCLUDED.dob`,
+           trial = EXCLUDED.trial, dob = EXCLUDED.dob,
+           email2 = EXCLUDED.email2, email2_on = EXCLUDED.email2_on`,
         [
           String(p.id), p.name, p.region || null, p.gender || null, p.email || null,
           p.pedometer || null, p.active !== false, !!p.consent, !!p.consentAsked,
           p.consentAt ? new Date(p.consentAt) : null, i, !!p.trial, p.dob || null,
+          p.email2 || null, !!p.email2On,
         ],
       );
     }
@@ -329,10 +339,17 @@ export async function getEmployee(id) {
 
 /** Only the fields a participant may change about themselves. */
 export async function updateEmployeeSelf(id, f) {
+  /* Named columns, never a spread of the request body: consent and the two
+     addresses are all a participant may set about themselves. */
   const { rows } = await pool.query(
-    `UPDATE employees SET region = $2, gender = $3, pedometer = $4, email = $5
-     WHERE id = $1 AND active RETURNING *`,
-    [id, f.region || null, f.gender || null, f.pedometer || null, f.email || null],
+    `UPDATE employees
+        SET region = $2, gender = $3, pedometer = $4, email = $5,
+            email2 = $6, email2_on = $7, consent = $8,
+            consent_asked = TRUE,
+            consent_at = CASE WHEN consent IS DISTINCT FROM $8 THEN NOW() ELSE consent_at END
+      WHERE id = $1 AND active RETURNING *`,
+    [id, f.region || null, f.gender || null, f.pedometer || null, f.email || null,
+     f.email2 || null, !!f.email2On, !!f.consent],
   );
   return rows.length ? toEmployee(rows[0]) : null;
 }
