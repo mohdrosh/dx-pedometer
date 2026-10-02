@@ -135,6 +135,55 @@ by then you will be on RDS, which backs up automatically.
 
 ---
 
+## Updating the live site (AWS)
+
+The app runs on EC2 `morabu-dx-app-ec2` (ap-northeast-1) behind nginx, which
+proxies `/pedometer/` through to it. Open a shell with **Session Manager**
+(EC2 → the instance → Connect → Session Manager), then:
+
+```bash
+sudo -i
+```
+
+`sudo -i` starts a fresh shell, so anything pasted after it on the same go is
+swallowed. Wait for the root prompt, then paste this as one line:
+
+```bash
+cd /opt/apps/pedometer && git pull origin main && BASE_PATH=/pedometer/ npm run build && systemctl restart pedometer && systemctl status pedometer --no-pager
+```
+
+> **`BASE_PATH=/pedometer/` is not optional.** Vite bakes the base path into
+> `dist/index.html` at build time. Build without it and the page asks for
+> `/assets/index-….js` instead of `/pedometer/assets/index-….js`, the script
+> 404s, and the site is a blank white screen. The server itself is fine when
+> this happens — it is only the HTML pointing at the wrong URL, and another
+> build with the variable set fixes it.
+
+Check the build landed where it should:
+
+```bash
+grep -o 'src="[^"]*"' dist/index.html     # must start /pedometer/assets/
+```
+
+Then hard-refresh the browser (Ctrl+Shift+R) — the filename hash changes every
+build, so a stale `index.html` in the cache points at a file that is gone.
+
+If anything looks wrong:
+
+```bash
+journalctl -u pedometer -n 50 --no-pager
+```
+
+A healthy start logs `Listening on port 8787`, `Database : connected`,
+`Static : serving dist/` and the mail and jobs lines.
+
+Runtime settings (`DATABASE_URL`, the `SMTP_*` values, `ADMIN_EMAIL`) live in
+`/etc/pedometer/pedometer.env` and are read by systemd, so changing them needs
+a restart but no rebuild. Build-time settings (`VITE_*`) live in
+`/opt/apps/pedometer/.env.local` and need a rebuild to take effect.
+
+---
+
 ## Moving to AWS later
 
 Change `DATABASE_URL` to the RDS endpoint and restart. Nothing else changes —
