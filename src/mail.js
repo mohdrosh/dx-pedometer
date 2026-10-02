@@ -109,7 +109,7 @@ Please submit even if you did not reach 5,000 steps on every day — the record 
   return { subject, body };
 }
 
-/** Summary sent to 総務 after each automatic run. */
+/** Summary sent to 健康対策委員会 after each automatic run. */
 export function summaryMail(o) {
   const { y, m, reminded = [], autoSubmitted = [], kind } = o;
   const list = (arr) => (arr.length ? arr.map((p) => `  ・${p.id} ${p.name}`).join('\n') : '  （なし / none）');

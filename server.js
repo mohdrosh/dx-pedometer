@@ -292,7 +292,7 @@ const server = http.createServer(async (req, res) => {
       const sid = crypto.randomBytes(32).toString('hex');
       await createSession(sid, isAdmin ? null : person.id, isAdmin, SESSION_DAYS);
       const user = isAdmin
-        ? { admin: true, id, name: '健康対策委員' }
+        ? { admin: true, id, name: '健康対策委員会' }
         : { admin: false, ...(await getEmployee(person.id)) };
       return sendJson(res, 200, { user }, cookieHeader(sid, SESSION_DAYS * 86400));
     }
@@ -321,7 +321,7 @@ const server = http.createServer(async (req, res) => {
       if (!sess) return deny(res);
       if (req.method === 'GET') {
         const user = sess.isAdmin
-          ? { admin: true, id: 'admin', name: '健康対策委員' }
+          ? { admin: true, id: 'admin', name: '健康対策委員会' }
           : { admin: false, ...(await getEmployee(sess.employeeId)) };
         return sendJson(res, 200, { user });
       }

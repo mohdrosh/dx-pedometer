@@ -94,12 +94,14 @@ const STR = {
   submit: ['実績表を提出', 'Submit Record'],
   submitConfirmTitle: ['提出しますか？', 'Submit this month?'],
   submitConfirmBody: ['提出後は修正できません。', 'You cannot edit after submitting.'],
+  submitBotOk: ['全日 {n}歩を達成しています。完歩賞の対象です。', 'Every single day cleared {n} steps — you qualify for the bonus.'],
+  submitBotNo: ['完歩賞の対象にはなりませんが、実績表の提出は必要です。', 'Not qualified for the bonus, but your record still needs submitting.'],
   cancel: ['キャンセル', 'Cancel'],
   confirm: ['実績表を提出', 'Submit Record'],
-  lockedNote: ['提出済みのため編集できません。修正が必要な場合は総務へ連絡してください。', 'Locked after submission. Contact General Affairs if you need a correction.'],
+  lockedNote: ['提出済みのため編集できません。修正が必要な場合は健康対策委員会へ連絡してください。', 'Locked after submission. Contact the Health Promotion Committee if you need a correction.'],
   missingNote: ['未入力の日があります。歩かなかった日は 0 を入力してください。', 'Some days are blank. Enter 0 for days you did not walk.'],
   windowClosed: ['提出期間外です', 'Outside the submission window'],
-  windowNote: ['提出期間：締め後（21日）〜翌月1日（25日にお知らせ、26日にリマインド）', 'Submission: from the 21st to the 1st of the next month (notice on the 25th, reminder on the 26th)'],
+  windowNote: ['提出期間：締め後（21日）〜翌月1日（26日にリマインド）', 'Submission: from the 21st to the 1st of the next month (reminder on the 26th)'],
   consentLabel: ['5,000歩に届かない月でもリマインドメールを受け取り、期限（翌月1日）までに提出がない場合は、未入力の日を0歩として自動的に提出されることに同意します。', 'I agree to receive a reminder email even in months where I do not reach 5,000 steps, and to have my record submitted automatically with blank days counted as 0 if I have not submitted by the deadline (the 1st of the following month).'],
   consentDone: ['自動提出に同意済み', 'Auto-submission consent recorded'],
   consentOptional: ['任意です。チェックしなくてもログインできます。', 'Optional — you can sign in either way.'],
@@ -379,11 +381,9 @@ function buildWorkbook({ y, m, roster, entries, cfg, layout, lang }) {
     : { no: 0, id: 1, name: 2, region: 3, gender: 4, day0: 5 };
   c.total = c.day0 + 31;
   c.flag = c.total + 1;
-  c.name2 = c.flag + 1;
-  c.region2 = c.name2 + 1;
-  c.email = c.region2 + 1;
-  if (legacy) c.amount = c.email + 1;
-  const lastCol = legacy ? c.amount : c.email;
+  if (legacy) c.amount = c.flag + 1;
+  c.email = (legacy ? c.amount : c.flag) + 1;
+  const lastCol = c.email;
 
   const A = (r, col) => XLSX.utils.encode_cell({ r, c: col });
   const L = (col) => XLSX.utils.encode_col(col);
@@ -402,8 +402,8 @@ function buildWorkbook({ y, m, roster, entries, cfg, layout, lang }) {
   put(1, 2, s('健康対策委員会'));
 
   /* column headers (row 4) + weekday row (row 5) */
-  const regionHdr = '地区別\n１．姫路\n２．三田\n３．神戸\n４．大阪';
-  put(3, c.no, s('参加人数')); put(3, c.id, s('社員№')); put(3, c.name, s('名前'));
+  const regionHdr = '地区別';
+  put(3, c.no, s('参加人数')); put(3, c.id, s('社員番号')); put(3, c.name, s('名前'));
   if (legacy) put(3, c.method, s('送信方法'));
   put(3, c.region, s(regionHdr)); put(3, c.gender, s('性別'));
   slots.forEach((sl, i) => {
@@ -413,9 +413,8 @@ function buildWorkbook({ y, m, roster, entries, cfg, layout, lang }) {
   });
   put(3, c.total, s('合計'));
   put(3, c.flag, s(`${nf(cfg.threshold)}歩以上\n（月間連続）`));
-  put(3, c.name2, s('名前')); put(3, c.region2, s(regionHdr));
-  put(3, c.email, s('メールアドレス'));
   if (legacy) put(3, c.amount, s('支給金額'));
+  put(3, c.email, s('メールアドレス'));
 
   /* data rows (row 6 onwards) */
   const people = roster.filter((p) => p.active !== false);
@@ -447,15 +446,13 @@ function buildWorkbook({ y, m, roster, entries, cfg, layout, lang }) {
       t: 's', v: ok ? '○' : '-',
       f: `IF(${totCell}=0,"-",IF(COUNTIF(${dFrom}:${dTo},"<${cfg.threshold}")=0,"○","-"))`,
     });
-    put(r, c.name2, { t: 's', v: p.name, f: `${L(c.name)}${xl}` });
-    put(r, c.region2, { t: 's', v: p.region || '', f: `${L(c.region)}${xl}` });
-    put(r, c.email, s(p.email || ''));
     if (legacy) {
       put(r, c.amount, {
         t: 'n', v: ok ? cfg.bonus : 0,
         f: `IF(${totCell}=0,0,IF(COUNTIF(${dFrom}:${dTo},"<${cfg.threshold}")=0,${cfg.bonus},0))`,
       });
     }
+    put(r, c.email, s(p.email || ''));
   });
 
   ws['!ref'] = XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: 4 + people.length + 1, c: lastCol } });
@@ -465,8 +462,8 @@ function buildWorkbook({ y, m, roster, entries, cfg, layout, lang }) {
   cols[c.region] = { wch: 9 }; cols[c.gender] = { wch: 6 };
   for (let i = 0; i < 31; i++) cols[c.day0 + i] = { wch: 6 };
   cols[c.total] = { wch: 10 }; cols[c.flag] = { wch: 12 };
-  cols[c.name2] = { wch: 18 }; cols[c.region2] = { wch: 9 }; cols[c.email] = { wch: 28 };
   if (legacy) cols[c.amount] = { wch: 10 };
+  cols[c.email] = { wch: 28 };
   ws['!cols'] = Array.from({ length: lastCol + 1 }, (_, i) => cols[i] || { wch: 8 });
 
   /* --- sheet 2: 完歩賞対象者一覧 --- */
@@ -474,7 +471,7 @@ function buildWorkbook({ y, m, roster, entries, cfg, layout, lang }) {
   const put2 = (r, col, cell) => { ws2[XLSX.utils.encode_cell({ r, c: col })] = cell; };
   put2(0, 0, s('万歩計実績表（開発部用）'));
   put2(1, 1, s('健康対策委員会'));
-  put2(2, 0, s('参加人数')); put2(2, 1, s('社員№')); put2(2, 2, s('名前'));
+  put2(2, 0, s('参加人数')); put2(2, 1, s('社員番号')); put2(2, 2, s('名前'));
   put2(2, 3, s(`${nf(cfg.threshold)}歩以上\n（月間連続）`));
   people.forEach((p, i) => {
     const r = 4 + i;
@@ -1172,9 +1169,13 @@ function StepsTab({ user, cfg, holidays, y, m, setPeriod, toast }) {
       </Modal>
 
       <Modal open={askSubmit} onClose={() => setAskSubmit(false)} title={t('submitConfirmTitle')}>
+        <div className={`askbot${qualified ? ' ok' : ''}`}>
+          <div className="abot"><MoraBot pose={qualified ? 'cheer' : 'tumble'} /></div>
+          <p>{t(qualified ? 'submitBotOk' : 'submitBotNo').replace('{n}', nf(cfg.threshold))}</p>
+        </div>
         <p className="muted">{t('submitConfirmBody')}</p>
         <div className="kv"><span>{t('total')}</span><strong>{nf(total)}</strong></div>
-        <div className="kv"><span>{t('bonusStatus')}</span><strong>{qualified ? '○' : '—'}</strong></div>
+        <div className="kv"><span>{t('bonusStatus')}</span><strong>{qualified ? '○' : '×'}</strong></div>
         <div className="navrow">
           <button className="btn ghost" onClick={() => setAskSubmit(false)}>{t('cancel')}</button>
           <button className="btn primary" onClick={doSubmit}>{t('confirm')}</button>
@@ -2322,6 +2323,12 @@ function Styles() {
 .result p{margin:4px 0 0;font-size:12px;color:var(--ink-2);line-height:1.6}
 .result.bonus{background:var(--go-wash);border-color:#BFDCD4}
 .result.short{background:var(--wash)}
+
+.askbot{display:flex;align-items:center;gap:12px;padding:12px 14px;margin:0 0 14px;
+  border:1px solid var(--hair);border-radius:12px;background:var(--wash)}
+.askbot .abot{width:72px;height:80px;flex:0 0 auto}
+.askbot p{margin:0;font-size:12.5px;color:var(--ink-2);line-height:1.65}
+.askbot.ok{background:var(--go-wash);border-color:#BFDCD4}
 
 .hit{position:relative;text-align:center;padding:4px 2px 2px;overflow:hidden}
 .hit .hitbot{position:relative;width:150px;height:170px;margin:0 auto}

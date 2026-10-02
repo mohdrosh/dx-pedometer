@@ -6,7 +6,7 @@
    somebody has signed in — and nobody can sign in until the roster exists.
 ========================================================================== */
 
-export const DEFAULT_REGIONS = ['神戸', '東京', '大阪', '京都', '三田', '姫路', '請負', 'その他'];
+export const DEFAULT_REGIONS = ['神戸', '東京', '大阪', '京都', '姫路', '三田', '請負', 'その他'];
 
 /* Keeps a stored region list in the order above; anything unrecognised
    (added by hand in 地域マスタ) keeps its place at the end. */
