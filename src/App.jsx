@@ -102,9 +102,13 @@ const STR = {
   missingNote: ['未入力の日があります。歩かなかった日は 0 を入力してください。', 'Some days are blank. Enter 0 for days you did not walk.'],
   windowClosed: ['提出期間外です', 'Outside the submission window'],
   windowNote: ['提出期間：締め後（21日）〜翌月1日（26日にリマインド）', 'Submission: from the 21st to the 1st of the next month (reminder on the 26th)'],
-  consentLabel: ['5,000歩に届かない月でもリマインドメールを受け取り、期限（翌月1日）までに提出がない場合は、未入力の日を0歩として自動的に提出されることに同意します。', 'I agree to receive a reminder email even in months where I do not reach 5,000 steps, and to have my record submitted automatically with blank days counted as 0 if I have not submitted by the deadline (the 1st of the following month).'],
-  consentDone: ['自動提出に同意済み', 'Auto-submission consent recorded'],
-  consentOptional: ['任意です。チェックしなくてもログインできます。', 'Optional — you can sign in either way.'],
+  consentTitle: ['自動提出への同意', 'Consent to automatic submission'],
+  consentTitleOpt: ['自動提出への同意（任意）', 'Consent to automatic submission (optional)'],
+  consentIntro: ['次の2点に同意する場合は、チェックを入れてください。', 'Tick the box if you agree to both of the following.'],
+  consentPoint1: ['5,000歩に届かない月でも、未提出の場合は提出依頼のリマインドメールを受け取る。', 'You will receive a reminder email asking you to submit if you have not submitted, even in a month below 5,000 steps.'],
+  consentPoint2: ['最終提出期限（翌月1日）までに提出しない場合、未入力の日を0歩として自動で提出される。', 'If you do not submit by the final deadline (the 1st of next month), your record will be submitted automatically with blank days counted as 0 steps.'],
+  consentAgree: ['同意する', 'I agree'],
+  consentOptional: ['任意です。チェックしなくてもログインできます。あとからマイページで変更できます。', 'Optional — you can sign in without ticking it, and change it later on My Page.'],
   unsubmitted: ['未提出', 'Outstanding'],
   reminders: ['未提出・リマインド', 'Reminders'],
   finalDeadline: ['最終締切', 'Final deadline'],
@@ -154,10 +158,10 @@ const STR = {
   asc: ['昇順', 'Asc'],
   desc: ['降順', 'Desc'],
   sessionGone: ['ログインの有効期限が切れました。お手数ですが、もう一度ログインしてください。', 'Your session has expired. Please sign in again.'],
-  email2: ['プライベートのメールアドレス（任意）', 'Personal email address (optional)'],
-  email2Use: ['このアドレスにもお知らせを送る', 'Send notifications to this address too'],
-  email2Note: ['チェックを外すと会社のアドレスにのみ届きます。', 'Unticked, mail goes to your company address only.'],
-  consentHere: ['この設定はいつでも変更できます。', 'You can change this at any time.'],
+  emailWork: ['会社のメールアドレス', 'Company email address'],
+  email2: ['プライベートメールアドレス（任意）', 'Private email address (optional)'],
+  email2Note: ['このアドレスにもお知らせを送る場合は、チェックボックスにチェックを入れてください。チェックを入れない場合は、会社のアドレスにのみ届きます。',
+    'To also receive notices at this address, tick the checkbox. If you do not tick it, notices are sent only to your company address.'],
   consentAdminNote: ['本人がマイページで変更することもできます。', 'The participant can also change this on My Page.'],
   dateOrder: ['日付の並び', 'Order'],
   orderAsc: ['21日 → 翌月20日', '21st → 20th'],
@@ -699,6 +703,29 @@ function TrialForm({ cfg, onDone, onCancel, toast }) {
   );
 }
 
+/* The same wording on the sign-in screen and on My Page — 健康対策委員会 asked
+   for the two to match, so the panel is written once. `title` differs only in
+   whether it carries （任意）; the sign-in screen says that in the footnote
+   instead, where it also explains that the answer can be changed later. */
+function ConsentPanel({ checked, onChange, title, footnote }) {
+  const t = useT();
+  return (
+    <div className="consent">
+      <strong>{t(title)}</strong>
+      <p>{t('consentIntro')}</p>
+      <ul>
+        <li>{t('consentPoint1')}</li>
+        <li>{t('consentPoint2')}</li>
+      </ul>
+      <label className="consent-agree">
+        <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} />
+        <span>{t('consentAgree')}</span>
+      </label>
+      {footnote && <em>{t(footnote)}</em>}
+    </div>
+  );
+}
+
 /* ============================ Login screen ================================ */
 function Login({ onLogin, onTrial, lang, setLang, notice }) {
   const t = useT();
@@ -751,14 +778,12 @@ function Login({ onLogin, onTrial, lang, setLang, notice }) {
 
         {/* Shown to everyone now: whether this person has already answered is
             on their roster row, which the sign-in screen can no longer read.
-            The server records it only the first time. */}
-        <label className="consent">
-          <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} />
-          <span>
-            {t('consentLabel')}
-            <em>{t('consentOptional')}</em>
-          </span>
-        </label>
+            The server records it only the first time — hence the footnote
+            pointing at My Page, which is where it can be changed after that. */}
+        <ConsentPanel
+          checked={consent} onChange={setConsent}
+          title="consentTitle" footnote="consentOptional"
+        />
 
         <button className="btn primary big" disabled={busy} onClick={go}>{t('login')}</button>
         <button className="btn trial-cta" onClick={onTrial}>{t('trialSignup')}</button>
@@ -1192,7 +1217,7 @@ function ProfileTab({ user, cfg, roster, setRoster, toast, y, m, onUpdated }) {
   const [entry, setEntry] = useState(null);
   const [f, setF] = useState({
     region: user.region || '', gender: user.gender || '男',
-    pedometer: user.pedometer || '', email: user.email || '',
+    pedometer: user.pedometer || '',
     email2: user.email2 || '', email2On: !!user.email2On, consent: !!user.consent,
   });
 
@@ -1251,29 +1276,34 @@ function ProfileTab({ user, cfg, roster, setRoster, toast, y, m, onUpdated }) {
         <label className="fld"><span>{t('pedometerNo')}</span>
           <input value={f.pedometer} onChange={(e) => setF({ ...f, pedometer: e.target.value })} />
         </label>
-        <label className="fld"><span>{t('email')}</span>
-          <input value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} />
-        </label>
+        {/* Plain text, not a field: the company address is issued, not chosen,
+            and a bordered box invited people to edit something the server
+            will not accept anyway. */}
+        <div className="kv"><span>{t('emailWork')}</span><strong>{user.email || '—'}</strong></div>
 
-        <label className="fld"><span>{t('email2')}</span>
-          <input
-            value={f.email2} inputMode="email" placeholder="example@gmail.com"
-            onChange={(e) => setF({ ...f, email2: e.target.value })}
-          />
-        </label>
-        <label className="chk">
-          <input
-            type="checkbox" checked={f.email2On}
-            disabled={!f.email2.includes('@')}
-            onChange={(e) => setF({ ...f, email2On: e.target.checked })}
-          />
-          <span>{t('email2Use')}<em>{t('email2Note')}</em></span>
-        </label>
+        {/* The tick sits beside the address rather than under it: below, it
+            read as a caption and people typed an address expecting mail to
+            start arriving without ever ticking it. */}
+        <div className="fld">
+          <span>{t('email2')}</span>
+          <div className="withchk">
+            <input
+              type="checkbox" checked={f.email2On}
+              disabled={!f.email2.includes('@')}
+              onChange={(e) => setF({ ...f, email2On: e.target.checked })}
+            />
+            <input
+              value={f.email2} inputMode="email" placeholder="example@gmail.com"
+              onChange={(e) => setF({ ...f, email2: e.target.value })}
+            />
+          </div>
+          <em className="fld-note">{t('email2Note')}</em>
+        </div>
 
-        <label className="chk">
-          <input type="checkbox" checked={f.consent} onChange={(e) => setF({ ...f, consent: e.target.checked })} />
-          <span>{t('consentLabel')}<em>{t('consentHere')}</em></span>
-        </label>
+        <ConsentPanel
+          checked={f.consent} onChange={(v) => setF({ ...f, consent: v })}
+          title="consentTitleOpt"
+        />
 
         <button className="btn primary big" onClick={save}>{t('saveProfile')}</button>
       </div>
@@ -1639,6 +1669,9 @@ function PeopleAdmin({ cfg, setCfg, roster, setRoster, toast }) {
   const [q, setQ] = useState('');
   const [withTrial, setWithTrial] = useState(true);
   const [withDeleted, setWithDeleted] = useState(false);
+  const [regionF, setRegionF] = useState('');
+  const [sortK, setSortK] = useState('id');
+  const [sortD, setSortD] = useState(1);
   const [edit, setEdit] = useState(null);
   const [newRegion, setNewRegion] = useState('');
 
@@ -1681,16 +1714,46 @@ function PeopleAdmin({ cfg, setCfg, roster, setRoster, toast }) {
   };
 
   const deletedCount = roster.filter((p) => p.active === false).length;
+
+  /* Employee numbers are strings of differing length, so they are padded
+     before comparing — otherwise 9000001 sorts above 101001. Regions sort by
+     their position in the master list, which is the order 健康対策委員会 set,
+     rather than alphabetically. */
+  const regionRank = (r) => {
+    const i = cfg.regions.indexOf(r);
+    return i < 0 ? cfg.regions.length : i;
+  };
+  const sortKey = (p) => (sortK === 'region'
+    ? [regionRank(p.region), String(p.id).padStart(12, '0')]
+    : [String(p.id).padStart(12, '0')]);
+
   const shown = roster
     .filter((p) => (withDeleted ? true : p.active !== false))
     .filter((p) => withTrial || !p.trial)
-    .filter((p) => !q.trim() || p.name.includes(q) || String(p.id).includes(q));
+    .filter((p) => !regionF || p.region === regionF)
+    .filter((p) => !q.trim() || p.name.includes(q) || String(p.id).includes(q))
+    .slice()
+    .sort((a, b) => {
+      const av = sortKey(a); const bv = sortKey(b);
+      for (let i = 0; i < av.length; i++) {
+        if (av[i] < bv[i]) return -sortD;
+        if (av[i] > bv[i]) return sortD;
+      }
+      return 0;
+    });
+
+  const sortBy = (k) => { setSortD(sortK === k ? -sortD : 1); setSortK(k); };
+  const arrow = (k) => (sortK === k ? (sortD > 0 ? ' ▲' : ' ▼') : '');
 
   return (
     <>
       <div className="card">
         <div className="navrow wrap">
           <input className="grow" placeholder={t('search')} value={q} onChange={(e) => setQ(e.target.value)} />
+          <select value={regionF} onChange={(e) => setRegionF(e.target.value)}>
+            <option value="">{t('allRegions')}</option>
+            {cfg.regions.map((r) => <option key={r}>{r}</option>)}
+          </select>
           <button className="btn primary" onClick={() => setEdit({ isNew: true, id: '', name: '', region: cfg.regions[0], gender: '男', email: '', email2: '', email2On: false, consent: false, pedometer: '' })}>
             + {t('addPerson')}
           </button>
@@ -1706,7 +1769,15 @@ function PeopleAdmin({ cfg, setCfg, roster, setRoster, toast }) {
         <p className="muted sm">{t('deletedNote')}</p>
         <div className="tablewrap">
           <table className="tbl">
-            <thead><tr><th>{t('employeeId')}</th><th>{t('name')}</th><th>{t('region')}</th><th>{t('gender')}</th><th /></tr></thead>
+            <thead>
+              <tr>
+                <th className="sortable" onClick={() => sortBy('id')}>{t('employeeId')}{arrow('id')}</th>
+                <th>{t('name')}</th>
+                <th className="sortable" onClick={() => sortBy('region')}>{t('region')}{arrow('region')}</th>
+                <th>{t('gender')}</th>
+                <th />
+              </tr>
+            </thead>
             <tbody>
               {shown.map((p) => (
                 <tr key={p.id} className={p.active === false ? 'gone' : ''}>
@@ -2410,12 +2481,25 @@ function Styles() {
 .seg.tabs button{font-size:12px;padding:12px 1px;line-height:1.3}
 .seg.four button.on,.seg.tabs button.on{background:var(--brand);color:#fff}
 
-/* consent notice on the login screen */
-.consent{display:flex;gap:10px;align-items:flex-start;margin:0 0 20px;padding:13px 14px;
-  background:var(--brand-wash);border:1px solid #CFE0F1;border-radius:5px;font-size:13px;line-height:1.7}
-.consent input{margin-top:4px;width:18px;height:18px;flex:none;accent-color:var(--brand)}
-.consent em{display:block;font-style:normal;color:var(--ink-2);font-size:12px;margin-top:4px}
-.consent.done{color:var(--go);background:var(--go-wash);border-color:#C6E2D8;font-weight:600}
+/* consent panel — the sign-in screen and My Page share it */
+.consent{margin:0 0 20px;padding:13px 14px;background:var(--brand-wash);
+  border:1px solid #CFE0F1;border-radius:5px;font-size:13px;line-height:1.7}
+.consent>strong{display:block;font-size:13.5px;font-weight:700;color:var(--ink);margin-bottom:4px}
+.consent>p{margin:0;font-size:12.5px;color:var(--ink-2)}
+.consent ul{margin:7px 0 0;padding:0;list-style:none}
+.consent li{position:relative;padding-left:15px;font-size:12.5px;color:var(--ink);line-height:1.65}
+.consent li+li{margin-top:5px}
+.consent li::before{content:'・';position:absolute;left:0;color:var(--brand)}
+.consent-agree{display:flex;gap:9px;align-items:center;margin-top:11px;padding-top:10px;
+  border-top:1px solid #CFE0F1;font-size:13px;font-weight:600;color:var(--ink)}
+.consent-agree input{width:18px;height:18px;margin:0;flex:none;accent-color:var(--brand)}
+.consent>em{display:block;font-style:normal;color:var(--ink-2);font-size:11.5px;margin-top:9px}
+
+/* an address field with its own tick beside it, not under it */
+.withchk{display:flex;gap:10px;align-items:center}
+.withchk input[type=checkbox]{width:19px;height:19px;margin:0;flex:0 0 auto;accent-color:var(--brand)}
+.withchk input[type=checkbox]:disabled{opacity:.4}
+.withchk input[type=email],.withchk input:not([type]){flex:1;min-width:0}
 
 /* reminder preview */
 .mailbody{white-space:pre-wrap;word-break:break-word;background:var(--wash);

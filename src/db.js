@@ -339,16 +339,18 @@ export async function getEmployee(id) {
 
 /** Only the fields a participant may change about themselves. */
 export async function updateEmployeeSelf(id, f) {
-  /* Named columns, never a spread of the request body: consent and the two
-     addresses are all a participant may set about themselves. */
+  /* Named columns, never a spread of the request body. The company address is
+     deliberately not among them — it is issued, it is what the reminder has to
+     reach, and nobody should be able to point their own away from it. The
+     private address beside it is theirs to set. */
   const { rows } = await pool.query(
     `UPDATE employees
-        SET region = $2, gender = $3, pedometer = $4, email = $5,
-            email2 = $6, email2_on = $7, consent = $8,
+        SET region = $2, gender = $3, pedometer = $4,
+            email2 = $5, email2_on = $6, consent = $7,
             consent_asked = TRUE,
-            consent_at = CASE WHEN consent IS DISTINCT FROM $8 THEN NOW() ELSE consent_at END
+            consent_at = CASE WHEN consent IS DISTINCT FROM $7 THEN NOW() ELSE consent_at END
       WHERE id = $1 AND active RETURNING *`,
-    [id, f.region || null, f.gender || null, f.pedometer || null, f.email || null,
+    [id, f.region || null, f.gender || null, f.pedometer || null,
      f.email2 || null, !!f.email2On, !!f.consent],
   );
   return rows.length ? toEmployee(rows[0]) : null;
