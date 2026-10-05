@@ -215,11 +215,25 @@ export async function fetchBootstrap() {
   } catch { return null; }
 }
 
-export async function apiLogin(id, consent) {
-  const r = await post('/api/login', { id, consent });
+export async function apiLogin(id) {
+  const r = await post('/api/login', { id });
   if (r.status === 200) return { user: r.body.user };
   if (r.status === 429) return { error: 'too_many' };
   return { error: r.body.error || 'not_found' };
+}
+
+/** The answer to the consent screen shown once after a first sign-in. */
+export async function apiConsent(agree) {
+  try {
+    const res = noteStatus(await fetch(`${base()}/api/consent`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({ agree }),
+    }), '/api/consent');
+    if (!res.ok) return null;
+    return (await res.json()).user || null;
+  } catch { return null; }
 }
 
 export async function apiLogout() {

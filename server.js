@@ -41,7 +41,7 @@ if (!process.env.DATABASE_URL) {
 const {
   initSchema, getKey, setKey, delKey, listKeys, registerTrial, addFeedback, listFeedback,
   createSession, getSession, deleteSession, purgeSessions,
-  getEmployee, updateEmployeeSelf,
+  getEmployee, updateEmployeeSelf, setConsent,
 } = await import('./src/db.js');
 
 const DIR = path.dirname(fileURLToPath(import.meta.url));
@@ -281,14 +281,6 @@ const server = http.createServer(async (req, res) => {
       const person = isAdmin ? null : await getEmployee(id);
       if (!isAdmin && !person) return sendJson(res, 401, { error: 'not_found' });
 
-      /* Consent is recorded here rather than by a client-side write, so a
-         participant can only ever answer for themselves. */
-      if (person && b.consent !== null && b.consent !== undefined && !person.consentAsked) {
-        const roster = await getKey('roster');
-        await setKey('roster', roster.map((x) => (String(x.id) === String(person.id)
-          ? { ...x, consent: !!b.consent, consentAsked: true, consentAt: Date.now() } : x)));
-      }
-
       const sid = crypto.randomBytes(32).toString('hex');
       await createSession(sid, isAdmin ? null : person.id, isAdmin, SESSION_DAYS);
       const user = isAdmin
@@ -335,6 +327,20 @@ const server = http.createServer(async (req, res) => {
         if (!updated) return deny(res, 403);
         return sendJson(res, 200, { user: { admin: false, ...updated } });
       }
+    }
+
+    /* The consent screen. A participant answers for themselves and for
+       nothing else: the session says who they are, and the body carries one
+       boolean. Kept off /api/me because that route writes the whole profile,
+       and this screen is shown before anyone has seen their profile. */
+    if (url.pathname === '/api/consent' && req.method === 'POST') {
+      if (!sess) return deny(res);
+      if (sess.isAdmin) return deny(res, 403);
+      const b = await readBody(req).catch(() => null);
+      if (!b || typeof b.agree !== 'boolean') return sendJson(res, 400, { error: 'agree_required' });
+      const updated = await setConsent(sess.employeeId, b.agree);
+      if (!updated) return deny(res, 403);
+      return sendJson(res, 200, { user: { admin: false, ...updated } });
     }
 
     if (url.pathname === '/api/feedback') {

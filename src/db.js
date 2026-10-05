@@ -109,6 +109,27 @@ export async function initSchema() {
     ALTER TABLE employees ADD COLUMN IF NOT EXISTS email2 TEXT;
     ALTER TABLE employees ADD COLUMN IF NOT EXISTS email2_on BOOLEAN NOT NULL DEFAULT FALSE;
   `);
+
+  /* The consent used to be a checkbox on the sign-in screen, and signing in
+     without noticing it recorded a "no". That is not an answer, so everyone
+     it happened to is marked unasked again and is put through the consent
+     screen once. A recorded "yes" is left alone — ticking a box is a
+     deliberate act in a way that leaving one blank is not.
+
+     Guarded by a row in config so it runs once and never undoes a later
+     「同意しない」. */
+  const done = await pool.query("SELECT 1 FROM config WHERE key = 'migr.consentReask'");
+  if (!done.rows.length) {
+    const r = await pool.query(
+      'UPDATE employees SET consent_asked = FALSE WHERE consent = FALSE AND consent_asked',
+    );
+    await pool.query(
+      `INSERT INTO config (key, value) VALUES ('migr.consentReask', $1)
+       ON CONFLICT (key) DO NOTHING`,
+      [JSON.stringify({ at: Date.now(), rows: r.rowCount })],
+    );
+    if (r.rowCount) console.log(`  Consent  : ${r.rowCount} to be asked again`);
+  }
 }
 
 /* ------------------------- row <-> client shape -------------------------- */
@@ -352,6 +373,19 @@ export async function updateEmployeeSelf(id, f) {
       WHERE id = $1 AND active RETURNING *`,
     [id, f.region || null, f.gender || null, f.pedometer || null,
      f.email2 || null, !!f.email2On, !!f.consent],
+  );
+  return rows.length ? toEmployee(rows[0]) : null;
+}
+
+/** The consent screen's answer. Deliberately narrow: it cannot touch any
+    other column, so the one screen a participant sees before anything else
+    can only ever record the choice it asked for. */
+export async function setConsent(id, agree) {
+  const { rows } = await pool.query(
+    `UPDATE employees
+        SET consent = $2, consent_asked = TRUE, consent_at = NOW()
+      WHERE id = $1 AND active RETURNING *`,
+    [id, !!agree],
   );
   return rows.length ? toEmployee(rows[0]) : null;
 }

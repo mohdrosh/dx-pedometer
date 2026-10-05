@@ -3,7 +3,7 @@ import * as XLSX from 'xlsx';
 import MoraBot, { MORABOT_CSS } from './MoraBot';
 import {
   S, registerTrial, saveFeedback, fetchFeedback,
-  IS_LOCAL, fetchBootstrap, apiLogin, apiLogout, apiMe, apiSaveMe, setLeaving,
+  IS_LOCAL, fetchBootstrap, apiLogin, apiLogout, apiMe, apiSaveMe, apiConsent, setLeaving,
   onSessionLost,
 } from './storage';
 import { DEFAULT_REGIONS, DEFAULT_CFG, ROSTER_SEED, orderRegions } from './defaults';
@@ -103,12 +103,17 @@ const STR = {
   windowClosed: ['提出期間外です', 'Outside the submission window'],
   windowNote: ['提出期間：締め後（21日）〜翌月1日（26日にリマインド）', 'Submission: from the 21st to the 1st of the next month (reminder on the 26th)'],
   consentTitle: ['自動提出への同意', 'Consent to automatic submission'],
+  consentAsk: ['次の2点に同意しますか？', 'Do you agree to both of the following?'],
+  consentLater: ['この設定は、あとからマイページで変更できます。', 'You can change this setting later on My Page.'],
+  consentYes: ['同意する', 'I agree'],
+  consentNo: ['同意しない', 'I do not agree'],
+  consentSaved: ['同意いただきました。ありがとうございます。', 'Thank you — your consent has been recorded.'],
+  consentDeclined: ['「同意しない」で登録しました。マイページでいつでも変更できます。', 'Recorded as "I do not agree". You can change it on My Page at any time.'],
   consentTitleOpt: ['自動提出への同意（任意）', 'Consent to automatic submission (optional)'],
   consentIntro: ['次の2点に同意する場合は、チェックを入れてください。', 'Tick the box if you agree to both of the following.'],
   consentPoint1: ['5,000歩に届かない月でも、未提出の場合は提出依頼のリマインドメールを受け取る。', 'You will receive a reminder email asking you to submit if you have not submitted, even in a month below 5,000 steps.'],
   consentPoint2: ['最終提出期限（翌月1日）までに提出しない場合、未入力の日を0歩として自動で提出される。', 'If you do not submit by the final deadline (the 1st of next month), your record will be submitted automatically with blank days counted as 0 steps.'],
   consentAgree: ['同意する', 'I agree'],
-  consentOptional: ['任意です。チェックしなくてもログインできます。あとからマイページで変更できます。', 'Optional — you can sign in without ticking it, and change it later on My Page.'],
   unsubmitted: ['未提出', 'Outstanding'],
   reminders: ['未提出・リマインド', 'Reminders'],
   finalDeadline: ['最終締切', 'Final deadline'],
@@ -703,11 +708,10 @@ function TrialForm({ cfg, onDone, onCancel, toast }) {
   );
 }
 
-/* The same wording on the sign-in screen and on My Page — 健康対策委員会 asked
-   for the two to match, so the panel is written once. `title` differs only in
-   whether it carries （任意）; the sign-in screen says that in the footnote
-   instead, where it also explains that the answer can be changed later. */
-function ConsentPanel({ checked, onChange, title, footnote }) {
+/* The consent as a field on My Page, where it sits among the other settings
+   and a tick is the natural control. The wording matches the screen below,
+   which is where the question is first put. */
+function ConsentPanel({ checked, onChange, title }) {
   const t = useT();
   return (
     <div className="consent">
@@ -721,7 +725,42 @@ function ConsentPanel({ checked, onChange, title, footnote }) {
         <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} />
         <span>{t('consentAgree')}</span>
       </label>
-      {footnote && <em>{t(footnote)}</em>}
+    </div>
+  );
+}
+
+/* Asked once, after the first sign-in, before anything else is shown.
+   健康対策委員会 asked for two buttons rather than a tick: an unticked box
+   is indistinguishable from an unread one, and that is exactly what had been
+   happening — people signed in past the checkbox and were recorded as
+   refusing something they had never been asked. Neither button is the
+   default and there is no way past the screen without pressing one. */
+function ConsentGate({ onAnswer, lang, setLang }) {
+  const t = useT();
+  const [busy, setBusy] = useState(false);
+  const answer = async (agree) => {
+    if (busy) return;
+    setBusy(true);
+    const ok = await onAnswer(agree);
+    if (!ok) setBusy(false);
+  };
+  return (
+    <div className="gate">
+      <div className="gate-card">
+        <div className="gate-bot"><MoraBot pose="hello" /></div>
+        <h1>{t('consentTitle')}</h1>
+        <p className="gate-q">{t('consentAsk')}</p>
+        <ul className="gate-points">
+          <li>{t('consentPoint1')}</li>
+          <li>{t('consentPoint2')}</li>
+        </ul>
+        <p className="gate-note">{t('consentLater')}</p>
+        <div className="gate-btns">
+          <button className="btn primary big" disabled={busy} onClick={() => answer(true)}>{t('consentYes')}</button>
+          <button className="btn big" disabled={busy} onClick={() => answer(false)}>{t('consentNo')}</button>
+        </div>
+        <button className="lang gate-lang" onClick={() => setLang(lang === 'ja' ? 'en' : 'ja')}>{lang === 'ja' ? 'EN' : '日本語'}</button>
+      </div>
     </div>
   );
 }
@@ -732,13 +771,12 @@ function Login({ onLogin, onTrial, lang, setLang, notice }) {
   const [id, setId] = useState('');
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
-  const [consent, setConsent] = useState(false);
 
   const go = async () => {
     const v = id.trim();
     if (!v || busy) return;
     setBusy(true);
-    const r = await onLogin(v, consent);
+    const r = await onLogin(v);
     setBusy(false);
     if (r?.error) setErr(t(r.error === 'too_many' ? 'tooMany' : 'notFound'));
   };
@@ -775,15 +813,6 @@ function Login({ onLogin, onTrial, lang, setLang, notice }) {
         </label>
         {notice === 'expired' && !err && <div className="notice">{t('sessionGone')}</div>}
         {err && <div className="err">{err}</div>}
-
-        {/* Shown to everyone now: whether this person has already answered is
-            on their roster row, which the sign-in screen can no longer read.
-            The server records it only the first time — hence the footnote
-            pointing at My Page, which is where it can be changed after that. */}
-        <ConsentPanel
-          checked={consent} onChange={setConsent}
-          title="consentTitle" footnote="consentOptional"
-        />
 
         <button className="btn primary big" disabled={busy} onClick={go}>{t('login')}</button>
         <button className="btn trial-cta" onClick={onTrial}>{t('trialSignup')}</button>
@@ -2041,25 +2070,21 @@ export default function App() {
 
   const toast = useCallback((msg) => { setToastMsg(msg); setTimeout(() => setToastMsg(''), 2200); }, []);
 
-  /* Sign-in is a server call: it checks the number, records consent the first
-     time, and returns the one record this person is allowed to see. */
-  const signIn = useCallback(async (id, consent) => {
+  /* Sign-in is a server call: it checks the number and returns the one
+     record this person is allowed to see. The consent is not asked here —
+     it has its own screen, shown once afterwards. */
+  const signIn = useCallback(async (id) => {
     if (IS_LOCAL) {
       const rr = (await S.get('roster')) || [];
       const c = (await S.get('cfg')) || DEFAULT_CFG;
       const admin = (c.adminIds || []).map((a) => String(a).toLowerCase()).includes(id.toLowerCase());
       const p = rr.find((x) => String(x.id) === id);
       if (!admin && !p) return { error: 'not_found' };
-      if (p && consent !== null && consent !== undefined && !p.consentAsked) {
-        const next = rr.map((x) => (String(x.id) === String(p.id)
-          ? { ...x, consent: !!consent, consentAsked: true, consentAt: Date.now() } : x));
-        setRoster(next); await S.set('roster', next);
-      }
       const u = admin ? { admin: true, id, name: '健康対策委員会' } : { admin: false, ...p };
       setUser(u); setTab(admin ? 'admin' : 'entry');
       return { user: u };
     }
-    const r = await apiLogin(id, consent);
+    const r = await apiLogin(id);
     if (r.error) return r;
     setUser(r.user);
     setTab(r.user.admin ? 'admin' : 'entry');
@@ -2070,6 +2095,26 @@ export default function App() {
     }
     return r;
   }, []);
+
+  /* The gate's answer. Recorded server-side against the session, so the
+     screen cannot be dismissed by anything other than a stored choice. */
+  const answerConsent = useCallback(async (agree) => {
+    const say = (k) => STR[k][lang === 'ja' ? 0 : 1] || STR[k][0];
+    if (IS_LOCAL) {
+      const rr = (await S.get('roster')) || [];
+      const next = rr.map((x) => (String(x.id) === String(user?.id)
+        ? { ...x, consent: !!agree, consentAsked: true, consentAt: Date.now() } : x));
+      setRoster(next); await S.set('roster', next);
+      setUser((u) => ({ ...u, consent: !!agree, consentAsked: true }));
+      toast(say(agree ? 'consentSaved' : 'consentDeclined'));
+      return true;
+    }
+    const updated = await apiConsent(agree);
+    if (!updated) { toast(say('saveFailed')); return false; }
+    setUser({ admin: false, ...updated });
+    toast(say(agree ? 'consentSaved' : 'consentDeclined'));
+    return true;
+  }, [user, lang, toast]);
 
   const signOut = useCallback(async () => {
     if (!IS_LOCAL) await apiLogout();
@@ -2159,6 +2204,20 @@ export default function App() {
             onLogin={signIn}
             notice={expired ? 'expired' : null}
           />
+        </div>
+      </LangCtx.Provider>
+    );
+  }
+
+  /* Put before every other screen, so nobody reaches their steps without
+     having answered. Administrators are not participants and are not asked. */
+  if (!user.admin && !user.consentAsked) {
+    return (
+      <LangCtx.Provider value={lang}>
+        <div className="app theme-seiji">
+          <Styles />
+          <ConsentGate onAnswer={answerConsent} lang={lang} setLang={setLang} />
+          <Toast msg={toastMsg} />
         </div>
       </LangCtx.Provider>
     );
@@ -2494,6 +2553,25 @@ function Styles() {
   border-top:1px solid #CFE0F1;font-size:13px;font-weight:600;color:var(--ink)}
 .consent-agree input{width:18px;height:18px;margin:0;flex:none;accent-color:var(--brand)}
 .consent>em{display:block;font-style:normal;color:var(--ink-2);font-size:11.5px;margin-top:9px}
+
+/* the once-only consent screen */
+.gate{min-height:100%;display:flex;align-items:center;justify-content:center;
+  padding:24px 16px;background:var(--wash)}
+.gate-card{position:relative;width:100%;max-width:440px;background:#fff;
+  border:1px solid var(--rule);border-radius:12px;padding:26px 22px 24px;
+  box-shadow:0 2px 18px rgba(16,36,48,.07)}
+.gate-bot{width:88px;height:98px;margin:0 auto 6px}
+.gate-card h1{margin:0;font-size:20px;font-weight:700;color:var(--ink);text-align:center}
+.gate-q{margin:14px 0 0;font-size:14px;color:var(--ink);text-align:center}
+.gate-points{margin:14px 0 0;padding:14px 15px;list-style:none;
+  background:var(--brand-wash);border:1px solid #CFE0F1;border-radius:8px}
+.gate-points li{position:relative;padding-left:15px;font-size:13px;line-height:1.7;color:var(--ink)}
+.gate-points li+li{margin-top:8px}
+.gate-points li::before{content:'・';position:absolute;left:0;color:var(--brand)}
+.gate-note{margin:13px 0 0;font-size:12px;color:var(--ink-2);text-align:center}
+.gate-btns{display:flex;flex-direction:column;gap:10px;margin-top:20px}
+.gate-btns .btn{width:100%}
+.gate-lang{position:absolute;top:14px;right:14px}
 
 /* an address field with its own tick beside it, not under it */
 .withchk{display:flex;gap:10px;align-items:center}
