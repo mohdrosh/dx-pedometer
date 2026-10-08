@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback, useContext, createContext } from 'react';
 import * as XLSX from 'xlsx';
 import MoraBot, { MORABOT_CSS } from './MoraBot';
+import KintaiTab, { KINTAI_CSS } from './Kintai';
 import {
   S, registerTrial, saveFeedback, fetchFeedback,
   IS_LOCAL, fetchBootstrap, apiLogin, apiLogout, apiMe, apiSaveMe, apiConsent, setLeaving,
@@ -49,7 +50,7 @@ const HOLIDAYS_FALLBACK = {
 /* --- Future modules plug in here ------------------------------------------ */
 const MODULES = [
   { id: 'steps', ja: '万歩計', en: 'Pedometer', ready: true },
-  { id: 'timesheet', ja: '勤怠', en: 'Timesheet', ready: false },
+  { id: 'timesheet', ja: '勤怠', en: 'Timesheet', ready: true },
   { id: 'expense', ja: '旅費精算', en: 'Expenses', ready: false },
 ];
 
@@ -822,6 +823,25 @@ function Login({ onLogin, onTrial, lang, setLang, notice }) {
           <span>{t('moduleSub')}</span>
         </div>
       </div>
+    </div>
+  );
+}
+
+/* The 21st-to-20th period switcher. Shared, because every module that keeps
+   a monthly record needs the same one in the same place. */
+function PeriodBar({ y, m, setPeriod, lang }) {
+  const shift = (d) => setPeriod(({ y: cy, m: cm }) => {
+    const n = cm + d;
+    return n < 1 ? { y: cy - 1, m: 12 } : n > 12 ? { y: cy + 1, m: 1 } : { y: cy, m: n };
+  });
+  return (
+    <div className="periodbar">
+      <button onClick={() => shift(-1)} aria-label="prev">‹</button>
+      <div>
+        <strong>{y}年 {m}月度</strong>
+        <em>{fmtRange(y, m, lang)}</em>
+      </div>
+      <button onClick={() => shift(1)} aria-label="next">›</button>
     </div>
   );
 }
@@ -2248,6 +2268,14 @@ export default function App() {
         <main className="main">
           {!user.admin && tab === 'profile' ? (
             <ProfileTab user={me} cfg={cfg} roster={roster} setRoster={setRoster} toast={toast} y={y} m={m} onUpdated={setUser} />
+          ) : mod === 'timesheet' && !user.admin ? (
+            <>
+              <PeriodBar y={y} m={m} setPeriod={setPeriod} lang={lang} />
+              <KintaiTab
+                user={me} y={y} m={m} days={periodDays(y, m)}
+                holidays={holidays} lang={lang} toast={toast}
+              />
+            </>
           ) : mod !== 'steps' ? (
             <div className="pad center">
               <div className="soonbox">
@@ -2291,7 +2319,7 @@ export default function App() {
 /* ================================ Styles ================================== */
 function Styles() {
   return (
-    <style>{MORABOT_CSS + `
+    <style>{MORABOT_CSS + KINTAI_CSS + `
 /* ---------------------------------------------------------------------------
    Type: Inter for Latin and every figure (real tabular numerals, so step
    counts align in a column), Noto Sans JP for Japanese. Both are drawn for

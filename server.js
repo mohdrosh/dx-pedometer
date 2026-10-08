@@ -108,7 +108,9 @@ const clientIp = (req) =>
 function mayTouchKey(sess, key, write) {
   if (!sess) return false;
   if (sess.isAdmin) return true;
-  const m = /^st:([^:]+):(.+)$/.exec(key);
+  /* st: steps, kt: timesheet — both are one person's own month, and the id
+     in the key has to be theirs. */
+  const m = /^(?:st|kt):([^:]+):(.+)$/.exec(key);
   if (m) return String(m[2]) === String(sess.employeeId);
   if (key === 'cfg') return !write;
   return false;
