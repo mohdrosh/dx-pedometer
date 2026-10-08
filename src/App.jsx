@@ -2274,6 +2274,7 @@ export default function App() {
               <KintaiTab
                 user={me} y={y} m={m} days={periodDays(y, m)}
                 holidays={holidays} lang={lang} toast={toast}
+                base={import.meta.env.BASE_URL.replace(/\/$/, '')}
               />
             </>
           ) : mod !== 'steps' ? (

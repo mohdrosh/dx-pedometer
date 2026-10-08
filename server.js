@@ -29,6 +29,7 @@ else if (fs.existsSync('.env')) dotenv.config();
 
 const nodemailer = (await import('nodemailer')).default;
 import { reminderMail, summaryMail, reminderRecipients } from './src/mail.js';
+import { buildTimesheet, timesheetFilename } from './src/kintai-xlsx.js';
 import { DEFAULT_CFG, ROSTER_SEED, orderRegions } from './src/defaults.js';
 
 if (!process.env.DATABASE_URL) {
@@ -343,6 +344,54 @@ const server = http.createServer(async (req, res) => {
       const updated = await setConsent(sess.employeeId, b.agree);
       if (!updated) return deny(res, 403);
       return sendJson(res, 200, { user: { admin: false, ...updated } });
+    }
+
+    /* 業務報告書 as the form itself, filled from the month on screen. Built
+       here rather than in the browser so the template and exceljs stay off
+       the client, and because the file is what payroll receives — it should
+       come from one place. The holiday list comes with the request: the
+       browser holds the authoritative one, and the form has to agree with
+       what the person was shown. */
+    if (url.pathname === '/api/kintai/xlsx' && req.method === 'POST') {
+      if (!sess) return deny(res);
+      if (sess.isAdmin) return deny(res, 403);
+      const b = await readBody(req).catch(() => null);
+      const y = Number(b?.y); const m = Number(b?.m);
+      if (!y || !m || m < 1 || m > 12) return sendJson(res, 400, { error: 'period_required' });
+
+      const person = await getEmployee(sess.employeeId);
+      if (!person) return deny(res, 403);
+      const saved = (await getKey(`kt:${periodKey(y, m)}:${person.id}`)) || { days: {} };
+      const holidays = (b.holidays && typeof b.holidays === 'object') ? b.holidays : {};
+
+      const days = periodDays(y, m).map((iso) => {
+        const d = new Date(`${iso}T00:00:00`);
+        return { iso, dom: d.getDate(), dow: d.getDay(), ...(saved.days?.[iso] || {}) };
+      });
+
+      let buf;
+      try {
+        buf = await buildTimesheet({
+          y, m, days, holidays,
+          person: {
+            id: person.id, name: person.name,
+            dept: person.dept || '', section: person.section || '',
+          },
+        });
+      } catch (err) {
+        console.error('timesheet build failed', err.message);
+        return sendJson(res, 500, { error: 'build_failed' });
+      }
+
+      const name = timesheetFilename(y, m, person.id);
+      res.writeHead(200, {
+        'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        /* The filename is Japanese, so it goes in the RFC 5987 form; the
+           plain one beside it is for anything that cannot read that. */
+        'Content-Disposition': `attachment; filename="timesheet.xlsx"; filename*=UTF-8''${encodeURIComponent(name)}`,
+        'Cache-Control': 'no-store',
+      });
+      return res.end(Buffer.from(buf));
     }
 
     if (url.pathname === '/api/feedback') {

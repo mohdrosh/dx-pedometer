@@ -14,6 +14,7 @@
     "@babel/parser": "^8.0.4",
     "@emailjs/browser": "^4.4.1",
     "dotenv": "^16.4.7",
+    "exceljs": "^4.4.0",
     "nodemailer": "^6.9.16",
     "pg": "^8.13.1",
     "react": "^18.3.1",

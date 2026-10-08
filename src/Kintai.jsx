@@ -39,6 +39,11 @@ const L = {
   notice: ['届', 'Notice'],
   standard: ['標準', 'Standard'],
   fillAll: ['営業日を標準で埋める', 'Fill weekdays with standard hours'],
+  download: ['業務報告書をダウンロード', 'Download the timesheet'],
+  downloading: ['作成中…', 'Building…'],
+  downloadFail: ['作成できませんでした', 'Could not build the file'],
+  downloadNote: ['入力した内容をそのままの様式で書き出します。合計は Excel 側で計算されます。',
+    'Writes what you entered into the usual form. Excel works the totals out when it opens.'],
   fillAllDone: ['{n}日を標準で入力しました', 'Filled {n} days with the standard hours'],
   clear: ['消去', 'Clear'],
   totals: ['当月合計', 'Month total'],
@@ -113,7 +118,7 @@ function HM({ hours, t }) {
 
 /* ------------------------------------------------------------------ screen */
 
-export default function KintaiTab({ user, y, m, days, holidays, lang, toast }) {
+export default function KintaiTab({ user, y, m, days, holidays, lang, toast, base = '' }) {
   const t = useCallback((k) => (L[k] ? L[k][lang === 'ja' ? 0 : 1] || L[k][0] : k), [lang]);
   const pk = `${String(y % 100).padStart(2, '0')}${pad2(m)}`;
   const key = kintaiKey(pk, user.id);
@@ -121,6 +126,7 @@ export default function KintaiTab({ user, y, m, days, holidays, lang, toast }) {
   const [entry, setEntry] = useState(null);
   const [open, setOpen] = useState(null);     // iso of the day being edited
   const [saveState, setSaveState] = useState('');
+  const [busy, setBusy] = useState('');
 
   const rules = DEFAULT_RULES;
 
@@ -208,6 +214,35 @@ export default function KintaiTab({ user, y, m, days, holidays, lang, toast }) {
     toast(t('fillAllDone').replace('{n}', n));
   };
 
+  /* The file is built on the server and comes back as the form itself, so
+     this posts and saves the response rather than assembling anything here.
+     The holiday list goes with it: the browser has the authoritative one and
+     the sheet must agree with what was on screen. */
+  const download = async () => {
+    if (busy) return;
+    setBusy(t('downloading'));
+    try {
+      const res = await fetch(`${base}/api/kintai/xlsx`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ y, m, holidays }),
+      });
+      if (!res.ok) throw new Error(String(res.status));
+      const blob = await res.blob();
+      const href = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = href;
+      a.download = `業務報告書_${pk}_${user.id}.xlsx`;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(href), 10000);
+    } catch {
+      toast(t('downloadFail'));
+    } finally {
+      setBusy('');
+    }
+  };
+
   if (!entry) return <div className="pad muted">…</div>;
 
   const openRow = open && month.rows.find((r) => r.iso === open);
@@ -253,6 +288,10 @@ export default function KintaiTab({ user, y, m, days, holidays, lang, toast }) {
 
       <div className="card pad-less">
         <button className="btn wide" onClick={fillWeekdays}>{t('fillAll')}</button>
+        <button className="btn primary wide mt8" disabled={!!busy} onClick={download}>
+          {busy || t('download')}
+        </button>
+        <p className="muted sm mt8">{t('downloadNote')}</p>
       </div>
 
       <div className="kt-list">
@@ -426,5 +465,6 @@ export const KINTAI_CSS = `
 .kt-day-sum b{font-size:14px;color:var(--ink);font-variant-numeric:tabular-nums}
 .kt-day-sum b em{font-style:normal;font-size:10px;color:var(--dim);margin-left:1px;font-weight:400}
 .btn.wide{width:100%}
+.mt8{margin-top:9px}
 .card.pad-less{padding:12px 14px}
 `;
