@@ -30,6 +30,7 @@ else if (fs.existsSync('.env')) dotenv.config();
 const nodemailer = (await import('nodemailer')).default;
 import { reminderMail, summaryMail, reminderRecipients } from './src/mail.js';
 import { buildTimesheet, timesheetFilename } from './src/kintai-xlsx.js';
+import { noticesFor, buildTodoke, todokeFilename } from './src/todoke.js';
 import { DEFAULT_CFG, ROSTER_SEED, orderRegions } from './src/defaults.js';
 
 if (!process.env.DATABASE_URL) {
@@ -389,6 +390,55 @@ const server = http.createServer(async (req, res) => {
         /* The filename is Japanese, so it goes in the RFC 5987 form; the
            plain one beside it is for anything that cannot read that. */
         'Content-Disposition': `attachment; filename="timesheet.xlsx"; filename*=UTF-8''${encodeURIComponent(name)}`,
+        'Cache-Control': 'no-store',
+      });
+      return res.end(Buffer.from(buf));
+    }
+
+    /* 届 — one notice from the month already entered. The period and the
+       kind come from the timesheet, so nothing is typed twice; the reason is
+       the one thing only a person can supply. */
+    if (url.pathname === '/api/kintai/todoke' && req.method === 'POST') {
+      if (!sess) return deny(res);
+      if (sess.isAdmin) return deny(res, 403);
+      const b = await readBody(req).catch(() => null);
+      const y = Number(b?.y); const m = Number(b?.m);
+      if (!y || !m || m < 1 || m > 12) return sendJson(res, 400, { error: 'period_required' });
+      if (!b.from) return sendJson(res, 400, { error: 'from_required' });
+
+      const person = await getEmployee(sess.employeeId);
+      if (!person) return deny(res, 403);
+      const saved = (await getKey(`kt:${periodKey(y, m)}:${person.id}`)) || { days: {} };
+      const rows = periodDays(y, m).map((iso) => {
+        const d = new Date(`${iso}T00:00:00`);
+        return { iso, dom: d.getDate(), dow: d.getDay(), ...(saved.days?.[iso] || {}) };
+      });
+
+      /* The run is recomputed here rather than taken from the request: a
+         notice has to describe the month as stored, not as claimed. */
+      const notice = noticesFor(rows).find((n) => n.from.iso === b.from && (!b.kind || n.kind === b.kind));
+      if (!notice) return sendJson(res, 404, { error: 'no_such_notice' });
+
+      let buf;
+      try {
+        buf = await buildTodoke({
+          notice,
+          person: {
+            id: person.id, name: person.name,
+            dept: person.dept || '', client: person.client || '',
+          },
+          reason: String(b.reason || '').slice(0, 60),
+          remark: String(b.remark || '').slice(0, 60),
+        });
+      } catch (err) {
+        console.error('todoke build failed', err.message);
+        return sendJson(res, 500, { error: 'build_failed' });
+      }
+
+      const name = todokeFilename(notice, person.id);
+      res.writeHead(200, {
+        'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'Content-Disposition': `attachment; filename="todoke.xlsx"; filename*=UTF-8''${encodeURIComponent(name)}`,
         'Cache-Control': 'no-store',
       });
       return res.end(Buffer.from(buf));

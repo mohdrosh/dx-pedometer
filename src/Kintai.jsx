@@ -18,6 +18,7 @@ import {
   computeMonth, splitHM, fmtHM, offUnit, overtimeAlert,
   DEFAULT_RULES, STATUS_1, STATUS_2,
 } from './kintai';
+import { noticesFor } from './todoke-runs';
 
 const DOW_JA = ['日', '月', '火', '水', '木', '金', '土'];
 const pad2 = (n) => String(n).padStart(2, '0');
@@ -86,6 +87,16 @@ const L = {
   cancel: ['キャンセル', 'Cancel'],
   blankDays: ['未入力の日があります。出勤していない日は勤怠状況を選んでください。',
     'Some days are blank. Pick a 勤怠状況 for days you were not at work.'],
+  todokeHead: ['届', 'Notices'],
+  todokeNone: ['この月度に届が必要な日はありません。', 'No day this period needs a notice.'],
+  todokeNote: ['勤怠状況を選んだ日から自動で作成します。連続する同じ種別は1枚にまとめます。',
+    'Built from the days you marked. Consecutive days of the same kind become one form.'],
+  todokeMake: ['届を作成', 'Create the notice'],
+  todokeReason: ['理由', 'Reason'],
+  todokeReasonPh: ['簡単で結構です（例：一時帰国のため）', 'A short line is enough'],
+  todokeRemark: ['備考', 'Remark'],
+  todokeNeedReason: ['理由を入力してください。', 'Please give a reason.'],
+  days_: ['日間', ' days'],
   isHoliday: ['祝日', 'Public holiday'],
   isSaturday: ['土曜日', 'Saturday'],
   isSunday: ['日曜日', 'Sunday'],
@@ -245,6 +256,38 @@ export default function KintaiTab({ user, y, m, days, holidays, lang, toast, bas
     toast(t('fillAllDone').replace('{n}', n));
   };
 
+  /* Which days need a 届, grouped into runs. The timesheet already knows —
+     this is the same information its 届 column shows, collected up. */
+  const notices = useMemo(() => noticesFor(month.rows), [month.rows]);
+  const [reasons, setReasons] = useState({});
+
+  const makeTodoke = async (n) => {
+    const reason = (reasons[n.from.iso + n.kind] || '').trim();
+    if (!reason) { toast(t('todokeNeedReason')); return; }
+    if (busy) return;
+    setBusy(t('downloading'));
+    try {
+      const res = await fetch(`${base}/api/kintai/todoke`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ y, m, from: n.from.iso, kind: n.kind, reason }),
+      });
+      if (!res.ok) throw new Error(String(res.status));
+      const blob = await res.blob();
+      const href = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = href;
+      a.download = `届_${n.kind}_${n.from.iso.replace(/-/g, '')}_${user.id}.xlsx`;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(href), 10000);
+    } catch {
+      toast(t('downloadFail'));
+    } finally {
+      setBusy('');
+    }
+  };
+
   /* The file is built on the server and comes back as the form itself, so
      this posts and saves the response rather than assembling anything here.
      The holiday list goes with it: the browser has the authoritative one and
@@ -351,6 +394,36 @@ export default function KintaiTab({ user, y, m, days, holidays, lang, toast, bas
               <span className="kt-v ot">{c.show?.overtime ? fmtHM(c.show.overtime) : ''}</span>
               {c.notice && <span className={`kt-n ${c.notice === '要' ? 'req' : ''}`}>{c.notice}</span>}
             </button>
+          );
+        })}
+      </div>
+
+      <div className="sechead"><span>{t('todokeHead')}</span></div>
+      <div className="card pad-less">
+        <p className="muted sm">{t('todokeNote')}</p>
+        {!notices.length && <p className="muted sm mt8">{t('todokeNone')}</p>}
+        {notices.map((n) => {
+          const k = n.from.iso + n.kind;
+          const span = n.days > 1
+            ? `${n.from.dom}日（${DOW_JA[n.from.dow]}）〜 ${n.to.dom}日（${DOW_JA[n.to.dow]}）`
+            : `${n.from.dom}日（${DOW_JA[n.from.dow]}）`;
+          return (
+            <div className="kt-td" key={k}>
+              <div className="kt-td-h">
+                <strong>{n.kind}</strong>
+                <span>{span}{n.days > 1 ? ` · ${n.days}${t('days_')}` : ''}</span>
+              </div>
+              <label className="fld">
+                <span>{t('todokeReason')}</span>
+                <input
+                  value={reasons[k] || ''} maxLength={60} placeholder={t('todokeReasonPh')}
+                  onChange={(e) => setReasons((r) => ({ ...r, [k]: e.target.value }))}
+                />
+              </label>
+              <button className="btn wide" disabled={!!busy} onClick={() => makeTodoke(n)}>
+                {busy || t('todokeMake')}
+              </button>
+            </div>
           );
         })}
       </div>
@@ -503,6 +576,13 @@ export const KINTAI_CSS = `
 .kt-note{margin:10px 0 0;font-size:12px;color:var(--brand);line-height:1.6}
 
 .kt-submit{margin-top:14px}
+.kt-td{padding:12px 0;border-top:1px solid var(--hair);margin-top:10px}
+.kt-td:first-of-type{border-top:0}
+.kt-td-h{display:flex;justify-content:space-between;align-items:baseline;
+  gap:10px;margin-bottom:9px}
+.kt-td-h strong{font-size:14px;color:var(--ink)}
+.kt-td-h span{font-size:12px;color:var(--ink-2);text-align:right}
+.kt-td .fld{margin-bottom:10px}
 .kt-list{border-top:1px solid var(--hair)}
 .kt-row{display:flex;align-items:center;gap:9px;width:100%;padding:9px 14px;background:#fff;
   border:0;border-bottom:1px solid var(--hair);text-align:left;font:inherit}

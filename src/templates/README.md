@@ -48,3 +48,27 @@ PY
 Check afterwards that the cell references in `src/kintai-xlsx.js` still point
 at the right boxes — it writes by address, so a row inserted into the form
 moves them all.
+
+---
+
+# 届 — the template the notice export fills
+
+`todoke.xlsx` is the 届（設計開発・請負契約）form, blank. The export ticks one
+種別 box, writes the period, the name and number, and the reason the person
+typed; everything else on the sheet is the form's own.
+
+Only the blank form is kept. The workbook it came from also carries two
+記入見本 sheets, which are instructions for filling it in by hand and are not
+what anyone submits. Dropping them costs nothing here — unlike the timesheet,
+the sheet that is kept carries no drawing, so the file comes back out of
+exceljs exactly as it went in.
+
+## Rebuilding it
+
+```bash
+node src/templates/make-todoke.mjs path/to/新しい届.xlsx
+```
+
+Then re-run `node test/todoke-cases.mjs`, and check the cell references in
+`src/todoke.js` — `KIND` holds the address of each checkbox, and the period
+rows are addressed directly, so a row inserted into the form moves them all.
