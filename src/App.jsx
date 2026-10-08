@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback, useContext, createCon
 import * as XLSX from 'xlsx';
 import MoraBot, { MORABOT_CSS } from './MoraBot';
 import KintaiTab, { KINTAI_CSS } from './Kintai';
+import KoutsuuhiTab, { KOUTSUUHI_CSS } from './Koutsuuhi';
 import {
   S, registerTrial, saveFeedback, fetchFeedback,
   IS_LOCAL, fetchBootstrap, apiLogin, apiLogout, apiMe, apiSaveMe, apiConsent, setLeaving,
@@ -51,7 +52,7 @@ const HOLIDAYS_FALLBACK = {
 const MODULES = [
   { id: 'steps', ja: '万歩計', en: 'Pedometer', ready: true },
   { id: 'timesheet', ja: '勤怠', en: 'Timesheet', ready: true },
-  { id: 'expense', ja: '旅費精算', en: 'Expenses', ready: false },
+  { id: 'expense', ja: '旅費精算', en: 'Expenses', ready: true },
 ];
 
 /* ============================== i18n ====================================== */
@@ -2277,6 +2278,15 @@ export default function App() {
                 base={import.meta.env.BASE_URL.replace(/\/$/, '')}
               />
             </>
+          ) : mod === 'expense' && !user.admin ? (
+            <>
+              <PeriodBar y={y} m={m} setPeriod={setPeriod} lang={lang} />
+              <KoutsuuhiTab
+                user={me} y={y} m={m} days={periodDays(y, m)}
+                lang={lang} toast={toast}
+                base={import.meta.env.BASE_URL.replace(/\/$/, '')}
+              />
+            </>
           ) : mod !== 'steps' ? (
             <div className="pad center">
               <div className="soonbox">
@@ -2320,7 +2330,7 @@ export default function App() {
 /* ================================ Styles ================================== */
 function Styles() {
   return (
-    <style>{MORABOT_CSS + KINTAI_CSS + `
+    <style>{MORABOT_CSS + KINTAI_CSS + KOUTSUUHI_CSS + `
 /* ---------------------------------------------------------------------------
    Type: Inter for Latin and every figure (real tabular numerals, so step
    counts align in a column), Noto Sans JP for Japanese. Both are drawn for

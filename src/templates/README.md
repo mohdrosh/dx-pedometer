@@ -72,3 +72,26 @@ node src/templates/make-todoke.mjs path/to/新しい届.xlsx
 Then re-run `node test/todoke-cases.mjs`, and check the cell references in
 `src/todoke.js` — `KIND` holds the address of each checkbox, and the period
 rows are addressed directly, so a row inserted into the form moves them all.
+
+---
+
+# 交通費精算書 — the template the expense export fills
+
+`koutsuuhi.xlsx` is the 交通費精算書（請負用）, blank. One sheet, which is the
+whole workbook. The export writes the header, up to 25 journeys and a ○ in
+the 通勤経路 column where the trip was a commute; the three totals at the
+foot stay the form's own SUMIFs, with the figures cached beside them.
+
+The cell note on 通勤経路 — the one that explains 通勤交通費 against
+立替交通費 — is carried across, so the form still explains itself to whoever
+opens it. The red ellipse around the 印 box is not; the box is still there.
+
+## Rebuilding it
+
+```bash
+node src/templates/make-koutsuuhi.mjs path/to/新しい交通費精算書.xlsx
+```
+
+Then re-run `node test/koutsuuhi-cases.mjs`, which rebuilds a real submitted
+sheet from its journeys and compares the two cell by cell. The column
+addresses live in `COL` in `src/koutsuuhi.js`.

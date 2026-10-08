@@ -31,6 +31,7 @@ const nodemailer = (await import('nodemailer')).default;
 import { reminderMail, summaryMail, reminderRecipients } from './src/mail.js';
 import { buildTimesheet, timesheetFilename } from './src/kintai-xlsx.js';
 import { noticesFor, buildTodoke, todokeFilename } from './src/todoke.js';
+import { buildKoutsuuhi, koutsuuhiFilename } from './src/koutsuuhi.js';
 import { DEFAULT_CFG, ROSTER_SEED, orderRegions } from './src/defaults.js';
 
 if (!process.env.DATABASE_URL) {
@@ -110,9 +111,9 @@ const clientIp = (req) =>
 function mayTouchKey(sess, key, write) {
   if (!sess) return false;
   if (sess.isAdmin) return true;
-  /* st: steps, kt: timesheet — both are one person's own month, and the id
-     in the key has to be theirs. */
-  const m = /^(?:st|kt):([^:]+):(.+)$/.exec(key);
+  /* st: steps, kt: timesheet, tr: travel — each is one person's own month,
+     and the id in the key has to be theirs. */
+  const m = /^(?:st|kt|tr):([^:]+):(.+)$/.exec(key);
   if (m) return String(m[2]) === String(sess.employeeId);
   if (key === 'cfg') return !write;
   return false;
@@ -395,6 +396,43 @@ const server = http.createServer(async (req, res) => {
       return res.end(Buffer.from(buf));
     }
 
+    /* 交通費精算書, filled from the journeys on screen. The rows are read
+       back out of storage rather than taken from the request: the file and
+       the screen have to be the same thing, and only one of them is the
+       record. */
+    if (url.pathname === '/api/koutsuuhi/xlsx' && req.method === 'POST') {
+      if (!sess) return deny(res);
+      if (sess.isAdmin) return deny(res, 403);
+      const b = await readBody(req).catch(() => null);
+      const y = Number(b?.y); const m = Number(b?.m);
+      if (!y || !m || m < 1 || m > 12) return sendJson(res, 400, { error: 'period_required' });
+
+      const person = await getEmployee(sess.employeeId);
+      if (!person) return deny(res, 403);
+      const saved = (await getKey(`tr:${periodKey(y, m)}:${person.id}`)) || { rows: [] };
+
+      let buf;
+      try {
+        buf = await buildKoutsuuhi({
+          y, m,
+          rows: Array.isArray(saved.rows) ? saved.rows : [],
+          person: { id: person.id, name: person.name, dept: person.dept || '' },
+        });
+      } catch (err) {
+        if (err.code === 'too_many_rows') return sendJson(res, 400, { error: 'too_many_rows' });
+        console.error('koutsuuhi build failed', err.message);
+        return sendJson(res, 500, { error: 'build_failed' });
+      }
+
+      const name = koutsuuhiFilename(y, m, person.id);
+      res.writeHead(200, {
+        'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'Content-Disposition': `attachment; filename="expenses.xlsx"; filename*=UTF-8''${encodeURIComponent(name)}`,
+        'Cache-Control': 'no-store',
+      });
+      return res.end(Buffer.from(buf));
+    }
+
     /* 届 — one notice from the month already entered. The period and the
        kind come from the timesheet, so nothing is typed twice; the reason is
        the one thing only a person can supply. */
@@ -486,7 +524,7 @@ const server = http.createServer(async (req, res) => {
            locks after submission, but the lock has to be here too, or a
            stale tab left open before submitting would write over it. Only an
            administrator can reopen one. */
-        if (!sess.isAdmin && /^kt:/.test(body.key)) {
+        if (!sess.isAdmin && /^(?:kt|tr):/.test(body.key)) {
           const prev = await getKey(body.key);
           if (prev && prev.submitted) return sendJson(res, 409, { error: 'locked' });
         }
