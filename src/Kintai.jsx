@@ -75,6 +75,17 @@ const L = {
   noticeReq: ['届が必要です', 'A notice is required'],
   noticeApp: ['事前申請が必要です', 'Needs a prior application'],
   blank: ['未入力', 'Not entered'],
+  submit: ['勤怠を提出', 'Submit timesheet'],
+  submitBlank: ['勤怠を提出（未入力 {n}日）', 'Submit timesheet ({n} days blank)'],
+  submitted: ['提出済', 'Submitted'],
+  notSubmitted: ['未提出', 'Not submitted'],
+  submitTitle: ['提出しますか？', 'Submit this month?'],
+  submitBody: ['提出後はご自身で修正できません。修正が必要な場合は管理責任者へご連絡ください。',
+    'You cannot edit it yourself afterwards. Ask your manager if a correction is needed.'],
+  lockedNote: ['提出済みのため編集できません。', 'Submitted — no longer editable.'],
+  cancel: ['キャンセル', 'Cancel'],
+  blankDays: ['未入力の日があります。出勤していない日は勤怠状況を選んでください。',
+    'Some days are blank. Pick a 勤怠状況 for days you were not at work.'],
   isHoliday: ['祝日', 'Public holiday'],
   isSaturday: ['土曜日', 'Saturday'],
   isSunday: ['日曜日', 'Sunday'],
@@ -88,13 +99,13 @@ const L = {
    one tap to the system wheel, which already understands 15-minute steps.
    A finish before the start is read as the next morning, so an overnight
    shift needs nothing special from whoever is typing it. */
-function TimeField({ h, m, unit, onChange, label }) {
+function TimeField({ h, m, unit, onChange, label, disabled }) {
   const value = h == null ? '' : `${pad2(h % 24)}:${pad2(m || 0)}`;
   return (
     <label className="fld kt-time">
       <span>{label}</span>
       <input
-        type="time" step={unit * 60} value={value}
+        type="time" step={unit * 60} value={value} disabled={disabled}
         onChange={(e) => {
           if (!e.target.value) { onChange(null, null); return; }
           const [nh, nm] = e.target.value.split(':').map(Number);
@@ -127,6 +138,7 @@ export default function KintaiTab({ user, y, m, days, holidays, lang, toast, bas
   const [open, setOpen] = useState(null);     // iso of the day being edited
   const [saveState, setSaveState] = useState('');
   const [busy, setBusy] = useState('');
+  const [ask, setAsk] = useState(false);
 
   const rules = DEFAULT_RULES;
 
@@ -180,8 +192,16 @@ export default function KintaiTab({ user, y, m, days, holidays, lang, toast, bas
 
   const month = useMemo(() => computeMonth(rows, rules), [rows, rules]);
   const alert60 = overtimeAlert(month);
+  const locked = !!entry?.submitted;
+
+  /* A day counts as answered if it has times or a 勤怠状況 — a Sunday nobody
+     worked needs neither, so only working days can be outstanding. */
+  const blanks = month.rows.filter(
+    (r) => r.calc.isWeekday && r.inH == null && !r.status1,
+  ).length;
 
   const setDay = (iso, patch) => {
+    if (locked) return;
     const cur = entry?.days?.[iso] || {};
     const next = { ...cur, ...patch };
     const empty = next.inH == null && next.outH == null && !next.status1 && !next.status2 && !next.note;
@@ -198,7 +218,18 @@ export default function KintaiTab({ user, y, m, days, holidays, lang, toast, bas
   /* Most months are twenty standard days and two exceptions. This fills the
      twenty so only the exceptions need touching. Days already entered, and
      days that are not working days, are left alone. */
+  const submit = async () => {
+    setAsk(false);
+    const next = { ...entry, submitted: true, submittedAt: Date.now() };
+    setEntry(next); latest.current = next;
+    setSaveState('saving');
+    const ok = await S.set(key, next);
+    setSaveState(ok ? 'saved' : 'error');
+    if (!ok) { setEntry({ ...entry, submitted: false }); toast(t('saveFail')); }
+  };
+
   const fillWeekdays = () => {
+    if (locked) return;
     const [sh, sm] = rules.workStart.split(':').map(Number);
     const [eh, em] = rules.workEnd.split(':').map(Number);
     const nd = { ...(entry?.days || {}) };
@@ -252,6 +283,11 @@ export default function KintaiTab({ user, y, m, days, holidays, lang, toast, bas
 
   return (
     <div className="tabbody">
+      <div className={'banner ' + (locked ? 'ok' : 'warn')}>
+        <span className="dot" />
+        {locked ? t('submitted') : t('notSubmitted')}
+      </div>
+
       <div className="sechead"><span>{t('totals')}</span></div>
       <div className="card kt-tot">
         <div className="kt-tot-g">
@@ -287,11 +323,12 @@ export default function KintaiTab({ user, y, m, days, holidays, lang, toast, bas
       </div>
 
       <div className="card pad-less">
-        <button className="btn wide" onClick={fillWeekdays}>{t('fillAll')}</button>
-        <button className="btn primary wide mt8" disabled={!!busy} onClick={download}>
+        {!locked && <button className="btn wide" onClick={fillWeekdays}>{t('fillAll')}</button>}
+        <button className={`btn wide${locked ? ' primary' : ''}${locked ? '' : ' mt8'}`} disabled={!!busy} onClick={download}>
           {busy || t('download')}
         </button>
         <p className="muted sm mt8">{t('downloadNote')}</p>
+        {locked && <p className="muted sm">{t('lockedNote')}</p>}
       </div>
 
       <div className="kt-list">
@@ -318,6 +355,40 @@ export default function KintaiTab({ user, y, m, days, holidays, lang, toast, bas
         })}
       </div>
 
+      {!locked && (
+        <div className="card pad-less kt-submit">
+          <button
+            className="btn primary big wide" disabled={blanks > 0}
+            onClick={() => setAsk(true)}
+          >
+            {blanks > 0 ? t('submitBlank').replace('{n}', blanks) : t('submit')}
+          </button>
+          {blanks > 0 && <p className="muted sm mt8">{t('blankDays')}</p>}
+        </div>
+      )}
+
+      {ask && (
+        <div className="ovl" onClick={() => setAsk(false)}>
+          <div className="sheet" onClick={(e) => e.stopPropagation()}>
+            <div className="sheet-h">
+              <strong>{t('submitTitle')}</strong>
+              <button className="x" onClick={() => setAsk(false)} aria-label="close">✕</button>
+            </div>
+            <div className="sheet-b">
+              <p className="muted">{t('submitBody')}</p>
+              <div className="kv"><span>{t('tInside')}</span><HM hours={month.inside} t={t} /></div>
+              <div className="kv"><span>{t('tOtDay')}</span><HM hours={month.otWeekday} t={t} /></div>
+              <div className="kv"><span>{t('tOtNight')}</span><HM hours={month.otWeekdayNight} t={t} /></div>
+              <div className="kv"><span>{t('cWorked')}</span><strong>{month.counts.worked}</strong></div>
+              <div className="navrow mt8">
+                <button className="btn ghost" onClick={() => setAsk(false)}>{t('cancel')}</button>
+                <button className="btn primary grow" onClick={submit}>{t('submit')}</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {openRow && (
         /* .ovl is the app's fixed backdrop — without it the panel lands at the
            bottom of a thirty-row page and has to be scrolled to. */
@@ -340,7 +411,8 @@ export default function KintaiTab({ user, y, m, days, holidays, lang, toast, bas
                   — {t('allOvertime')}
                 </p>
               )}
-              <div className="navrow">
+              {locked && <p className="kt-why">{t('lockedNote')}</p>}
+              <div className="navrow" hidden={locked}>
                 <button className="btn primary grow" onClick={() => standard(openRow.iso)}>
                   {t('standard')} {rules.workStart}–{rules.workEnd}
                 </button>
@@ -352,10 +424,12 @@ export default function KintaiTab({ user, y, m, days, holidays, lang, toast, bas
               <div className="kt-two">
                 <TimeField
                   label={t('start')} h={openRow.inH} m={openRow.inM} unit={rules.unitMin}
+                  disabled={locked}
                   onChange={(h, mm) => setDay(openRow.iso, { inH: h, inM: mm })}
                 />
                 <TimeField
                   label={t('end')} h={openRow.outH} m={openRow.outM} unit={rules.unitMin}
+                  disabled={locked}
                   onChange={(h, mm) => setDay(openRow.iso, { outH: h, outM: mm })}
                 />
               </div>
@@ -363,7 +437,7 @@ export default function KintaiTab({ user, y, m, days, holidays, lang, toast, bas
               <div className="kt-two">
                 <label className="fld"><span>{t('status')}</span>
                   <select
-                    value={openRow.status1 || ''}
+                    value={openRow.status1 || ''} disabled={locked}
                     onChange={(e) => setDay(openRow.iso, { status1: e.target.value })}
                   >
                     <option value="">{t('none')}</option>
@@ -372,7 +446,7 @@ export default function KintaiTab({ user, y, m, days, holidays, lang, toast, bas
                 </label>
                 <label className="fld"><span>{t('status2')}</span>
                   <select
-                    value={openRow.status2 || ''}
+                    value={openRow.status2 || ''} disabled={locked}
                     onChange={(e) => setDay(openRow.iso, { status2: e.target.value })}
                   >
                     <option value="">{t('none')}</option>
@@ -382,7 +456,7 @@ export default function KintaiTab({ user, y, m, days, holidays, lang, toast, bas
               </div>
               <label className="fld"><span>{t('note')}</span>
                 <input
-                  value={openRow.note || ''} maxLength={40}
+                  value={openRow.note || ''} maxLength={40} disabled={locked}
                   onChange={(e) => setDay(openRow.iso, { note: e.target.value })}
                 />
               </label>
@@ -428,6 +502,7 @@ export const KINTAI_CSS = `
   border:1px solid #EBD3CF;font-size:12px;color:var(--ink-2);line-height:1.6}
 .kt-note{margin:10px 0 0;font-size:12px;color:var(--brand);line-height:1.6}
 
+.kt-submit{margin-top:14px}
 .kt-list{border-top:1px solid var(--hair)}
 .kt-row{display:flex;align-items:center;gap:9px;width:100%;padding:9px 14px;background:#fff;
   border:0;border-bottom:1px solid var(--hair);text-align:left;font:inherit}

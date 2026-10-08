@@ -14,6 +14,7 @@
    the two from ever disagreeing.
    ========================================================================= */
 
+import { computeMonth, splitHM } from './kintai.js';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -42,9 +43,10 @@ const DOW_JA = ['日', '月', '火', '水', '木', '金', '土'];
  *   days          one per day of the period: { iso, dom, dow, inH, inM,
  *                 outH, outM, note, status1, status2 }
  *   holidays      { 'YYYY-MM-DD': '名称' } — written into the 祝祭日 sheet
+ *   rules         the working-hours rules, if not モラブ阪神's own
  * @returns {Promise<Buffer>} the filled workbook
  */
-export async function buildTimesheet({ y, m, person, days, holidays = {} }) {
+export async function buildTimesheet({ y, m, person, days, holidays = {}, rules }) {
   const wb = new ExcelJS.Workbook();
   await wb.xlsx.readFile(TEMPLATE);
   const ws = wb.getWorksheet(SHEET);
@@ -108,8 +110,69 @@ export async function buildTimesheet({ y, m, person, days, holidays = {} }) {
     });
   }
 
+  /* ---- the answers, written in beside the formulas --------------------
+     Excel recalculates on open and would fill these itself, but plenty of
+     things that open an xlsx do not: a phone's preview, Google Sheets on a
+     first load, the Finder's Quick Look. Someone checking the file before
+     sending it should see the figures, not a grid of blanks. So each
+     formula keeps its formula and is given the result as well, from the
+     same engine the screen uses — which is itself a port of these very
+     formulas, verified against them.                                     */
+  writeCachedResults(ws, days, holidays, rules);
+
   wb.calcProperties = { ...(wb.calcProperties || {}), fullCalcOnLoad: true };
   return wb.xlsx.writeBuffer();
+}
+
+/* Excel stores a time as a fraction of a day: 7h45m is 7.75/24. */
+const asTime = (hours) => (hours ? hours / 24 : '');
+
+/** Keep a cell's formula, attach what it evaluates to. */
+function cache(ws, ref, result) {
+  const cell = ws.getCell(ref);
+  const f = cell.value && cell.value.formula;
+  if (!f) return;                       // a plain cell, or an empty one
+  cell.value = { formula: f, result };
+}
+
+function writeCachedResults(ws, days, holidays, rules) {
+  const month = computeMonth(
+    days.map((d) => (d ? { ...d, holiday: !!holidays[d.iso] } : d)).filter(Boolean),
+    rules,
+  );
+
+  month.rows.forEach((r, i) => {
+    const row = FIRST_ROW + i;
+    const c = r.calc;
+    const on = c.entered;
+    cache(ws, `M${row}`, on && c.breakMin ? c.breakMin : '');
+    cache(ws, `O${row}`, on ? asTime(c.inside) : '');
+    cache(ws, `S${row}`, on ? asTime(c.show.overtime) : '');
+    cache(ws, `W${row}`, on ? asTime(c.show.night) : '');
+    cache(ws, `AA${row}`, on ? asTime(c.show.holiday) : '');
+    cache(ws, `AP${row}`, c.notice || '');
+  });
+
+  /* the 就業時間 box: hours on the left, the leftover minutes on the right */
+  const hm = [
+    ['AQ40', 'AX40', month.inside],
+    ['AQ41', 'AX41', month.deduct],
+    ['AQ42', 'AX42', month.otWeekday],
+    ['AQ43', 'AX43', month.otWeekdayNight],
+    ['AQ44', 'AX44', month.otHoliday],
+    ['AQ45', 'AX45', month.otHolidayNight],
+  ];
+  hm.forEach(([hRef, mRef, hours]) => {
+    const { h, m: mins } = splitHM(hours);
+    cache(ws, hRef, h);
+    cache(ws, mRef, mins);
+  });
+
+  /* and the day counts down the left */
+  const C = month.counts;
+  [['W40', C.shotei], ['W41', C.worked], ['W42', C.paidLeave], ['W43', C.absent],
+    ['W44', C.special], ['W45', C.holidaySat], ['W46', C.holidaySun], ['W47', C.furikae],
+  ].forEach(([ref, v]) => cache(ws, ref, v));
 }
 
 /** 業務報告書_2610_2407036.xlsx */

@@ -432,6 +432,14 @@ const server = http.createServer(async (req, res) => {
         if (!sess.isAdmin && submittedTooEarly(body.key, body.value)) {
           return sendJson(res, 400, { error: 'incomplete' });
         }
+        /* A submitted timesheet is the thing three people sign. The screen
+           locks after submission, but the lock has to be here too, or a
+           stale tab left open before submitting would write over it. Only an
+           administrator can reopen one. */
+        if (!sess.isAdmin && /^kt:/.test(body.key)) {
+          const prev = await getKey(body.key);
+          if (prev && prev.submitted) return sendJson(res, 409, { error: 'locked' });
+        }
         await setKey(body.key, body.value);
         return sendJson(res, 200, { key: body.key, ok: true });
       }
