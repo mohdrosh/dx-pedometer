@@ -78,9 +78,14 @@ rows are addressed directly, so a row inserted into the form moves them all.
 # 交通費精算書 — the template the expense export fills
 
 `koutsuuhi.xlsx` is the 交通費精算書（請負用）, blank. One sheet, which is the
-whole workbook. The export writes the header, up to 25 journeys and a ○ in
-the 通勤経路 column where the trip was a commute; the three totals at the
-foot stay the form's own SUMIFs, with the figures cached beside them.
+whole workbook. The export writes the header, 25 journeys and a ○ in the
+通勤経路 column where the trip was a commute; the three totals at the foot
+stay the form's own SUMIFs, with the figures cached beside them.
+
+A month of round trips does not fit on twenty-five lines — twenty working
+days is forty journeys — so the export fills one copy of the form per
+twenty-five and the screen downloads them in turn, which is what the office
+has always been handed on paper. Each copy totals its own lines.
 
 The cell note on 通勤経路 — the one that explains 通勤交通費 against
 立替交通費 — is carried across, so the form still explains itself to whoever

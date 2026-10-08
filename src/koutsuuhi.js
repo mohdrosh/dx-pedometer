@@ -10,7 +10,7 @@
    after each fare are printed on the form. Only the numbers go in.
    ========================================================================= */
 
-import { MAX_ROWS, filled, totals } from './koutsuuhi-calc.js';
+import { ROWS_PER_SHEET, sheetCount, sheetRows, totals } from './koutsuuhi-calc.js';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -33,18 +33,21 @@ const COL = {
  * @param {object} o
  *   y, m      the period, as 精算期間 closes it (21st → 20th)
  *   person    { id, name, dept }
- *   rows      journeys, in order; anything past the form's 25 lines is
- *             refused rather than silently dropped
+ *   rows      every journey of the period, in order
+ *   page      which copy of the form to fill, 0-based. The sheet holds 25
+ *             journeys; a month of round trips needs two or three, which is
+ *             what the office has always been handed on paper.
  *   today     the date on the form
  * @returns {Promise<Buffer>}
  */
-export async function buildKoutsuuhi({ y, m, person, rows = [], today = new Date() }) {
-  const use = rows.filter(filled);
-  if (use.length > MAX_ROWS) {
-    const err = new Error('too_many_rows');
-    err.code = 'too_many_rows';
+export async function buildKoutsuuhi({ y, m, person, rows = [], page = 0, today = new Date() }) {
+  const pages = sheetCount(rows);
+  if (page < 0 || page >= pages) {
+    const err = new Error('no_such_page');
+    err.code = 'no_such_page';
     throw err;
   }
+  const use = sheetRows(rows, page);
 
   const wb = new ExcelJS.Workbook();
   await wb.xlsx.readFile(TEMPLATE);
@@ -73,7 +76,7 @@ export async function buildKoutsuuhi({ y, m, person, rows = [], today = new Date
   set('Z9', to.getFullYear()); set('AD9', to.getMonth() + 1); set('AG9', to.getDate());
 
   /* ---- the journeys ---------------------------------------------------- */
-  for (let i = 0; i < MAX_ROWS; i++) {
+  for (let i = 0; i < ROWS_PER_SHEET; i++) {
     const row = FIRST_ROW + i;
     const r = use[i];
     const put = (col, v) => set(`${col}${row}`, v);
@@ -112,6 +115,9 @@ function cache(ws, ref, result) {
   cell.value = { formula: f, result };
 }
 
-/** 交通費精算書_2610_2407036.xlsx */
-export const koutsuuhiFilename = (y, m, id) =>
-  `交通費精算書_${String(y % 100).padStart(2, '0')}${String(m).padStart(2, '0')}_${id}.xlsx`;
+/** 交通費精算書_2610_2407036.xlsx, or 交通費精算書_2610_2407036_2of3.xlsx */
+export const koutsuuhiFilename = (y, m, id, page = 0, pages = 1) => {
+  const pk = `${String(y % 100).padStart(2, '0')}${String(m).padStart(2, '0')}`;
+  const of = pages > 1 ? `_${page + 1}of${pages}` : '';
+  return `交通費精算書_${pk}_${id}${of}.xlsx`;
+};

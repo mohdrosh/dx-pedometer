@@ -32,6 +32,7 @@ import { reminderMail, summaryMail, reminderRecipients } from './src/mail.js';
 import { buildTimesheet, timesheetFilename } from './src/kintai-xlsx.js';
 import { noticesFor, buildTodoke, todokeFilename } from './src/todoke.js';
 import { buildKoutsuuhi, koutsuuhiFilename } from './src/koutsuuhi.js';
+import { sheetCount } from './src/koutsuuhi-calc.js';
 import { DEFAULT_CFG, ROSTER_SEED, orderRegions } from './src/defaults.js';
 
 if (!process.env.DATABASE_URL) {
@@ -410,27 +411,31 @@ const server = http.createServer(async (req, res) => {
       const person = await getEmployee(sess.employeeId);
       if (!person) return deny(res, 403);
       const saved = (await getKey(`tr:${periodKey(y, m)}:${person.id}`)) || { rows: [] };
+      const rows = Array.isArray(saved.rows) ? saved.rows : [];
+      const pages = sheetCount(rows);
+      const page = Number(b?.page) || 0;
 
       let buf;
       try {
         buf = await buildKoutsuuhi({
-          y, m,
-          rows: Array.isArray(saved.rows) ? saved.rows : [],
+          y, m, rows, page,
           person: {
             id: person.id, name: person.name,
             dept: person.dept || '', section: person.section || '',
           },
         });
       } catch (err) {
-        if (err.code === 'too_many_rows') return sendJson(res, 400, { error: 'too_many_rows' });
+        if (err.code === 'no_such_page') return sendJson(res, 400, { error: 'no_such_page' });
         console.error('koutsuuhi build failed', err.message);
         return sendJson(res, 500, { error: 'build_failed' });
       }
 
-      const name = koutsuuhiFilename(y, m, person.id);
+      const name = koutsuuhiFilename(y, m, person.id, page, pages);
       res.writeHead(200, {
         'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         'Content-Disposition': `attachment; filename="expenses.xlsx"; filename*=UTF-8''${encodeURIComponent(name)}`,
+        /* so the browser knows whether to come back for another */
+        'X-Sheet-Count': String(pages),
         'Cache-Control': 'no-store',
       });
       return res.end(Buffer.from(buf));

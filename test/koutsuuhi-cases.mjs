@@ -6,7 +6,10 @@ import os from 'node:os';
 import path from 'node:path';
 import { createRequire } from 'node:module';
 import { buildKoutsuuhi } from '../src/koutsuuhi.js';
-import { totals, filled, MAX_ROWS } from '../src/koutsuuhi-calc.js';
+import {
+  totals, filled, ROWS_PER_SHEET, sheetCount, sheetRows,
+  roundTrip, workedDays, hasRoute, frequentRoutes, routeReady,
+} from '../src/koutsuuhi-calc.js';
 
 const require = createRequire(import.meta.url);
 const ExcelJS = require('exceljs');
@@ -84,13 +87,67 @@ is('ruled lines kept', [ws.getCell('B30').value, ws.getCell('J30').value, ws.get
 is('the 通勤経路 note survived', !!ws.getCell('AD14').note, true);
 is('merges kept', ws.model.merges.length, 277);
 
-console.log('more lines than the form has');
+console.log('a month that needs two copies of the form');
+/* 20 working days of round trips is 40 journeys — the sheet holds 25. */
+const many = Array.from({ length: 40 }, (_, i) => ({
+  date: '2026-09-01', from: `A${i}`, to: `B${i}`, fare: 100 + i, commute: true,
+}));
+is('two sheets', sheetCount(many), 2);
+is('first sheet is full', sheetRows(many, 0).length, ROWS_PER_SHEET);
+is('second holds the rest', sheetRows(many, 1).length, 15);
+is('and the two together are the month', sheetRows(many, 0).length + sheetRows(many, 1).length, 40);
+
+const p2 = await buildKoutsuuhi({ y: 2026, m: 9, person: { id: '1', name: 'x' }, rows: many, page: 1 });
+const wb2 = new ExcelJS.Workbook();
+await wb2.xlsx.load(p2);
+const s2 = wb2.worksheets[0];
+const cell = (ref) => {
+  const c = s2.getCell(ref).value;
+  return c && typeof c === 'object' && 'result' in c ? c.result : c;
+};
+is('sheet 2 starts at the 26th journey', cell('D16'), 'A25');
+is('sheet 2 totals its own lines only', cell('AF41'),
+  many.slice(25).reduce((a, r) => a + r.fare, 0));
+
 let threw = '';
-await buildKoutsuuhi({
-  y: 2026, m: 9, person: { id: '1', name: 'x' },
-  rows: Array.from({ length: MAX_ROWS + 1 }, () => ({ from: 'a', fare: 100 })),
-}).catch((e) => { threw = e.code; });
-is('refused', threw, 'too_many_rows');
+await buildKoutsuuhi({ y: 2026, m: 9, person: { id: '1', name: 'x' }, rows: many, page: 2 })
+  .catch((e) => { threw = e.code; });
+is('a page the month does not have is refused', threw, 'no_such_page');
+
+console.log('the commute, entered once');
+const route = { from: '姫路', to: '三ノ宮', line: 'JR', fare: 960 };
+is('a route needs both stations', [routeReady({ from: '姫路' }), routeReady(route)], [false, true]);
+const rt = roundTrip(route, '2026-09-28');
+is('out and back', rt.map((r) => `${r.from}→${r.to}`), ['姫路→三ノ宮', '三ノ宮→姫路']);
+is('both marked 通勤', rt.every((r) => r.commute), true);
+is('both carry the one-way fare', rt.map((r) => r.fare), [960, 960]);
+is('a day already covered is recognised, either way round',
+  hasRoute(rt, route, '2026-09-28'), true);
+is('another day is not', hasRoute(rt, route, '2026-09-29'), false);
+
+console.log('which days the timesheet says were worked');
+const kt = {
+  days: {
+    '2026-09-21': { inH: 9, inM: 0, outH: 17, outM: 45 },
+    '2026-09-22': { status1: '有給休暇' },
+    '2026-09-23': { status1: '欠勤' },
+    '2026-09-24': { status1: '振替休日' },
+    '2026-09-25': { status1: '直行', inH: 10, inM: 0, outH: 18, outM: 0 },
+    '2026-09-26': { status1: '休日出勤' },
+    '2026-09-28': { inH: 9, inM: 0, outH: 17, outM: 45 },
+  },
+};
+const period = ['2026-09-21', '2026-09-22', '2026-09-23', '2026-09-24',
+  '2026-09-25', '2026-09-26', '2026-09-27', '2026-09-28'];
+is('leave and absence are skipped, 直行 and 休日出勤 are not',
+  workedDays(kt, period), ['2026-09-21', '2026-09-25', '2026-09-26', '2026-09-28']);
+is('a day with nothing entered is not a day travelled',
+  workedDays({ days: {} }, period), []);
+
+console.log('routes offered back');
+const freq = frequentRoutes(rows, [{ from: '姫路', to: '三ノ宮', line: 'JR', fare: 960 }]);
+is('the duplicate 姫路→三ノ宮 is one entry', freq.filter((r) => r.from === '姫路').length, 1);
+is('each direction is its own', freq.length, 3);
 
 fs.unlinkSync(out);
 console.log(bad ? `\n${bad} mismatch(es)` : '\nthe form matches the one he submitted');
