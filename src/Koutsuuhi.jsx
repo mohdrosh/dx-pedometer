@@ -79,8 +79,8 @@ const L = {
   linePh: ['例：JR、阪急', 'e.g. JR'],
   fare: ['運賃', 'Fare'],
   commute: ['通勤経路（○）', 'Commuting journey (○)'],
-  commuteHelp: ['通勤交通費：通勤にかかる実費相当額。業務上の移動は○なしで立替交通費になります。',
-    'On for getting to and from work. Leave it off for travel on company business, which is reimbursed separately.'],
+  commuteHelp: ['通勤の実費はこちら。業務上の移動は○なしで立替交通費になります。',
+    'On for getting to work. Off for travel on company business.'],
   ret: ['復路', 'Return'],
   dup: ['複製', 'Copy'],
   del: ['削除', 'Delete'],
@@ -557,7 +557,7 @@ export default function KoutsuuhiTab({ user, y, m, days, lang, toast, base = '' 
         /* .ovl is the app's fixed backdrop, so the panel opens over the list
            rather than below it. */
         <div className="ovl" onClick={() => setOpen(-1)}>
-          <div className="sheet" onClick={(e) => e.stopPropagation()}>
+          <div className="sheet tr-sheet" onClick={(e) => e.stopPropagation()}>
             <div className="sheet-h kt-sheet-h">
               <button className="kt-step" disabled={open <= 0} onClick={() => setOpen(open - 1)} aria-label="prev">‹</button>
               <strong>
@@ -619,14 +619,18 @@ export default function KoutsuuhiTab({ user, y, m, days, lang, toast, base = '' 
                 </label>
               </div>
 
+              {/* the switch and the reason for it are one box, so the panel
+                  fits a phone without scrolling */}
               <label className="tr-sw">
                 <input
                   type="checkbox" checked={!!o.commute} disabled={locked}
                   onChange={(e) => patch(open, { commute: e.target.checked })}
                 />
-                <span>{t('commute')}</span>
+                <span>
+                  <b>{t('commute')}</b>
+                  <em>{t('commuteHelp')}</em>
+                </span>
               </label>
-              <p className="muted sm tr-swhelp">{t('commuteHelp')}</p>
 
               {!locked && (
                 <div className="tr-acts">
@@ -636,7 +640,7 @@ export default function KoutsuuhiTab({ user, y, m, days, lang, toast, base = '' 
                 </div>
               )}
 
-              <button className="btn primary big wide mt8" onClick={() => setOpen(-1)}>{t('close')}</button>
+              <button className="btn primary wide tr-close" onClick={() => setOpen(-1)}>{t('close')}</button>
             </div>
           </div>
         </div>
@@ -702,9 +706,46 @@ export const KOUTSUUHI_CSS = `
 .tr-time input[type=time]::-webkit-date-and-time-value{text-align:center;margin:0}
 .tr-fare input{font-size:17px;font-weight:600;text-align:right;font-variant-numeric:tabular-nums}
 
-.tr-sw{display:flex;align-items:center;gap:10px;margin-top:4px;padding:11px 12px;
-  border:1px solid var(--hair);border-radius:8px;background:var(--wash);font-size:13.5px;
-  color:var(--ink);font-weight:600}
-.tr-sw input{width:20px;height:20px;flex:none;accent-color:var(--brand)}
-.tr-swhelp{margin:7px 2px 0;line-height:1.6}
+.tr-sw{display:flex;align-items:flex-start;gap:10px;margin-top:2px;padding:9px 11px;
+  border:1px solid var(--hair);border-radius:8px;background:var(--wash)}
+.tr-sw input{width:19px;height:19px;flex:none;margin-top:1px;accent-color:var(--brand)}
+.tr-sw span{min-width:0}
+.tr-sw b{display:block;font-size:13px;font-weight:600;color:var(--ink)}
+.tr-sw em{display:block;font-style:normal;font-size:10.5px;color:var(--ink-2);
+  line-height:1.45;margin-top:2px}
+
+/* The journey editor is nine fields and four buttons. On a phone that is
+   more than a screen at the app's usual spacing, and a panel you have to
+   scroll to see the date on is not a panel anyone enjoys — so everything
+   inside this one sheet is set a little tighter and it fits whole. */
+.tr-sheet .sheet-b{padding:13px 15px 15px}
+.tr-sheet .fld{margin-bottom:9px}
+.tr-sheet .fld>span{font-size:11px;margin-bottom:3px}
+.tr-sheet .fld input{padding:9px 11px;font-size:15px}
+.tr-sheet .fld input[type=date]{font-size:14.5px}
+.tr-sheet .tr-leg{gap:10px}
+.tr-sheet .tr-leg .tr-time{width:104px}
+.tr-sheet .tr-time input[type=time]{font-size:14.5px;padding:9px 4px}
+.tr-sheet .tr-fare input{font-size:16px}
+.tr-sheet .tr-acts{margin-top:9px}
+.tr-sheet .tr-acts>.btn{padding:10px 6px}
+.tr-close{margin-top:9px;padding:13px;font-size:15px}
+
+/* An old 4-inch phone is 568px tall and the panel is 56px over. Tighter
+   again, and the note under the switch steps aside — the label still says
+   what the box is for. */
+@media (max-height:640px){
+  .tr-sheet{max-height:96vh}
+  .tr-sheet .sheet-h{padding:9px 13px}
+  .tr-sheet .sheet-b{padding:9px 13px 11px}
+  .tr-sheet .fld{margin-bottom:6px}
+  .tr-sheet .fld>span{margin-bottom:2px}
+  .tr-sheet .fld input{padding:7px 10px;font-size:14px}
+  .tr-sheet .tr-time input[type=time]{padding:7px 4px;font-size:14px}
+  .tr-sheet .tr-sw{padding:7px 10px}
+  .tr-sheet .tr-sw em{display:none}
+  .tr-sheet .tr-acts{margin-top:7px}
+  .tr-sheet .tr-acts>.btn{padding:8px 5px}
+  .tr-close{margin-top:7px;padding:11px;font-size:14.5px}
+}
 `;
