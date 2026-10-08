@@ -35,7 +35,7 @@ is('a row with a fare is', filled({ fare: 220 }), true);
 /* ---- the form ---------------------------------------------------------- */
 const buf = await buildKoutsuuhi({
   y: 2026, m: 9,
-  person: { id: '2407036', name: 'モハメド ロシャン', dept: 'システム開発1課' },
+  person: { id: '2407036', name: 'モハメド ロシャン', dept: '開発部', section: 'システム開発1課' },
   rows,
   today: new Date(2026, 8, 11),
 });
@@ -52,7 +52,7 @@ const v = (ref) => {
 
 console.log('header');
 is('作成日', [v('AD4'), v('AH4'), v('AJ4')], [2026, 9, 11]);
-is('所属', v('F6'), 'システム開発1課');
+is('所属 is the 課, as the submitted sheet has it', v('F6'), 'システム開発1課');
 is('氏名', v('Z7'), 'モハメド ロシャン');
 is('社員№', ['AB', 'AC', 'AD', 'AE', 'AF', 'AG', 'AH'].map((c) => v(`${c}6`)), [2, 4, 0, 7, 0, 3, 6]);
 is('精算期間 from', [v('I9'), v('M9'), v('P9')], [2026, 8, 21]);

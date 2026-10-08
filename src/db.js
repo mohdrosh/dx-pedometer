@@ -108,6 +108,13 @@ export async function initSchema() {
        company address so turning it off never risks losing that one. */
     ALTER TABLE employees ADD COLUMN IF NOT EXISTS email2 TEXT;
     ALTER TABLE employees ADD COLUMN IF NOT EXISTS email2_on BOOLEAN NOT NULL DEFAULT FALSE;
+    /* What the 業務報告書, the 届 and the 交通費精算書 print at the top:
+       部署 and 課 on the timesheet, 所属 on the expense form, and the name of
+       the site someone is placed at on the 届. Blank until the committee
+       fills them in, which is how the paper forms arrive today. */
+    ALTER TABLE employees ADD COLUMN IF NOT EXISTS dept TEXT;
+    ALTER TABLE employees ADD COLUMN IF NOT EXISTS section TEXT;
+    ALTER TABLE employees ADD COLUMN IF NOT EXISTS client TEXT;
   `);
 
   /* The consent used to be a checkbox on the sign-in screen, and signing in
@@ -145,6 +152,9 @@ const toEmployee = (r) => ({
   name: r.name,
   region: r.region || '',
   gender: r.gender || '',
+  dept: r.dept || '',
+  section: r.section || '',
+  client: r.client || '',
   email: r.email || '',
   email2: r.email2 || '',
   email2On: !!r.email2_on,
@@ -172,20 +182,22 @@ async function setRoster(list) {
       await client.query(
         `INSERT INTO employees (id, name, region, gender, email, pedometer, active,
                                 consent, consent_asked, consent_at, sort_order, trial, dob,
-                                email2, email2_on)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
+                                email2, email2_on, dept, section, client)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)
          ON CONFLICT (id) DO UPDATE SET
            name = EXCLUDED.name, region = EXCLUDED.region, gender = EXCLUDED.gender,
            email = EXCLUDED.email, pedometer = EXCLUDED.pedometer, active = EXCLUDED.active,
            consent = EXCLUDED.consent, consent_asked = EXCLUDED.consent_asked,
            consent_at = EXCLUDED.consent_at, sort_order = EXCLUDED.sort_order,
            trial = EXCLUDED.trial, dob = EXCLUDED.dob,
-           email2 = EXCLUDED.email2, email2_on = EXCLUDED.email2_on`,
+           email2 = EXCLUDED.email2, email2_on = EXCLUDED.email2_on,
+           dept = EXCLUDED.dept, section = EXCLUDED.section, client = EXCLUDED.client`,
         [
           String(p.id), p.name, p.region || null, p.gender || null, p.email || null,
           p.pedometer || null, p.active !== false, !!p.consent, !!p.consentAsked,
           p.consentAt ? new Date(p.consentAt) : null, i, !!p.trial, p.dob || null,
           p.email2 || null, !!p.email2On,
+          p.dept || null, p.section || null, p.client || null,
         ],
       );
     }

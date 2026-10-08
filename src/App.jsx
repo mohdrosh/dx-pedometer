@@ -140,6 +140,12 @@ const STR = {
   blank: ['未入力', 'Blank'],
   name: ['氏名', 'Name'],
   region: ['所属地域', 'Region'],
+  dept: ['部署', 'Department'],
+  section: ['課', 'Section'],
+  clientCo: ['出向会社名', 'Client site'],
+  formFields: ['帳票に印字される項目', 'Printed on the forms'],
+  formFieldsNote: ['業務報告書・届・交通費精算書の上部に印字されます。',
+    'These appear at the top of the timesheet, the notice and the expense form.'],
   gender: ['性別', 'Gender'],
   male: ['男', 'Male'],
   female: ['女', 'Female'],
@@ -1740,6 +1746,7 @@ function PeopleAdmin({ cfg, setCfg, roster, setRoster, toast }) {
         id: String(f.id), name: f.name, region: f.region, gender: f.gender,
         email: f.email || '', email2: f.email2 || '', email2On: !!f.email2On,
         pedometer: f.pedometer || '', consent: !!f.consent, active: true,
+        dept: f.dept || '', section: f.section || '', client: f.client || '',
       }]
       : roster.map((p) => {
         if (String(p.id) !== String(f._orig)) return p;
@@ -1892,6 +1899,20 @@ function PeopleAdmin({ cfg, setCfg, roster, setRoster, toast }) {
               <select value={edit.gender} onChange={(e) => setEdit({ ...edit, gender: e.target.value })}>
                 <option value="男">{t('male')}</option><option value="女">{t('female')}</option>
               </select>
+            </label>
+            {/* 部署・課・出向会社名 are printed at the top of every form the
+                勤怠 and 旅費精算 modules produce. They are kept here rather
+                than on マイページ because a form that payroll reads should
+                not say whatever its subject last typed. */}
+            <p className="muted sm mt8">{t('formFields')} — {t('formFieldsNote')}</p>
+            <label className="fld"><span>{t('dept')}</span>
+              <input value={edit.dept || ''} maxLength={30} onChange={(e) => setEdit({ ...edit, dept: e.target.value })} />
+            </label>
+            <label className="fld"><span>{t('section')}</span>
+              <input value={edit.section || ''} maxLength={30} onChange={(e) => setEdit({ ...edit, section: e.target.value })} />
+            </label>
+            <label className="fld"><span>{t('clientCo')}</span>
+              <input value={edit.client || ''} maxLength={40} onChange={(e) => setEdit({ ...edit, client: e.target.value })} />
             </label>
             <label className="fld"><span>{t('pedometerNo')}</span>
               <input value={edit.pedometer || ''} onChange={(e) => setEdit({ ...edit, pedometer: e.target.value })} />

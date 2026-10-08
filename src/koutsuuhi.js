@@ -56,8 +56,10 @@ export async function buildKoutsuuhi({ y, m, person, rows = [], today = new Date
   set('AH4', today.getMonth() + 1);
   set('AJ4', today.getDate());
 
-  /* 所属 / 氏名, and the employee number one digit to a box */
-  set('F6', person.dept || '');
+  /* 所属 / 氏名, and the employee number one digit to a box. The box is
+     narrower than the timesheet's two, and the sheets people submit put the
+     課 in it rather than the 部署 — so that is what goes in. */
+  set('F6', person.section || person.dept || '');
   set('Z7', person.name || '');
   const digits = String(person.id || '').replace(/\D/g, '').slice(-7).padStart(7, ' ');
   ['AB', 'AC', 'AD', 'AE', 'AF', 'AG', 'AH'].forEach((c, i) => {

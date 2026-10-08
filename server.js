@@ -416,7 +416,10 @@ const server = http.createServer(async (req, res) => {
         buf = await buildKoutsuuhi({
           y, m,
           rows: Array.isArray(saved.rows) ? saved.rows : [],
-          person: { id: person.id, name: person.name, dept: person.dept || '' },
+          person: {
+            id: person.id, name: person.name,
+            dept: person.dept || '', section: person.section || '',
+          },
         });
       } catch (err) {
         if (err.code === 'too_many_rows') return sendJson(res, 400, { error: 'too_many_rows' });
