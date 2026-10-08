@@ -105,9 +105,11 @@ export function computeDay(day, rules = DEFAULT_RULES) {
   const blank = day.inH == null || day.inH === '' || day.outH == null || day.outH === '';
   if (isLeave || blank) {
     return {
-      isWeekday, isLeave, isSwapWork, holidayWork, worked: false,
+      isWeekday, isLeave, isSwapWork, holidayWork, worked: false, entered: false,
       breakMin: 0, inside: 0, deduct: 0, early: 0,
       otWeekday: 0, otWeekdayNight: 0, otHoliday: 0, otHolidayNight: 0,
+      show: { inside: 0, overtime: 0, night: 0, holiday: 0 },
+      notice: noticeFor(s1, s2, 0, 0),
     };
   }
 
@@ -165,7 +167,8 @@ export function computeDay(day, rules = DEFAULT_RULES) {
   const overtimeShown = otWeekday + otWeekdayNight + otHoliday + otHolidayNight;
 
   return {
-    isWeekday, isLeave, isSwapWork, holidayWork, worked: inside > 0 || overtimeShown > 0,
+    isWeekday, isLeave, isSwapWork, holidayWork, entered: true,
+    worked: inside > 0 || overtimeShown > 0,
     breakMin, inside, deduct: deduct + leftEarly, early,
     otWeekday, otWeekdayNight, otHoliday, otHolidayNight,
     /* what the day row prints (O / S / W / AA) */

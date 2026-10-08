@@ -35,6 +35,7 @@ const L = {
   holiday: ['休日勤務', 'Holiday'],
   note: ['備考', 'Note'],
   status: ['勤怠状況', 'Status'],
+  status2: ['勤怠状況②', 'Status 2'],
   notice: ['届', 'Notice'],
   standard: ['標準', 'Standard'],
   fillAll: ['営業日を標準で埋める', 'Fill weekdays with standard hours'],
@@ -69,35 +70,32 @@ const L = {
   noticeReq: ['届が必要です', 'A notice is required'],
   noticeApp: ['事前申請が必要です', 'Needs a prior application'],
   blank: ['未入力', 'Not entered'],
+  isHoliday: ['祝日', 'Public holiday'],
+  isSaturday: ['土曜日', 'Saturday'],
+  isSunday: ['日曜日', 'Sunday'],
+  allOvertime: ['所定労働日ではないため、働いた分はすべて時間外になります。',
+    'Not a contracted working day, so everything worked counts as overtime.'],
 };
 
 /* ------------------------------------------------------------------ atoms */
 
-/** A time as two selects, stepping by the unit the rules ask for. */
+/* A single native time field rather than two dropdowns: on a phone this is
+   one tap to the system wheel, which already understands 15-minute steps.
+   A finish before the start is read as the next morning, so an overnight
+   shift needs nothing special from whoever is typing it. */
 function TimeField({ h, m, unit, onChange, label }) {
-  const hours = Array.from({ length: 30 }, (_, i) => i); // 0–29, so past midnight works
-  const mins = Array.from({ length: 60 / unit }, (_, i) => i * unit);
-  const set = (nh, nm) => onChange(nh, nm);
+  const value = h == null ? '' : `${pad2(h % 24)}:${pad2(m || 0)}`;
   return (
     <label className="fld kt-time">
       <span>{label}</span>
-      <div className="kt-time-row">
-        <select
-          value={h == null ? '' : h}
-          onChange={(e) => set(e.target.value === '' ? null : Number(e.target.value), m ?? 0)}
-        >
-          <option value="">--</option>
-          {hours.map((x) => <option key={x} value={x}>{pad2(x)}</option>)}
-        </select>
-        <b>:</b>
-        <select
-          value={m == null ? '' : m}
-          disabled={h == null}
-          onChange={(e) => set(h, e.target.value === '' ? null : Number(e.target.value))}
-        >
-          {mins.map((x) => <option key={x} value={x}>{pad2(x)}</option>)}
-        </select>
-      </div>
+      <input
+        type="time" step={unit * 60} value={value}
+        onChange={(e) => {
+          if (!e.target.value) { onChange(null, null); return; }
+          const [nh, nm] = e.target.value.split(':').map(Number);
+          onChange(nh, nm);
+        }}
+      />
     </label>
   );
 }
@@ -170,7 +168,7 @@ export default function KintaiTab({ user, y, m, days, holidays, lang, toast }) {
   /* The period's days, each carrying whatever has been entered for it. */
   const rows = useMemo(() => days.map((d) => ({
     iso: d.iso, dom: d.dom, dow: d.dow,
-    holiday: !!holidays[d.iso],
+    holiday: !!holidays[d.iso], holidayName: holidays[d.iso] || '',
     ...(entry?.days?.[d.iso] || {}),
   })), [days, holidays, entry]);
 
@@ -213,6 +211,9 @@ export default function KintaiTab({ user, y, m, days, holidays, lang, toast }) {
   if (!entry) return <div className="pad muted">…</div>;
 
   const openRow = open && month.rows.find((r) => r.iso === open);
+  const openAt = openRow ? month.rows.findIndex((r) => r.iso === open) : -1;
+  const prevIso = openAt > 0 ? month.rows[openAt - 1].iso : null;
+  const nextIso = openAt >= 0 && openAt < month.rows.length - 1 ? month.rows[openAt + 1].iso : null;
 
   return (
     <div className="tabbody">
@@ -279,13 +280,27 @@ export default function KintaiTab({ user, y, m, days, holidays, lang, toast }) {
       </div>
 
       {openRow && (
-        <div className="sheet-bg" onClick={() => setOpen(null)}>
+        /* .ovl is the app's fixed backdrop — without it the panel lands at the
+           bottom of a thirty-row page and has to be scrolled to. */
+        <div className="ovl" onClick={() => setOpen(null)}>
           <div className="sheet" onClick={(e) => e.stopPropagation()}>
-            <div className="sheet-h">
+            <div className="sheet-h kt-sheet-h">
+              {/* Step along the month from inside the sheet: filling a week of
+                  exceptions should not mean closing and reopening seven times. */}
+              <button className="kt-step" disabled={!prevIso} onClick={() => setOpen(prevIso)} aria-label="prev">‹</button>
               <strong>{m}/{openRow.dom}（{DOW_JA[openRow.dow]}）</strong>
-              <button className="x" onClick={() => setOpen(null)}>✕</button>
+              <button className="kt-step" disabled={!nextIso} onClick={() => setOpen(nextIso)} aria-label="next">›</button>
+              <button className="x" onClick={() => setOpen(null)} aria-label="close">✕</button>
             </div>
             <div className="sheet-b">
+              {(openRow.holiday || openRow.dow === 0 || openRow.dow === 6) && (
+                <p className="kt-why">
+                  {openRow.holidayName
+                    ? `${t('isHoliday')}（${openRow.holidayName}）`
+                    : openRow.dow === 0 ? t('isSunday') : t('isSaturday')}
+                  — {t('allOvertime')}
+                </p>
+              )}
               <div className="navrow">
                 <button className="btn primary grow" onClick={() => standard(openRow.iso)}>
                   {t('standard')} {rules.workStart}–{rules.workEnd}
@@ -306,24 +321,26 @@ export default function KintaiTab({ user, y, m, days, holidays, lang, toast }) {
                 />
               </div>
 
-              <label className="fld"><span>{t('status')}</span>
-                <select
-                  value={openRow.status1 || ''}
-                  onChange={(e) => setDay(openRow.iso, { status1: e.target.value })}
-                >
-                  <option value="">—</option>
-                  {STATUS_1.map((s) => <option key={s}>{s}</option>)}
-                </select>
-              </label>
-              <label className="fld"><span>&nbsp;</span>
-                <select
-                  value={openRow.status2 || ''}
-                  onChange={(e) => setDay(openRow.iso, { status2: e.target.value })}
-                >
-                  <option value="">—</option>
-                  {STATUS_2.map((s) => <option key={s}>{s}</option>)}
-                </select>
-              </label>
+              <div className="kt-two">
+                <label className="fld"><span>{t('status')}</span>
+                  <select
+                    value={openRow.status1 || ''}
+                    onChange={(e) => setDay(openRow.iso, { status1: e.target.value })}
+                  >
+                    <option value="">{t('none')}</option>
+                    {STATUS_1.map((x) => <option key={x}>{x}</option>)}
+                  </select>
+                </label>
+                <label className="fld"><span>{t('status2')}</span>
+                  <select
+                    value={openRow.status2 || ''}
+                    onChange={(e) => setDay(openRow.iso, { status2: e.target.value })}
+                  >
+                    <option value="">{t('none')}</option>
+                    {STATUS_2.map((x) => <option key={x}>{x}</option>)}
+                  </select>
+                </label>
+              </div>
               <label className="fld"><span>{t('note')}</span>
                 <input
                   value={openRow.note || ''} maxLength={40}
@@ -339,9 +356,10 @@ export default function KintaiTab({ user, y, m, days, holidays, lang, toast }) {
               </div>
               {openRow.calc.notice === '要' && <p className="kt-warn">{t('noticeReq')}</p>}
               {openRow.calc.notice === '申' && <p className="kt-note">{t('noticeApp')}</p>}
-              {offUnit(openRow.calc.inside + openRow.calc.show?.overtime, rules.unitMin) && (
-                <p className="kt-warn">{t('unitWarn').replace('{n}', rules.unitMin)}</p>
-              )}
+              {openRow.calc.entered
+                && offUnit(openRow.calc.inside + openRow.calc.show.overtime, rules.unitMin) && (
+                  <p className="kt-warn">{t('unitWarn').replace('{n}', rules.unitMin)}</p>
+                )}
 
               <button className="btn primary big" onClick={() => setOpen(null)}>{t('close')}</button>
             </div>
@@ -367,6 +385,8 @@ export const KINTAI_CSS = `
 .kt-cnt b{font-size:14px;color:var(--ink);font-variant-numeric:tabular-nums}
 .kt-cnt b em{font-style:normal;font-size:10.5px;color:var(--dim);margin-left:2px;font-weight:400}
 .kt-warn{margin:10px 0 0;font-size:12px;color:var(--warn);line-height:1.6}
+.kt-why{margin:0 0 14px;padding:9px 11px;border-radius:7px;background:var(--warn-wash);
+  border:1px solid #EBD3CF;font-size:12px;color:var(--ink-2);line-height:1.6}
 .kt-note{margin:10px 0 0;font-size:12px;color:var(--brand);line-height:1.6}
 
 .kt-list{border-top:1px solid var(--hair)}
@@ -387,9 +407,18 @@ export const KINTAI_CSS = `
 .kt-row .kt-n.req{background:var(--warn-wash);color:var(--warn)}
 
 .kt-two{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-.kt-time-row{display:flex;align-items:center;gap:6px}
-.kt-time-row select{flex:1;min-width:0}
-.kt-time-row b{font-weight:600;color:var(--ink-2)}
+.kt-time input[type=time]{width:100%;font-size:19px;font-weight:600;letter-spacing:.02em;
+  font-variant-numeric:tabular-nums;text-align:center;padding:11px 8px}
+/* iOS leaves a time input looking like text until it is told otherwise */
+.kt-time input[type=time]::-webkit-date-and-time-value{text-align:center;margin:0}
+
+/* the sheet's own header: ‹ day › and a close, so a week of exceptions is one
+   pass rather than seven open-and-close rounds */
+.kt-sheet-h{gap:4px}
+.kt-sheet-h strong{flex:1;text-align:center;font-size:15px}
+.kt-step{border:0;background:rgba(255,255,255,.14);color:#fff;font-size:17px;line-height:1;
+  width:32px;height:32px;border-radius:6px;flex:none}
+.kt-step:disabled{opacity:.3}
 .kt-day-sum{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;margin-top:4px;
   background:var(--hair);border:1px solid var(--hair);border-radius:8px;overflow:hidden}
 .kt-day-sum>div{background:var(--wash);padding:8px 6px;text-align:center}
