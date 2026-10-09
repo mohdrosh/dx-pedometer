@@ -26,8 +26,7 @@
    ========================================================================= */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { S, setLeaving, apiFeatures, apiFareRoutes } from './storage';
-import { matches as tableMatches } from './fare-table';
+import { S, setLeaving, apiFeatures, apiFareRoutes, apiFareTable } from './storage';
 import {
   ROWS_PER_SHEET, MAX_ROWS, totals, filled, travelKey, yenFmt,
   sheetCount, roundTrip, routeReady, hasRoute, workedDays, frequentRoutes,
@@ -171,13 +170,26 @@ function Clock({ h, m, onChange, label, disabled }) {
    says — the fare, and the lines it takes, which is what tells 地下鉄 and JR
    apart between the same pair of stations. Picking one fills both boxes and
    marks the figure as looked up rather than claimed. */
-function FareFinder({ from, to, t, tErr, onPick, disabled, table = [], canSearch }) {
+function FareFinder({ from, to, t, tErr, onPick, disabled, hasTable, canSearch }) {
   const [busy, setBusy] = useState(false);
   const [routes, setRoutes] = useState(null);
   const [err, setErr] = useState('');
+  const [approved, setApproved] = useState([]);
 
   /* A new pair of stations invalidates whatever is on screen. */
   useEffect(() => { setRoutes(null); setErr(''); }, [from, to]);
+
+  /* The committee's table is not handed out whole — it is asked about one
+     journey at a time, once both stations are named. A short wait so a
+     station being typed letter by letter is one question, not eight. */
+  useEffect(() => {
+    if (!hasTable || !from?.trim() || !to?.trim()) { setApproved([]); return undefined; }
+    let live = true;
+    const id = setTimeout(() => {
+      apiFareTable(from.trim(), to.trim()).then((rows) => { if (live) setApproved(rows); });
+    }, 350);
+    return () => { live = false; clearTimeout(id); };
+  }, [from, to, hasTable]);
 
   const go = async () => {
     if (busy) return;
@@ -193,11 +205,9 @@ function FareFinder({ from, to, t, tErr, onPick, disabled, table = [], canSearch
     }
   };
 
-  /* The company's own table first: it is free, instant, works with no
-     network, and the figure on it has already been approved. The planner
-     is for the journey nobody planned for. */
-  const approved = tableMatches(table, from, to);
-
+  /* The company's own table first: the figure on it has already been
+     approved, and it costs nothing to ask. The planner is for the journey
+     nobody planned for. */
   return (
     <div className="tr-find">
       {!!approved.length && (
@@ -283,11 +293,13 @@ export default function KoutsuuhiTab({ user, y, m, days, cfg = {}, lang, toast, 
   const [busy, setBusy] = useState('');
   const [ask, setAsk] = useState(false);
   /* The lookup only appears when the server has been given a key for it. */
+  /* Whether there is a planner key, and whether the committee's table has
+     anything in it. A count, not the table: the rows themselves are asked
+     for one journey at a time. */
   const [canFind, setCanFind] = useState(false);
-  const [fareTable, setFareTable] = useState([]);
+  const [tableSize, setTableSize] = useState(0);
   useEffect(() => {
-    apiFeatures().then((f) => setCanFind(!!f.fare));
-    S.get('fares').then((v) => setFareTable(Array.isArray(v) ? v : []));
+    apiFeatures().then((f) => { setCanFind(!!f.fare); setTableSize(f.fareTable || 0); });
   }, []);
 
   /* Last month is read for two reasons: to carry the 通勤経路 forward, so it
@@ -351,7 +363,7 @@ export default function KoutsuuhiTab({ user, y, m, days, cfg = {}, lang, toast, 
   /* 運賃は検索のみ. Only meaningful while there is a planner to look fares
      up with — with the toggle on and no key, every fare would be
      unenterable, so the policy stands down rather than locking the screen. */
-  const lockFare = !!cfg.fareLookupOnly && (canFind || fareTable.length > 0);
+  const lockFare = !!cfg.fareLookupOnly && (canFind || tableSize > 0);
   const unchecked = useMemo(() => (lockFare ? unverified(rows) : []), [lockFare, rows]);
 
   const first = days[0]?.iso;
@@ -593,10 +605,10 @@ export default function KoutsuuhiTab({ user, y, m, days, cfg = {}, lang, toast, 
               </label>
             </div>
             {lockFare && <p className="muted sm tr-lock">{t('lockNote')}</p>}
-            {(canFind || !!fareTable.length) && (
+            {(canFind || tableSize > 0) && (
               <FareFinder
                 from={editRoute.from} to={editRoute.to} t={t} tErr={tErr}
-                table={fareTable} canSearch={canFind}
+                hasTable={tableSize > 0} canSearch={canFind}
                 onPick={(r, src) => setEditRoute({
                   ...editRoute, line: r.label || editRoute.line, fare: r.fare, fareSource: src,
                 })}
@@ -804,10 +816,10 @@ export default function KoutsuuhiTab({ user, y, m, days, cfg = {}, lang, toast, 
               </div>
               {lockFare && !locked && <p className="muted sm tr-lock">{t('lockNote')}</p>}
 
-              {(canFind || !!fareTable.length) && !locked && (
+              {(canFind || tableSize > 0) && !locked && (
                 <FareFinder
                   from={o.from} to={o.to} t={t} tErr={tErr}
-                  table={fareTable} canSearch={canFind}
+                  hasTable={tableSize > 0} canSearch={canFind}
                   onPick={(r, src) => patch(open, {
                     line: r.label || o.line, fare: r.fare, fareSource: src,
                   })}

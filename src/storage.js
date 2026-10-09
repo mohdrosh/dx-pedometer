@@ -265,6 +265,17 @@ export function apiFeatures() {
   return featuresOnce;
 }
 
+/** The committee's approved fare for one pair of stations. Only the rows
+    for those two come back — the table as a whole is the committee's. */
+export async function apiFareTable(from, to) {
+  const q = new URLSearchParams({ from: from || '', to: to || '' });
+  try {
+    const res = await fetch(`${base()}/api/fare/table?${q}`, { credentials: 'same-origin' });
+    if (!res.ok) return [];
+    return (await res.json()).rows || [];
+  } catch { return []; }
+}
+
 /** The fare a route planner gives for a pair of stations. */
 export async function apiFareRoutes(from, to) {
   const res = await fetch(`${base()}/api/fare/routes`, {

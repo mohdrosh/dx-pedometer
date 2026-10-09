@@ -34,6 +34,7 @@ import { noticesFor, buildTodoke, todokeFilename } from './src/todoke.js';
 import { buildKoutsuuhi, koutsuuhiFilename } from './src/koutsuuhi.js';
 import { sheetCount, unverified } from './src/koutsuuhi-calc.js';
 import * as fare from './src/fare.js';
+import { matches as fareTableMatches } from './src/fare-table.js';
 import { DEFAULT_CFG, ROSTER_SEED, orderRegions } from './src/defaults.js';
 
 if (!process.env.DATABASE_URL) {
@@ -134,8 +135,14 @@ function mayTouchKey(sess, key, write) {
   const m = /^(?:st|kt|tr):([^:]+):(.+)$/.exec(key);
   if (m) return String(m[2]) === String(sess.employeeId);
   if (key === 'cfg') return !write;
-  /* 運賃表 — everyone reads it to fill a fare, only the committee sets it. */
-  if (key === 'fares') return !write;
+  /* 運賃表 — the committee's, and only the committee's. Built from the
+     expense forms people have handed in, it is a list of the journeys
+     colleagues make to work: no names on it, but 新長田 to 三ノ宮 says
+     where somebody lives clearly enough in a company this size. Handing
+     the whole table to every browser to save a request is not worth that,
+     so a participant asks about one pair of stations at a time through
+     /api/fare/table and is told about those. */
+  if (key === 'fares') return false;
   return false;
 }
 
@@ -342,7 +349,11 @@ const server = http.createServer(async (req, res) => {
           : { admin: false, ...(await getEmployee(sess.employeeId)) };
         /* Whether the fare lookup is available at all, so the screen can
            offer it or keep quiet rather than show a button that 503s. */
-        return sendJson(res, 200, { user, features: { fare: fare.hasProvider() } });
+        const table = (await getKey('fares')) || [];
+        return sendJson(res, 200, {
+          user,
+          features: { fare: fare.hasProvider(), fareTable: table.length },
+        });
       }
       /* A participant edits their own row only — no path here writes anyone
          else's, and name and employee number are not editable at all. */
@@ -416,6 +427,16 @@ const server = http.createServer(async (req, res) => {
         'Cache-Control': 'no-store',
       });
       return res.end(Buffer.from(buf));
+    }
+
+    /* The approved fare for one journey. Only the rows for the two stations
+       asked about come back, so nobody can read off the table as a whole. */
+    if (url.pathname === '/api/fare/table' && req.method === 'GET') {
+      if (!sess) return deny(res);
+      if (rateLimited(`faretable:${sess.sid}`, 120, 60_000)) return sendJson(res, 429, { error: 'too_many' });
+      const table = (await getKey('fares')) || [];
+      const rows = fareTableMatches(table, url.searchParams.get('from'), url.searchParams.get('to'));
+      return sendJson(res, 200, { rows });
     }
 
     /* 運賃 — asked of a route planner rather than of the person claiming it.
