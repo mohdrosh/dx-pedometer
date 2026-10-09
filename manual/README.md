@@ -123,8 +123,9 @@ data.** Load the demo roster first:
   was taken — the reminder body is built from `window.location.origin`, so a
   screenshot from a test machine shows that machine. Retake it on the live
   site to get the real URL in there
-- Issue date on the cover is still 2026年8月18日 — update when reissuing,
-  and raise the edition from 第 1 版
+- The cover carries the edition and issue date by hand (now 第 5 版,
+  2026年10月9日). Raise both when reissuing — 第 5 版 is the one carrying
+  健康対策委員会's marked-up corrections
 - Chapter 02 states there is no password. Update when password login ships;
   the 社員番号がわからない search can come back at the same time, since a
   number alone will no longer be enough to sign in
