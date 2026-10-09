@@ -50,6 +50,8 @@ const L = {
   clockedOut: ['お疲れさまでした', 'Clocked out — have a good evening'],
   todayDone: ['本日分は入力済みです', 'Today is entered'],
   todayEdit: ['修正', 'Edit'],
+  todayMore: ['始業・終業・勤怠状況を入力', 'Enter times and status'],
+  todayLess: ['閉じる', 'Hide'],
   todayStd: ['標準で入力', 'Standard hours'],
   todayNone: ['まだ入力がありません', 'Nothing entered yet'],
   todayOff: ['本日は所定休日です', 'Today is not a working day'],
@@ -166,6 +168,96 @@ function HM({ hours, t }) {
   );
 }
 
+/* The day's fields, in one place because they appear in two: inline at the
+   top of the screen for きょう, and in the sheet for any other day. 佐野
+   asked for "this to appear first", pointing at the sheet — so rather than
+   open a dialog over the page on arrival, the same fields simply are the
+   first thing on it. Two copies of this would drift apart within a month. */
+function DayFields({ row, rules, locked, setDay, t, lang }) {
+  const iso = row.iso;
+  const c = row.calc;
+  return (
+    <>
+      {(row.holiday || row.dow === 0 || row.dow === 6) && (
+        <p className="kt-why">
+          {row.holidayName
+            ? `${t('isHoliday')}（${row.holidayName}）`
+            : row.dow === 0 ? t('isSunday') : t('isSaturday')}
+          — {t('allOvertime')}
+        </p>
+      )}
+      {locked && <p className="kt-why">{t('lockedNote')}</p>}
+
+      <div className="navrow" hidden={locked}>
+        <button className="btn primary grow" onClick={() => setDay(iso, {
+          inH: Number(rules.workStart.split(':')[0]), inM: Number(rules.workStart.split(':')[1]),
+          outH: Number(rules.workEnd.split(':')[0]), outM: Number(rules.workEnd.split(':')[1]),
+        })}
+        >
+          {t('standard')} {rules.workStart}–{rules.workEnd}
+        </button>
+        <button
+          className="btn ghost"
+          onClick={() => setDay(iso, { inH: null, inM: null, outH: null, outM: null })}
+        >
+          {t('clear')}
+        </button>
+      </div>
+
+      <div className="kt-two">
+        <TimeField
+          label={t('start')} h={row.inH} m={row.inM} unit={rules.unitMin} disabled={locked}
+          onChange={(h, mm) => setDay(iso, { inH: h, inM: mm })}
+        />
+        <TimeField
+          label={t('end')} h={row.outH} m={row.outM} unit={rules.unitMin} disabled={locked}
+          onChange={(h, mm) => setDay(iso, { outH: h, outM: mm })}
+        />
+      </div>
+
+      <div className="kt-two">
+        <label className="fld"><span>{t('status')}</span>
+          <select
+            value={row.status1 || ''} disabled={locked}
+            onChange={(e) => setDay(iso, { status1: e.target.value })}
+          >
+            <option value="">{t('none')}</option>
+            {STATUS_1.map((x) => <option key={x}>{x}</option>)}
+          </select>
+        </label>
+        <label className="fld"><span>{t('status2')}</span>
+          <select
+            value={row.status2 || ''} disabled={locked}
+            onChange={(e) => setDay(iso, { status2: e.target.value })}
+          >
+            <option value="">{t('none')}</option>
+            {STATUS_2.map((x) => <option key={x}>{x}</option>)}
+          </select>
+        </label>
+      </div>
+
+      <label className="fld"><span>{t('note')}</span>
+        <input
+          value={row.note || ''} maxLength={40} disabled={locked}
+          onChange={(e) => setDay(iso, { note: e.target.value })}
+        />
+      </label>
+
+      <div className="kt-day-sum">
+        <div><span>{t('brk')}</span><b>{c.breakMin || 0}<em>{t('min')}</em></b></div>
+        <div><span>{t('inside')}</span><b>{fmtHM(c.inside) || '—'}</b></div>
+        <div><span>{t('overtime')}</span><b>{fmtHM(c.show?.overtime) || '—'}</b></div>
+        <div><span>{t('night')}</span><b>{fmtHM(c.show?.night) || '—'}</b></div>
+      </div>
+      {c.notice === '要' && <p className="kt-warn">{t('noticeReq')}</p>}
+      {c.notice === '申' && <p className="kt-note">{t('noticeApp')}</p>}
+      {c.entered && offUnit(c.inside + c.show.overtime, rules.unitMin) && (
+        <p className="kt-warn">{t('unitWarn').replace('{n}', rules.unitMin)}</p>
+      )}
+    </>
+  );
+}
+
 /* ------------------------------------------------------------------ screen */
 
 export default function KintaiTab({ user, y, m, days, holidays, lang, toast, base = '' }) {
@@ -178,6 +270,9 @@ export default function KintaiTab({ user, y, m, days, holidays, lang, toast, bas
   const [saveState, setSaveState] = useState('');
   const [busy, setBusy] = useState('');
   const [ask, setAsk] = useState(false);
+  /* きょう opens showing its details when the day has not been answered —
+     which is the state somebody arriving at the screen is usually in. */
+  const [more, setMore] = useState(true);
 
   const rules = DEFAULT_RULES;
 
@@ -280,11 +375,6 @@ export default function KintaiTab({ user, y, m, days, holidays, lang, toast, bas
     setDay(todayIso, { outH: h, outM: mm });
     toast(t('clockedOut'));
   };
-
-  const standard = (iso) => setDay(iso, {
-    inH: Number(rules.workStart.split(':')[0]), inM: Number(rules.workStart.split(':')[1]),
-    outH: Number(rules.workEnd.split(':')[0]), outM: Number(rules.workEnd.split(':')[1]),
-  });
 
   /* Most months are twenty standard days and two exceptions. This fills the
      twenty so only the exceptions need touching. Days already entered, and
@@ -422,21 +512,30 @@ export default function KintaiTab({ user, y, m, days, holidays, lang, toast, bas
               : <span className="kt-today-none">{todayRow.status1 || t('todayNone')}</span>}
           </div>
 
+          {/* The one tap, for the ordinary day. */}
           <div className="kt-today-b">
-            {todayRow.inH == null ? (
-              <>
-                <button className="btn primary grow" onClick={clockIn}>{t('clockIn')}</button>
-                <button className="btn" onClick={() => standard(todayIso)}>{t('todayStd')}</button>
-              </>
-            ) : todayRow.outH == null ? (
-              <>
-                <button className="btn primary grow" onClick={clockOut}>{t('clockOut')}</button>
-                <button className="btn" onClick={() => setOpen(todayIso)}>{t('todayEdit')}</button>
-              </>
-            ) : (
-              <button className="btn wide" onClick={() => setOpen(todayIso)}>{t('todayEdit')}</button>
-            )}
+            {todayRow.inH == null
+              ? <button className="btn primary wide" onClick={clockIn}>{t('clockIn')}</button>
+              : todayRow.outH == null
+                ? <button className="btn primary wide" onClick={clockOut}>{t('clockOut')}</button>
+                : null}
           </div>
+
+          {/* and everything else about the day, open, not behind a dialog */}
+          <button
+            className="kt-today-more" onClick={() => setMore((v) => !v)}
+            aria-expanded={more}
+          >
+            {more ? t('todayLess') : t('todayMore')}<i>{more ? '▲' : '▼'}</i>
+          </button>
+          {more && (
+            <div className="kt-today-f">
+              <DayFields
+                row={todayRow} rules={rules} locked={locked}
+                setDay={setDay} t={t} lang={lang}
+              />
+            </div>
+          )}
         </div>
       )}
 
@@ -596,77 +695,10 @@ export default function KintaiTab({ user, y, m, days, holidays, lang, toast, bas
               <button className="x" onClick={() => setOpen(null)} aria-label="close">✕</button>
             </div>
             <div className="sheet-b">
-              {(openRow.holiday || openRow.dow === 0 || openRow.dow === 6) && (
-                <p className="kt-why">
-                  {openRow.holidayName
-                    ? `${t('isHoliday')}（${openRow.holidayName}）`
-                    : openRow.dow === 0 ? t('isSunday') : t('isSaturday')}
-                  — {t('allOvertime')}
-                </p>
-              )}
-              {locked && <p className="kt-why">{t('lockedNote')}</p>}
-              <div className="navrow" hidden={locked}>
-                <button className="btn primary grow" onClick={() => standard(openRow.iso)}>
-                  {t('standard')} {rules.workStart}–{rules.workEnd}
-                </button>
-                <button className="btn ghost" onClick={() => setDay(openRow.iso, { inH: null, inM: null, outH: null, outM: null })}>
-                  {t('clear')}
-                </button>
-              </div>
-
-              <div className="kt-two">
-                <TimeField
-                  label={t('start')} h={openRow.inH} m={openRow.inM} unit={rules.unitMin}
-                  disabled={locked}
-                  onChange={(h, mm) => setDay(openRow.iso, { inH: h, inM: mm })}
-                />
-                <TimeField
-                  label={t('end')} h={openRow.outH} m={openRow.outM} unit={rules.unitMin}
-                  disabled={locked}
-                  onChange={(h, mm) => setDay(openRow.iso, { outH: h, outM: mm })}
-                />
-              </div>
-
-              <div className="kt-two">
-                <label className="fld"><span>{t('status')}</span>
-                  <select
-                    value={openRow.status1 || ''} disabled={locked}
-                    onChange={(e) => setDay(openRow.iso, { status1: e.target.value })}
-                  >
-                    <option value="">{t('none')}</option>
-                    {STATUS_1.map((x) => <option key={x}>{x}</option>)}
-                  </select>
-                </label>
-                <label className="fld"><span>{t('status2')}</span>
-                  <select
-                    value={openRow.status2 || ''} disabled={locked}
-                    onChange={(e) => setDay(openRow.iso, { status2: e.target.value })}
-                  >
-                    <option value="">{t('none')}</option>
-                    {STATUS_2.map((x) => <option key={x}>{x}</option>)}
-                  </select>
-                </label>
-              </div>
-              <label className="fld"><span>{t('note')}</span>
-                <input
-                  value={openRow.note || ''} maxLength={40} disabled={locked}
-                  onChange={(e) => setDay(openRow.iso, { note: e.target.value })}
-                />
-              </label>
-
-              <div className="kt-day-sum">
-                <div><span>{t('brk')}</span><b>{openRow.calc.breakMin || 0}<em>{t('min')}</em></b></div>
-                <div><span>{t('inside')}</span><b>{fmtHM(openRow.calc.inside) || '—'}</b></div>
-                <div><span>{t('overtime')}</span><b>{fmtHM(openRow.calc.show?.overtime) || '—'}</b></div>
-                <div><span>{t('night')}</span><b>{fmtHM(openRow.calc.show?.night) || '—'}</b></div>
-              </div>
-              {openRow.calc.notice === '要' && <p className="kt-warn">{t('noticeReq')}</p>}
-              {openRow.calc.notice === '申' && <p className="kt-note">{t('noticeApp')}</p>}
-              {openRow.calc.entered
-                && offUnit(openRow.calc.inside + openRow.calc.show.overtime, rules.unitMin) && (
-                  <p className="kt-warn">{t('unitWarn').replace('{n}', rules.unitMin)}</p>
-                )}
-
+              <DayFields
+                row={openRow} rules={rules} locked={locked}
+                setDay={setDay} t={t} lang={lang}
+              />
               <button className="btn primary big" onClick={() => setOpen(null)}>{t('close')}</button>
             </div>
           </div>
@@ -710,9 +742,16 @@ export const KINTAI_CSS = `
 .kt-today-t i{font-style:normal;font-size:19px;color:var(--dim)}
 .kt-today-w{font-size:12px;color:var(--ink-2);margin-left:4px}
 .kt-today-none{font-size:15px;color:var(--faint)}
+.kt-today-b:empty{display:none}
 .kt-today-b{display:flex;gap:9px}
 .kt-today-b .grow{flex:1}
 .kt-today-b .btn{padding:13px 14px;font-size:14.5px}
+.kt-today-more{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;
+  margin-top:11px;padding:8px;border:0;background:none;font:inherit;font-size:12px;
+  font-weight:600;color:var(--brand)}
+.kt-today-more i{font-style:normal;font-size:8px}
+.kt-today-f{margin-top:4px;padding-top:13px;border-top:1px solid var(--hair)}
+.kt-today-f .kt-day-sum{margin-bottom:2px}
 
 .kt-submit{margin-top:14px}
 .kt-td{padding:12px 0;border-top:1px solid var(--hair);margin-top:10px}
