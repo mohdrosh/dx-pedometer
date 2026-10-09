@@ -139,6 +139,9 @@ const STR = {
   sunHol: ['日・祝日', 'Sunday / holiday'],
   blank: ['未入力', 'Blank'],
   name: ['氏名', 'Name'],
+  fareLookupOnly: ['運賃は経路検索の結果のみ受け付ける', 'Fares must come from the route planner'],
+  fareLookupOnlyNote: ['手入力の運賃では交通費を提出できなくなります。経路検索が設定されていない間は無効です。',
+    'Expenses cannot be submitted with a hand-typed fare. Ignored while no route planner is configured.'],
   region: ['所属地域', 'Region'],
   dept: ['部署', 'Department'],
   section: ['課', 'Section'],
@@ -2077,6 +2080,14 @@ function SettingsAdmin({ cfg, setCfg, toast, onDemo, onWipe }) {
           <span>{t('enforceWindow')}</span>
         </label>
         <p className="muted sm">{t('enforceNote')} {t('windowNote')}</p>
+        <label className="check">
+          <input
+            type="checkbox" checked={!!cfg.fareLookupOnly}
+            onChange={(e) => upd({ fareLookupOnly: e.target.checked })}
+          />
+          <span>{t('fareLookupOnly')}</span>
+        </label>
+        <p className="muted sm">{t('fareLookupOnlyNote')}</p>
       </div>
 
       <div className="card">
@@ -2304,7 +2315,7 @@ export default function App() {
               <PeriodBar y={y} m={m} setPeriod={setPeriod} lang={lang} />
               <KoutsuuhiTab
                 user={me} y={y} m={m} days={periodDays(y, m)}
-                lang={lang} toast={toast}
+                cfg={cfg} lang={lang} toast={toast}
                 base={import.meta.env.BASE_URL.replace(/\/$/, '')}
               />
             </>

@@ -52,6 +52,12 @@ export function totals(rows = []) {
   return { commute, advance, total: commute + advance };
 }
 
+/** Journeys whose fare nobody checked — the ones a lookup-only policy
+    refuses. A row with no fare at all is simply unfinished, not unchecked,
+    and is caught by the ordinary "nothing entered" rule instead. */
+export const unverified = (rows = []) =>
+  rows.filter(filled).filter((r) => yen(r.fare) > 0 && r.fareSource !== 'lookup');
+
 /** ¥1,280 */
 export const yenFmt = (n) => `¥${Number(n || 0).toLocaleString('ja-JP')}`;
 

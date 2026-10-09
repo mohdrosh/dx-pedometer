@@ -23,6 +23,12 @@ export const DEFAULT_CFG = {
   adminIds: ['kenkou@morabu.com'],
   enforceWindow: false,
   exportLayout: 'spec',
+  /* 運賃は経路検索の結果だけを受け付ける。A fare somebody typed cannot be
+     checked by the person approving it, so the committee can require every
+     one to come from the route planner. Off by default, and ignored
+     entirely while no planner key is configured — otherwise nobody could
+     enter a fare at all. */
+  fareLookupOnly: false,
 };
 
 /* The 147 people from the existing 集計表. Used only to fill an empty store. */

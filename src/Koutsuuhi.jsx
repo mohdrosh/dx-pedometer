@@ -30,6 +30,7 @@ import { S, setLeaving, apiFeatures, apiFareRoutes } from './storage';
 import {
   ROWS_PER_SHEET, MAX_ROWS, totals, filled, travelKey, yenFmt,
   sheetCount, roundTrip, routeReady, hasRoute, workedDays, frequentRoutes,
+  unverified,
 } from './koutsuuhi-calc';
 
 const DOW_JA = ['日', '月', '火', '水', '木', '金', '土'];
@@ -70,6 +71,13 @@ const L = {
   freqHead: ['よく使う経路', 'Journeys you make often'],
   freqNote: ['今月と先月に入力した経路です。タップすると同じ内容で追加します。',
     'From this period and the last. Tap one to add it again.'],
+
+  /* 運賃は検索のみ */
+  lockNote: ['運賃は経路検索から入力してください。手入力はできません。',
+    'Fares come from the route planner — they cannot be typed in.'],
+  lockBlocked: ['手入力の運賃が{n}件あります。経路検索で入れ直してください。',
+    '{n} fares were typed in. Look them up again before submitting.'],
+  lockRow: ['要確認', 'Unchecked'],
 
   /* 運賃検索 */
   findFare: ['運賃を調べる', 'Look up the fare'],
@@ -224,7 +232,7 @@ function FareBadge({ source, t }) {
   );
 }
 
-export default function KoutsuuhiTab({ user, y, m, days, lang, toast, base = '' }) {
+export default function KoutsuuhiTab({ user, y, m, days, cfg = {}, lang, toast, base = '' }) {
   const t = useCallback((k) => (L[k] ? L[k][lang === 'ja' ? 0 : 1] || L[k][0] : k), [lang]);
   const tErr = useCallback((code) => {
     const e = L.fareErr[code] || L.fareErr.lookup_failed;
@@ -304,6 +312,12 @@ export default function KoutsuuhiTab({ user, y, m, days, lang, toast, base = '' 
   const sum = useMemo(() => totals(rows), [rows]);
   const used = rows.filter(filled).length;
   const sheets = sheetCount(rows);
+
+  /* 運賃は検索のみ. Only meaningful while there is a planner to look fares
+     up with — with the toggle on and no key, every fare would be
+     unenterable, so the policy stands down rather than locking the screen. */
+  const lockFare = !!cfg.fareLookupOnly && canFind;
+  const unchecked = useMemo(() => (lockFare ? unverified(rows) : []), [lockFare, rows]);
 
   const first = days[0]?.iso;
   const last = days[days.length - 1]?.iso;
@@ -536,13 +550,14 @@ export default function KoutsuuhiTab({ user, y, m, days, lang, toast, base = '' 
                 </span>
                 <input
                   type="number" inputMode="numeric" min="0" step="10"
-                  value={editRoute.fare ?? ''}
+                  value={editRoute.fare ?? ''} readOnly={lockFare}
                   onChange={(e) => setEditRoute({
                     ...editRoute, fare: e.target.value, fareSource: 'manual',
                   })}
                 />
               </label>
             </div>
+            {lockFare && <p className="muted sm tr-lock">{t('lockNote')}</p>}
             {canFind && (
               <FareFinder
                 from={editRoute.from} to={editRoute.to} t={t} tErr={tErr}
@@ -605,7 +620,11 @@ export default function KoutsuuhiTab({ user, y, m, days, lang, toast, base = '' 
                 <small>{r.line || ''}{r.fromH != null ? ` ${pad2(r.fromH)}:${pad2(r.fromM || 0)}` : ''}</small>
               </span>
               {r.commute && <span className="tr-c">○</span>}
-              <span className="tr-f">{r.fare ? yenFmt(r.fare) : ''}</span>
+              <span className="tr-f">
+                {r.fare ? yenFmt(r.fare) : ''}
+                {lockFare && r.fare > 0 && r.fareSource !== 'lookup'
+                  && <em className="tr-q">{t('lockRow')}</em>}
+              </span>
             </button>
           );
         })}
@@ -636,10 +655,16 @@ export default function KoutsuuhiTab({ user, y, m, days, lang, toast, base = '' 
 
       {!locked && (
         <div className="card pad-less kt-submit">
-          <button className="btn primary big wide" disabled={!used} onClick={() => setAsk(true)}>
+          <button
+            className="btn primary big wide" disabled={!used || !!unchecked.length}
+            onClick={() => setAsk(true)}
+          >
             {t('submit')}
           </button>
           {!used && <p className="muted sm mt8">{t('nothing')}</p>}
+          {!!unchecked.length && (
+            <p className="kt-warn">{t('lockBlocked').replace('{n}', unchecked.length)}</p>
+          )}
         </div>
       )}
 
@@ -731,7 +756,8 @@ export default function KoutsuuhiTab({ user, y, m, days, lang, toast, base = '' 
                     {o.fare != null && <FareBadge source={o.fareSource} t={t} />}
                   </span>
                   <input
-                    type="number" inputMode="numeric" min="0" step="10" disabled={locked}
+                    type="number" inputMode="numeric" min="0" step="10"
+                    disabled={locked} readOnly={lockFare}
                     value={o.fare ?? ''}
                     onChange={(e) => patch(open, {
                       fare: e.target.value === '' ? null : Number(e.target.value),
@@ -740,6 +766,7 @@ export default function KoutsuuhiTab({ user, y, m, days, lang, toast, base = '' 
                   />
                 </label>
               </div>
+              {lockFare && !locked && <p className="muted sm tr-lock">{t('lockNote')}</p>}
 
               {canFind && !locked && (
                 <FareFinder
@@ -862,6 +889,9 @@ export const KOUTSUUHI_CSS = `
 .tr-src{margin-left:6px;font-size:9.5px;font-weight:600;padding:1px 5px;border-radius:3px;
   background:var(--warn-wash);color:var(--warn);vertical-align:1px}
 .tr-src.ok{background:var(--brand-wash);color:var(--brand)}
+.tr-lock{margin:7px 2px 0;line-height:1.6}
+.tr-f .tr-q{display:block;font-style:normal;font-size:9.5px;font-weight:600;
+  color:var(--warn);margin-top:1px}
 
 /* The journey editor is nine fields and four buttons. On a phone that is
    more than a screen at the app's usual spacing, and a panel you have to

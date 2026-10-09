@@ -8,7 +8,7 @@ import { createRequire } from 'node:module';
 import { buildKoutsuuhi } from '../src/koutsuuhi.js';
 import {
   totals, filled, ROWS_PER_SHEET, sheetCount, sheetRows,
-  roundTrip, workedDays, hasRoute, frequentRoutes, routeReady,
+  roundTrip, workedDays, hasRoute, frequentRoutes, routeReady, unverified,
 } from '../src/koutsuuhi-calc.js';
 
 const require = createRequire(import.meta.url);
@@ -147,6 +147,20 @@ is('leave and absence are skipped, 直行 and 休日出勤 are not',
   workedDays(kt, period), ['2026-09-21', '2026-09-25', '2026-09-26', '2026-09-28']);
 is('a day with nothing entered is not a day travelled',
   workedDays({ days: {} }, period), []);
+
+console.log('which fares a lookup-only policy would refuse');
+const mixed = [
+  { from: 'A', to: 'B', fare: 190, fareSource: 'lookup' },
+  { from: 'C', to: 'D', fare: 960, fareSource: 'manual' },
+  { from: 'E', to: 'F', fare: 640 },
+  { from: 'G', to: 'H', fare: 0, fareSource: 'manual' },
+  { from: '', to: '', fare: null },
+];
+is('typed and unlabelled fares are refused', unverified(mixed).map((r) => r.from), ['C', 'E']);
+is('a looked-up fare is fine', unverified([mixed[0]]), []);
+is('a row with no fare yet is unfinished, not unchecked', unverified([mixed[3], mixed[4]]), []);
+is('an all-looked-up month passes',
+  unverified(roundTrip({ ...route, fareSource: 'lookup' }, '2026-09-28')), []);
 
 console.log('routes offered back');
 const freq = frequentRoutes(rows, [{ from: '姫路', to: '三ノ宮', line: 'JR', fare: 960 }]);

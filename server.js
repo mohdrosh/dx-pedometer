@@ -32,7 +32,7 @@ import { reminderMail, summaryMail, reminderRecipients } from './src/mail.js';
 import { buildTimesheet, timesheetFilename } from './src/kintai-xlsx.js';
 import { noticesFor, buildTodoke, todokeFilename } from './src/todoke.js';
 import { buildKoutsuuhi, koutsuuhiFilename } from './src/koutsuuhi.js';
-import { sheetCount } from './src/koutsuuhi-calc.js';
+import { sheetCount, unverified } from './src/koutsuuhi-calc.js';
 import * as fare from './src/fare.js';
 import { DEFAULT_CFG, ROSTER_SEED, orderRegions } from './src/defaults.js';
 
@@ -584,12 +584,30 @@ const server = http.createServer(async (req, res) => {
           const prev = await getKey(body.key);
           if (prev && prev.submitted) return sendJson(res, 409, { error: 'locked' });
         }
+        /* 運賃は検索のみ. The screen already refuses this, but the screen is
+           not a guard — and the whole point of the rule is that a figure
+           nobody checked should not reach an approver. Only the submission
+           is blocked: a part-finished month is free to hold anything. */
+        if (!sess.isAdmin && /^tr:/.test(body.key) && body.value?.submitted) {
+          const cfg = (await getKey('cfg')) || {};
+          if (cfg.fareLookupOnly && fare.hasProvider()
+            && unverified(body.value.rows || []).length) {
+            return sendJson(res, 400, { error: 'fare_not_verified' });
+          }
+        }
         await setKey(body.key, body.value);
         return sendJson(res, 200, { key: body.key, ok: true });
       }
       if (req.method === 'DELETE') {
         if (!key) return sendJson(res, 400, { error: 'key required' });
         if (!mayTouchKey(sess, key, true)) return deny(res, 403);
+        /* The same lock the write path has. Without it a submitted month
+           could be thrown away and started again, which is the thing the
+           lock exists to prevent — only by a longer route. */
+        if (!sess.isAdmin && /^(?:kt|tr):/.test(key)) {
+          const prev = await getKey(key);
+          if (prev && prev.submitted) return sendJson(res, 409, { error: 'locked' });
+        }
         await delKey(key);
         return sendJson(res, 200, { key, deleted: true });
       }
