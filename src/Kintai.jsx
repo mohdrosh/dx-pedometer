@@ -22,10 +22,38 @@ import { noticesFor } from './todoke-runs';
 
 const DOW_JA = ['日', '月', '火', '水', '木', '金', '土'];
 const pad2 = (n) => String(n).padStart(2, '0');
+
+/* 出勤 / 退勤 stamp a figure onto a payroll form, so they are read off
+   Tokyo rather than off the device. A phone still on another timezone
+   after a trip would otherwise stamp the wrong hour, and around midnight
+   the wrong day — and the server's own jobs already work in Tokyo. */
+export function tokyoNow(at = new Date()) {
+  const p = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Tokyo',
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', hour12: false,
+  }).formatToParts(at).reduce((a, x) => { a[x.type] = x.value; return a; }, {});
+  return {
+    iso: `${p.year}-${p.month}-${p.day}`,
+    h: Number(p.hour) % 24,
+    m: Number(p.minute),
+  };
+}
 export const kintaiKey = (pk, id) => `kt:${pk}:${id}`;
 
 const L = {
   head: ['勤怠', 'Timesheet'],
+  today: ['きょう', 'Today'],
+  clockIn: ['出勤', 'Clock in'],
+  clockOut: ['退勤', 'Clock out'],
+  clockedIn: ['出勤しました', 'Clocked in'],
+  clockedOut: ['お疲れさまでした', 'Clocked out — have a good evening'],
+  todayDone: ['本日分は入力済みです', 'Today is entered'],
+  todayEdit: ['修正', 'Edit'],
+  todayStd: ['標準で入力', 'Standard hours'],
+  todayNone: ['まだ入力がありません', 'Nothing entered yet'],
+  todayOff: ['本日は所定休日です', 'Today is not a working day'],
+  worked: ['実働', 'Worked'],
   entryHead: ['日々の勤怠', 'Daily record'],
   start: ['始業', 'Start'],
   end: ['終業', 'End'],
@@ -205,10 +233,13 @@ export default function KintaiTab({ user, y, m, days, holidays, lang, toast, bas
   const alert60 = overtimeAlert(month);
   const locked = !!entry?.submitted;
 
-  /* A day counts as answered if it has times or a 勤怠状況 — a Sunday nobody
-     worked needs neither, so only working days can be outstanding. */
+  /* A day counts as answered if it has both times or a 勤怠状況 — a Sunday
+     nobody worked needs neither, so only working days can be outstanding.
+     Both times, not just a start: 出勤 without 退勤 is now an ordinary
+     state to be in halfway through a Tuesday, and it computes to nothing,
+     so a month holding one is not finished. */
   const blanks = month.rows.filter(
-    (r) => r.calc.isWeekday && r.inH == null && !r.status1,
+    (r) => r.calc.isWeekday && !r.status1 && (r.inH == null || r.outH == null),
   ).length;
 
   const setDay = (iso, patch) => {
@@ -219,6 +250,35 @@ export default function KintaiTab({ user, y, m, days, holidays, lang, toast, bas
     const nd = { ...(entry?.days || {}) };
     if (empty) delete nd[iso]; else nd[iso] = next;
     persist({ ...entry, days: nd });
+  };
+
+  /* きょう. The pedometer asks for one number for today and gets out of the
+     way; this asks for one time. 出勤 stamps the clock now, 退勤 stamps it
+     again at the end, and the month fills itself a day at a time without
+     anybody opening a form. Rounded to the 割増単位 the sheet works in, so
+     a tap at 08:58 does not quietly create two minutes of early overtime —
+     and shown in a field right beside the button, because the one thing
+     certain about stamping a clock is that sometimes you forget until
+     later. */
+  const nowOnUnit = () => {
+    const unit = rules.unitMin;
+    const t0 = tokyoNow();
+    const mins = Math.round((t0.h * 60 + t0.m) / unit) * unit;
+    return [Math.floor(mins / 60) % 24, mins % 60];
+  };
+
+  const todayIso = tokyoNow().iso;
+  const todayRow = month.rows.find((r) => r.iso === todayIso) || null;
+
+  const clockIn = () => {
+    const [h, mm] = nowOnUnit();
+    setDay(todayIso, { inH: h, inM: mm });
+    toast(t('clockedIn'));
+  };
+  const clockOut = () => {
+    const [h, mm] = nowOnUnit();
+    setDay(todayIso, { outH: h, outM: mm });
+    toast(t('clockedOut'));
   };
 
   const standard = (iso) => setDay(iso, {
@@ -331,30 +391,54 @@ export default function KintaiTab({ user, y, m, days, holidays, lang, toast, bas
         {locked ? t('submitted') : t('notSubmitted')}
       </div>
 
-      <div className="sechead"><span>{t('totals')}</span></div>
-      <div className="card kt-tot">
-        <div className="kt-tot-g">
-          <div><span>{t('tInside')}</span><HM hours={month.inside} t={t} /></div>
-          <div><span>{t('tDeduct')}</span><HM hours={month.deduct} t={t} /></div>
-          <div><span>{t('tOtDay')}</span><HM hours={month.otWeekday} t={t} /></div>
-          <div><span>{t('tOtNight')}</span><HM hours={month.otWeekdayNight} t={t} /></div>
-          <div><span>{t('tOtHol')}</span><HM hours={month.otHoliday} t={t} /></div>
-          <div><span>{t('tOtHolNight')}</span><HM hours={month.otHolidayNight} t={t} /></div>
+      {/* きょう — one tap in, one tap out. She asked for it to work like the
+          pedometer, which asks for today and nothing else; the month list
+          below is still there for the days you fill in afterwards. */}
+      {todayRow && !locked && (
+        <div className="card kt-today">
+          <div className="kt-today-h">
+            <span className="clabel">
+              {t('today')} {m}/{todayRow.dom}（{DOW_JA[todayRow.dow]}）
+            </span>
+            {todayRow.calc.entered && <span className="kt-today-ok">{t('todayDone')}</span>}
+          </div>
+
+          <div className="kt-today-t">
+            {todayRow.inH != null
+              ? (
+                <>
+                  <b>{pad2(todayRow.inH)}:{pad2(todayRow.inM || 0)}</b>
+                  <i>–</i>
+                  {todayRow.outH != null
+                    ? <b>{pad2(todayRow.outH)}:{pad2(todayRow.outM || 0)}</b>
+                    : <b className="kt-wait">--:--</b>}
+                  {todayRow.calc.inside > 0 && (
+                    <span className="kt-today-w">
+                      {t('worked')} {fmtHM(todayRow.calc.inside + todayRow.calc.show.overtime)}
+                    </span>
+                  )}
+                </>
+              )
+              : <span className="kt-today-none">{todayRow.status1 || t('todayNone')}</span>}
+          </div>
+
+          <div className="kt-today-b">
+            {todayRow.inH == null ? (
+              <>
+                <button className="btn primary grow" onClick={clockIn}>{t('clockIn')}</button>
+                <button className="btn" onClick={() => standard(todayIso)}>{t('todayStd')}</button>
+              </>
+            ) : todayRow.outH == null ? (
+              <>
+                <button className="btn primary grow" onClick={clockOut}>{t('clockOut')}</button>
+                <button className="btn" onClick={() => setOpen(todayIso)}>{t('todayEdit')}</button>
+              </>
+            ) : (
+              <button className="btn wide" onClick={() => setOpen(todayIso)}>{t('todayEdit')}</button>
+            )}
+          </div>
         </div>
-        {alert60 > 0 && (
-          <p className="kt-warn">{t('over60').replace('{n}', fmtHM(alert60 + 60))}</p>
-        )}
-        <div className="kt-cnt">
-          {[
-            ['cShotei', month.counts.shotei], ['cWorked', month.counts.worked],
-            ['cPaid', month.counts.paidLeave], ['cAbsent', month.counts.absent],
-            ['cSpecial', month.counts.special], ['cHolSat', month.counts.holidaySat],
-            ['cHolSun', month.counts.holidaySun], ['cFurikae', month.counts.furikae],
-          ].map(([k, v]) => (
-            <div key={k}><span>{t(k)}</span><b>{v}<em>{t('day')}</em></b></div>
-          ))}
-        </div>
-      </div>
+      )}
 
       <div className="sechead">
         <span>{t('entryHead')}</span>
@@ -386,8 +470,19 @@ export default function KintaiTab({ user, y, m, days, holidays, lang, toast, bas
             >
               <span className="kt-d">{r.dom}<em>{DOW_JA[r.dow]}</em></span>
               <span className="kt-t">
+                {/* Clocked in but not yet out is an ordinary state now that
+                    出勤 and 退勤 are separate taps, so the row has to read
+                    as half-done rather than as 'undefined'. */}
                 {r.inH != null
-                  ? `${pad2(r.inH)}:${pad2(r.inM || 0)} – ${pad2(r.outH)}:${pad2(r.outM || 0)}`
+                  ? (
+                    <>
+                      {pad2(r.inH)}:{pad2(r.inM || 0)}
+                      {' – '}
+                      {r.outH != null
+                        ? `${pad2(r.outH)}:${pad2(r.outM || 0)}`
+                        : <i className="kt-none">--:--</i>}
+                    </>
+                  )
                   : <i className="kt-none">{r.status1 || t('blank')}</i>}
               </span>
               <span className="kt-v">{c.inside ? fmtHM(c.inside) : ''}</span>
@@ -426,6 +521,31 @@ export default function KintaiTab({ user, y, m, days, holidays, lang, toast, bas
             </div>
           );
         })}
+      </div>
+
+      <div className="sechead"><span>{t('totals')}</span></div>
+      <div className="card kt-tot">
+        <div className="kt-tot-g">
+          <div><span>{t('tInside')}</span><HM hours={month.inside} t={t} /></div>
+          <div><span>{t('tDeduct')}</span><HM hours={month.deduct} t={t} /></div>
+          <div><span>{t('tOtDay')}</span><HM hours={month.otWeekday} t={t} /></div>
+          <div><span>{t('tOtNight')}</span><HM hours={month.otWeekdayNight} t={t} /></div>
+          <div><span>{t('tOtHol')}</span><HM hours={month.otHoliday} t={t} /></div>
+          <div><span>{t('tOtHolNight')}</span><HM hours={month.otHolidayNight} t={t} /></div>
+        </div>
+        {alert60 > 0 && (
+          <p className="kt-warn">{t('over60').replace('{n}', fmtHM(alert60 + 60))}</p>
+        )}
+        <div className="kt-cnt">
+          {[
+            ['cShotei', month.counts.shotei], ['cWorked', month.counts.worked],
+            ['cPaid', month.counts.paidLeave], ['cAbsent', month.counts.absent],
+            ['cSpecial', month.counts.special], ['cHolSat', month.counts.holidaySat],
+            ['cHolSun', month.counts.holidaySun], ['cFurikae', month.counts.furikae],
+          ].map(([k, v]) => (
+            <div key={k}><span>{t(k)}</span><b>{v}<em>{t('day')}</em></b></div>
+          ))}
+        </div>
       </div>
 
       {!locked && (
@@ -574,6 +694,25 @@ export const KINTAI_CSS = `
 .kt-why{margin:0 0 14px;padding:9px 11px;border-radius:7px;background:var(--warn-wash);
   border:1px solid #EBD3CF;font-size:12px;color:var(--ink-2);line-height:1.6}
 .kt-note{margin:10px 0 0;font-size:12px;color:var(--brand);line-height:1.6}
+
+/* きょう — the one card someone opens the app to use. Big enough to hit
+   without looking, and it says what state the day is in before it says
+   anything else. */
+.kt-today{border:1px solid var(--brand);box-shadow:0 1px 3px rgba(12,104,179,.08)}
+.kt-today-h{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.kt-today-h .clabel{font-size:12.5px;font-weight:600;color:var(--brand)}
+.kt-today-ok{font-size:10.5px;font-weight:600;color:var(--brand);
+  background:var(--brand-wash);padding:2px 7px;border-radius:3px}
+.kt-today-t{display:flex;align-items:baseline;gap:7px;flex-wrap:wrap;margin:10px 0 13px}
+.kt-today-t b{font-size:27px;font-weight:700;color:var(--ink);
+  font-variant-numeric:tabular-nums;line-height:1.1}
+.kt-today-t b.kt-wait{color:var(--faint)}
+.kt-today-t i{font-style:normal;font-size:19px;color:var(--dim)}
+.kt-today-w{font-size:12px;color:var(--ink-2);margin-left:4px}
+.kt-today-none{font-size:15px;color:var(--faint)}
+.kt-today-b{display:flex;gap:9px}
+.kt-today-b .grow{flex:1}
+.kt-today-b .btn{padding:13px 14px;font-size:14.5px}
 
 .kt-submit{margin-top:14px}
 .kt-td{padding:12px 0;border-top:1px solid var(--hair);margin-top:10px}
