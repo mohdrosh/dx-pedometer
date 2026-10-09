@@ -107,6 +107,16 @@ function readSheet(path) {
     const name = (r[COL.name] || '').trim();
     const email = (r[COL.email] || '').trim();
     if (!id || !name || !/^\d+$/.test(id)) continue;      // headings, notes, blank rows
+    /* An address that is not one means the columns have shifted — a sheet
+       saved with a column inserted, most likely. Without this the names
+       end up in the address field and the first anyone knows is that the
+       reminders stopped arriving. */
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      console.error(`REFUSING: "${email}" is in the メールアドレス column for ${id} ${name}.`);
+      console.error('The columns have probably shifted. Expected 社員№ in B, 名前 in C,');
+      console.error('地区別 in E, 性別 in F, メールアドレス in AP.');
+      process.exit(1);
+    }
     const rec = {
       id, name, email,
       region: (r[COL.region] || '').trim(),
@@ -270,11 +280,27 @@ if (lost.length) {
 }
 const dupes = next.map((p) => normId(p.id)).filter((v, i, a) => a.indexOf(v) !== i);
 if (dupes.length) { console.error('REFUSING: duplicate ids', [...new Set(dupes)]); process.exit(1); }
+/* An active participant with no address gets no reminder, so it is worth
+   saying out loud — but only a refusal when this run is what caused it.
+   Somebody who was already on the site without one, and whom this run does
+   not touch, is a thing to tell the committee about, not a reason to hold
+   up ninety corrections to everybody else. */
 const noEmail = next.filter((p) => p.active !== false && !p.email);
-if (noEmail.length) {
-  console.error(`REFUSING: ${noEmail.length} active people would have no address:`);
-  noEmail.forEach((p) => console.error(`   ${p.id} ${p.name}`));
+const caused = noEmail.filter((p) => {
+  const was = byId.get(normId(p.id));
+  return !was || (was.email && !p.email);
+});
+const already = noEmail.filter((p) => !caused.includes(p));
+if (caused.length) {
+  console.error(`REFUSING: this run would leave ${caused.length} active people with no address:`);
+  caused.forEach((p) => console.error(`   ${p.id} ${p.name}`));
   process.exit(1);
+}
+if (already.length) {
+  console.log(`NOTE: ${already.length} already had no address and still do —`);
+  console.log('      reminders cannot reach them. Worth telling 健康対策委員会.');
+  already.forEach((p) => console.log(`   ${p.id} ${p.name}`));
+  console.log();
 }
 
 console.log(`result: ${next.length} on the roster, ${next.filter((p) => p.active !== false).length} active`);
