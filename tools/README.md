@@ -69,3 +69,48 @@ replaces that with the morabu address alone. The other one is moved to the
 private 個人アドレス field rather than discarded, **switched off**: that
 flag is the person's own consent and nobody has asked them. Nothing is sent
 to it until they turn it on themselves in マイページ.
+
+---
+
+## fare-import.mjs — 過去の交通費精算書から運賃表をつくる
+
+健康対策委員会 chose this over buying a fare API: the fares are already
+written on the forms everyone has been handing in, so the quickest way to a
+table the site can fill in for people is to read the forms back.
+
+```bash
+# put the submitted 交通費精算書 in one folder, then look first
+node tools/fare-import.mjs \
+  --dir ~/Downloads/koutsuuhi \
+  --url https://dx.morabu.com/pedometer \
+  --admin kenkou@morabu.com
+
+node tools/fare-import.mjs ... --apply      # and write it
+node tools/fare-import.mjs ... --replace    # start the table again
+```
+
+It reads rows 16–40 of each sheet — 発駅, 着駅, 利用交通機関, 運賃 — and
+collects the distinct routes. Both directions of a journey are one route: a
+sheet saying 姫路→三ノ宮 ¥960 is also saying what the trip home costs, and
+keeping them apart would halve the evidence for each. Stations match
+loosely, so 三ノ宮 / 三の宮 / 三ノ宮駅 are one place.
+
+### When the forms disagree
+
+They will. Fares go up, people mistype, and two tickets between the same
+pair of stations are two different prices. Every disagreement is printed
+with how many forms said what, and the most-used figure is the one taken:
+
+```
+姫路 → 三ノ宮 (JR)
+     ¥960×3  ¥990×1   → taking ¥960
+```
+
+Look at that list before applying. A fare revision will show as the old
+figure outvoting the new one, which is exactly backwards — fix those by
+hand in 運賃表 afterwards.
+
+### No install
+
+An xlsx is a zip of XML and the tool reads the little of it it needs, so
+like roster-import it is one file and runs on a bare Node.
