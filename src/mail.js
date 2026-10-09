@@ -73,7 +73,7 @@ export function reminderMail(o) {
   const subject = `【健康対策委員会】万歩計実績表 未提出のお知らせ（${y}年${m}月度）／ Pedometer record not yet submitted`;
 
   const consentJa = consent
-    ? '\n※ご同意いただいている設定により、期限までにご提出がない場合は、未入力の日を0歩として自動的に提出されます。'
+    ? '\n※ご同意いただいている設定により、期限までにご提出がない場合は、未入力の日を0歩として翌月2日に自動的に提出されます。'
     : '';
   const consentEn = consent
     ? '\nBased on the consent you gave at sign-in, if nothing is submitted by the deadline your record will be submitted automatically with blank days counted as 0.'

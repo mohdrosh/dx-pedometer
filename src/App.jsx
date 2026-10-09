@@ -118,7 +118,12 @@ const STR = {
   /* 佐野's note on the manual: say when it happens, not just by when it
      must not. The same string is on the consent screen and on マイページ,
      so both read alike — which is the other half of what she asked for. */
-  consentPoint2: ['最終提出期限（翌月1日）までに提出しない場合、翌月2日に未入力の日を0歩として自動で提出される。', 'If you do not submit by the final deadline (the 1st of next month), your record is submitted automatically on the 2nd with blank days counted as 0 steps.'],
+  /* 佐野:「日にちがあった方がよいと思うのですが、どうでしょうか？」 She drew the
+     insertion point herself — 翌月2日に immediately before 自動で提出される, so
+     the sentence names the deadline and then the day the submission happens.
+     ConsentPanel (マイページ) and ConsentGate share this string, which is her
+     「マイページの文言も合わせて変更して下さい」 already answered. */
+  consentPoint2: ['最終提出期限（翌月1日）までに提出しない場合、未入力の日を0歩として翌月2日に自動で提出される。', 'If you do not submit by the final deadline (the 1st of next month), your record is submitted automatically on the 2nd of the following month, with blank days counted as 0 steps.'],
   consentAgree: ['同意する', 'I agree'],
   unsubmitted: ['未提出', 'Outstanding'],
   reminders: ['未提出・リマインド', 'Reminders'],
