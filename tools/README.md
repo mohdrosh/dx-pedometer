@@ -16,6 +16,14 @@ node tools/roster-import.mjs \
 node tools/roster-import.mjs ... --apply
 ```
 
+### Exporting the file
+
+In Excel, open the 集計表, click the 集計表 sheet tab, then
+ファイル → 名前を付けて保存 → **CSV UTF-8**. Plain "CSV" on Windows writes
+Shift-JIS; the tool reads that too, but it says so when it does, and it
+refuses outright rather than write a roster of mojibake names if the file
+turns out to be in some third thing.
+
 Export the 集計表 sheet as CSV first — the one with 社員№, 名前, 地区別,
 性別 and メールアドレス on it. The tool reads the 地区別 on the **left**;
 the column of the same name on the right of that sheet is a second, stale

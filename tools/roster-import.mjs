@@ -78,8 +78,27 @@ const COL = { seq: 0, id: 1, name: 2, region: 4, gender: 5, email: 41 };
    everybody whose number starts with a zero. */
 const normId = (v) => String(v ?? '').trim().replace(/^0+/, '');
 
+/* Excel on Windows writes CSV as Shift-JIS unless you pick "CSV UTF-8"
+   explicitly, and nobody picks it. Read as UTF-8 first; if that comes back
+   with replacement characters the file was not UTF-8, so decode it as
+   Shift-JIS instead. Getting this wrong does not fail loudly — it writes a
+   hundred and seventy mojibake names into the roster. */
+function readText(path) {
+  const buf = fs.readFileSync(path);
+  const utf8 = new TextDecoder('utf-8').decode(buf);
+  if (!utf8.includes('\uFFFD')) return utf8;
+  const sjis = new TextDecoder('shift_jis').decode(buf);
+  if (sjis.includes('\uFFFD')) {
+    console.error('REFUSING: cannot read this file as UTF-8 or Shift-JIS.');
+    console.error('In Excel, use ファイル → 名前を付けて保存 → CSV UTF-8.');
+    process.exit(1);
+  }
+  console.log('(read as Shift-JIS)\n');
+  return sjis;
+}
+
 function readSheet(path) {
-  const rows = parseCsv(fs.readFileSync(path, 'utf8'));
+  const rows = parseCsv(readText(path));
   const active = []; const left = [];
   for (const r of rows) {
     if (r.length <= COL.email) continue;
@@ -117,6 +136,22 @@ async function api(path, init = {}) {
 /* --------------------------------- go ----------------------------------- */
 const sheet = readSheet(CSV);
 console.log(`sheet: ${sheet.active.length} participants, ${sheet.left.length} 退職・異動\n`);
+
+if (!sheet.active.length) {
+  console.error('REFUSING: no participants found. Is this the 集計表 sheet, exported as CSV?');
+  console.error('It needs 社員№ in column B, 名前 in C, 地区別 in E, 性別 in F, メールアドレス in AP.');
+  process.exit(1);
+}
+/* Mojibake decodes cleanly and looks like text, so the names are checked
+   for being plausible Japanese rather than for decoding without error. */
+const readable = sheet.active.filter((p) => /[\u3040-\u30ff\u4e00-\u9fff]/.test(p.name)).length;
+if (readable < sheet.active.length * 0.8) {
+  console.error(`REFUSING: only ${readable} of ${sheet.active.length} names look like Japanese —`);
+  console.error('the file has probably been read in the wrong encoding. A few of them:');
+  sheet.active.slice(0, 5).forEach((p) => console.error(`   ${p.id} ${p.name}`));
+  console.error('In Excel, use ファイル → 名前を付けて保存 → CSV UTF-8.');
+  process.exit(1);
+}
 
 await api('/api/login', { method: 'POST', body: JSON.stringify({ id: ADMIN }) });
 const current = (await api('/api/kv?key=roster')).value || [];
