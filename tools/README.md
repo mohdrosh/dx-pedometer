@@ -39,6 +39,15 @@ copy and holds `メール` and `FAX` for a dozen rows.
 | 会社のメールアドレス | 生年月日・お試し登録 |
 | 並び順 | 入力済みの歩数・勤怠・交通費 |
 
+### Absent from the sheet is not the same as gone
+
+The 集計表 is the 万歩計 participant list, not the list of everyone with a
+login: the committee's own people use 勤怠 and 旅費精算 without walking,
+and there are a few accounts with short employee numbers besides. Only
+people the sheet names in its 退職・異動 section are switched off. Anyone
+simply absent is left signed-in and reported, and `--deactivate-missing`
+is what says otherwise — once you have looked at the list and are sure.
+
 ### It does not delete anybody
 
 `setRoster` removes any employee missing from the list it is handed, and

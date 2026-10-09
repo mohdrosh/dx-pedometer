@@ -40,6 +40,7 @@ const CSV = arg('csv');
 const URL_ = (arg('url') || 'http://127.0.0.1:8787').replace(/\/$/, '');
 const ADMIN = arg('admin');
 const APPLY = process.argv.includes('--apply');
+const DROP_MISSING = process.argv.includes('--deactivate-missing');
 
 if (!CSV || !ADMIN) {
   console.error('usage: node tools/roster-import.mjs --csv <file> --url <base> --admin <id> [--apply]');
@@ -160,7 +161,7 @@ console.log(`site : ${current.length} on the roster (${current.filter((p) => p.a
 const byId = new Map(current.map((p) => [normId(p.id), p]));
 const seen = new Set();
 const added = []; const changed = []; const deactivated = []; const reactivated = [];
-const kept = [];
+const kept = []; const absent = [];
 
 /* The committee's order becomes the site's order: setRoster stores the
    array index as sort_order, and the 集計表 is the order they think in. */
@@ -213,12 +214,26 @@ for (const s of sheet.active) {
   next.push(merged);
 }
 
-/* Everyone the sheet does not list stays on the roster, switched off. */
+/* Two different reasons for not being in the sheet, and only one of them
+   means anything.
+
+   Named in the 退職・異動 section: the committee has said so, switch them
+   off. Simply absent: the sheet is the 万歩計 participant list, not the
+   list of everyone with a login — the committee's own people use 勤怠 and
+   旅費精算 without walking, and so do a handful of accounts with short
+   employee numbers. Switching those off locks them out of the site on the
+   strength of an omission nobody made deliberately. So they are left
+   alone and reported, and it takes --deactivate-missing to say otherwise. */
 for (const p of current) {
   if (seen.has(normId(p.id))) continue;
   const why = sheet.left.find((l) => l.id === normId(p.id));
-  if (p.active !== false) deactivated.push({ ...p, reason: why?.reason || '名簿にありません' });
-  next.push({ ...p, active: false });
+  if (why) {
+    if (p.active !== false) deactivated.push({ ...p, reason: why.reason });
+    next.push({ ...p, active: false });
+    continue;
+  }
+  if (p.active !== false) absent.push(p);
+  next.push(DROP_MISSING ? { ...p, active: false } : p);
 }
 
 /* ------------------------------- report --------------------------------- */
@@ -230,7 +245,17 @@ const show = (title, list, fmt) => {
 };
 show('ADDED', added, (x) => `${x.id} ${x.name} / ${x.region} / ${x.email}`);
 show('CHANGED', changed, (x) => `${x.id} ${x.name}\n        ${x.diffs.join('\n        ')}`);
-show('DEACTIVATED', deactivated, (x) => `${x.id} ${x.name} — ${x.reason}`);
+show('DEACTIVATED — named in the 退職・異動 list', deactivated,
+  (x) => `${x.id} ${x.name} — ${x.reason}`);
+show(DROP_MISSING
+  ? 'ALSO DEACTIVATED — simply absent from the sheet (--deactivate-missing)'
+  : 'NOT IN THE SHEET — LEFT ACTIVE, check these', absent,
+(x) => `${x.id} ${x.name} / ${x.email || 'no address'}`);
+if (absent.length && !DROP_MISSING) {
+  console.log('   ^ the sheet is the 万歩計 list, not everyone with a login, so these');
+  console.log('     are left signed-in. Pass --deactivate-missing to switch them off');
+  console.log('     too, once you are sure none of them still needs the site.\n');
+}
 show('REACTIVATED', reactivated, (x) => `${x.id} ${x.name}`);
 show('PRIVATE ADDRESS KEPT (switched off, not used until they turn it on)', kept,
   (x) => `${x.id} ${x.name} — ${x.addr}`);
