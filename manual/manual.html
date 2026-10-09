@@ -140,6 +140,10 @@ td.k .en { font-weight: 400; }
 .note p b { display: inline; color: inherit; font-size: inherit; margin: 0; }
 .note p { margin: 0 0 3pt; font-size: 8.8pt; line-height: 1.75; }
 .note p:last-child { margin: 0; }
+/* Where a note carries several points, the Japanese is grouped and the
+   English follows as its own block; this divides the two. */
+.note p.sep { margin-top: 3.2mm; padding-top: 2.6mm; border-top: 1px solid rgba(0,0,0,.10); }
+.contact { margin-top: 1.5mm; }
 .note.ok { border-color: var(--go); background: #EEF5F2; }
 .note.ok > b:first-child { color: var(--go); }
 .note.warn { border-color: var(--warn); background: #FBF2EF; }
@@ -190,7 +194,7 @@ td.k .en { font-weight: 400; }
     <li><a href="#s01"><span class="n">01</span>はじめに ― 本システムについて <span class="t-en">About this system</span></a></li>
     <li><a href="#s02"><span class="n">02</span>ログイン方法 <span class="t-en">Signing in</span></a></li>
     <li><a href="#s03"><span class="n">03</span>歩数を入力する（カレンダー） <span class="t-en">Entering steps — calendar</span></a></li>
-    <li><a href="#s04"><span class="n">04</span>リストで入力する <span class="t-en">Entering steps — list</span></a></li>
+    <li><a href="#s04"><span class="n">04</span>歩数を入力する（リスト） <span class="t-en">Entering steps — list</span></a></li>
     <li><a href="#s05"><span class="n">05</span>実績表を提出する <span class="t-en">Submitting your record</span></a></li>
     <li><a href="#s06"><span class="n">06</span>マイページを見る <span class="t-en">My page</span></a></li>
     <li><a href="#s07"><span class="n">07</span>リマインドメールと自動提出 <span class="t-en">Reminders &amp; automatic submission</span></a></li>
@@ -228,7 +232,7 @@ td.k .en { font-weight: 400; }
     <div><b>前月21日〜今月20日</b>記録期間：毎日の歩数を入力<span>Recording period: enter steps daily</span></div>
     <div><b>今月21日〜翌月1日</b>提出期間：「実績表を提出」を押す<span>Submission period: press Submit Record</span></div>
     <div><b>今月26日</b>未提出の方へリマインドメール<span>Reminder email if not yet submitted</span></div>
-    <div><b>翌月1日</b>提出締切<span>Final deadline</span></div>
+    <div><b>翌月1日</b>提出最終締切日<span>Final deadline</span></div>
     <div><b>翌月2日</b>未提出の実績表を自動提出（同意者のみ）<span>Auto-submission (consented only)</span></div>
   </div>
   <p class="ja"><b>【例】</b>9月21日〜10月20日の分の場合：10月21日〜11月1日に提出、10月26日にリマインド、11月2日に自動提出。</p>
@@ -267,6 +271,9 @@ td.k .en { font-weight: 400; }
   <h3>社員番号がわからないとき<em>If you do not know your number</em></h3>
   <p class="ja">健康対策委員会までお問い合わせください。</p>
   <p class="en">Please ask the Health Promotion Committee.</p>
+  <p class="ja contact">メール：<b>kenkou@morabu.com</b>　／　TEL：<b>078-335-7391</b></p>
+  <p class="en">※ 問い合わせ先は、巻末「よくある質問」にも記載しています。<br>
+    The contact details are also given in the FAQ at the back.</p>
 
   <h3>同意画面について<em>The consent screen</em></h3>
   <p class="ja">はじめてログインしたときに一度だけ表示されます。<b>同意する</b>または<b>同意しない</b>のどちらかを押すまで、次の画面には進めません。2 回目以降のログインでは表示されません。</p>
@@ -287,7 +294,7 @@ td.k .en { font-weight: 400; }
     </tr>
     <tr>
       <td class="k">未提出時の自動提出<p class="en">Automatic submission</p></td>
-      <td>期限（翌月1日）までに提出がない場合、翌月2日 0:00 に未入力の日を 0 歩として自動的に提出されます。<p class="en">If nothing is submitted by the 1st of the following month, your record is submitted at 00:00 on the 2nd with blank days recorded as 0.</p></td>
+      <td>期限（翌月1日）までに提出がない場合、翌月2日 9:00 に未入力の日を 0 歩として自動的に提出されます。<p class="en">If nothing is submitted by the 1st of the following month, your record is submitted at 09:00 on the 2nd with blank days recorded as 0.</p></td>
     </tr>
   </table>
 
@@ -360,17 +367,17 @@ td.k .en { font-weight: 400; }
   <div class="note warn">
     <b>注意 / Important</b>
     <p>歩かなかった日、万歩計を着け忘れた日は、空欄のままにせず <b>0</b> と入力してください。空欄の日が残っていると提出できません。</p>
-    <p>For days you did not walk or forgot the pedometer, enter <b>0</b> rather than leaving the day blank. You cannot submit while any day is empty.</p>
     <p>1 日あたり <b>100,000 歩以上</b>は入力できません。入力ミスを防ぐためのもので、この上限は設定で変更できます。</p>
-    <p>A single day of <b>100,000 steps or more</b> is refused, to catch a mistyped figure. The limit can be changed in 設定.</p>
     <p>今日より先の日付は入力できません。</p>
+    <p class="sep">For days you did not walk or forgot the pedometer, enter <b>0</b> rather than leaving the day blank. You cannot submit while any day is empty.</p>
+    <p>A single day of <b>100,000 steps or more</b> is refused, to catch a mistyped figure. The limit can be changed in 設定.</p>
     <p>You cannot enter steps for dates after today.</p>
   </div>
 </section>
 
 <!-- ============================ 04 ============================ -->
 <section class="sec" id="s04">
-  <div class="sec-h"><span class="num">04</span><h2>リストで入力する<em>Entering steps — list view</em></h2></div>
+  <div class="sec-h"><span class="num">04</span><h2>歩数を入力する（リスト）<em>Entering steps — list view</em></h2></div>
   <div class="rule"></div>
 
   <p class="ja">まとめて入力したいときは、「日別歩数」の右にある <span class="chip">リスト</span> を押すとリスト表示に切り替わります。紙の実績表と同じ 21 日から翌月 20 日までの並びで、上から順番に入力できます。</p>
@@ -404,7 +411,7 @@ td.k .en { font-weight: 400; }
   <p class="en">Once every day of the period has a figure, press the <b>submit button</b> at the bottom of the screen. Submission is open <b>from the 21st until the 1st of the following month</b>.</p>
 
   <ol class="steps">
-    <li>未入力の日が残っている間は、ボタンには <b>「提出する（未入力 ○日）」</b> と表示され、押せません。<p class="en">While days are still blank the button reads 提出する（未入力 ○日）and stays disabled.</p></li>
+    <li>未入力の日が残っている間は、ボタンには <b>「実績表を提出（未入力 ○日）」</b> と表示され、押せません。<p class="en">While days are still blank the button reads 実績表を提出（未入力 ○日）and stays disabled.</p></li>
     <li>すべて入力すると <b>「実績表を提出」</b> の表示になります。<b>「実績表を提出」ボタン</b>を押すと確認画面が開きます。<p class="en">When the month is complete the button reads 実績表を提出 (Submit Record). Pressing it opens a confirmation.</p></li>
     <li>合計歩数と完歩賞の判定を確認し、もう一度 <b>「実績表を提出」ボタン</b>を押します。<p class="en">Check your total and bonus status, then press 実績表を提出 again.</p></li>
   </ol>
@@ -470,7 +477,7 @@ td.k .en { font-weight: 400; }
     <tr><td class="k">今月20日<p class="en">20th of this month</p></td><td>記録期間の最終日。<p class="en">Last day of the recording period.</p></td></tr>
     <tr><td class="k">今月21日〜翌月1日<p class="en">21st of this month – 1st of next month</p></td><td>実績表を提出できる期間。「実績表を提出」ボタンで提出できます。<p class="en">The period for submitting your record. Submit with the 実績表を提出 (Submit Record) button.</p></td></tr>
     <tr><td class="k">今月26日<p class="en">26th of this month</p></td><td>まだ実績表を提出していない方へリマインドメールが届きます。メールの本文に最終締切日（翌月1日）が書かれています。<p class="en">A reminder email is sent to anyone who has not yet submitted. The body of the email states the final deadline, the 1st of next month.</p></td></tr>
-    <tr><td class="k">翌月1日<p class="en">1st of next month</p></td><td>提出締切。<p class="en">Final deadline.</p></td></tr>
+    <tr><td class="k">翌月1日<p class="en">1st of next month</p></td><td>提出最終締切日。<p class="en">Final deadline.</p></td></tr>
     <tr><td class="k">翌月2日<p class="en">2nd of next month</p></td><td>自動提出に同意している方で、まだ実績表を提出していない場合は、未入力の日を 0 歩として実績表が自動で提出されます。同意していない方は自動提出されません。設定はマイページで変更できます。<p class="en">If you have consented to auto-submission and have not submitted, your record is submitted automatically with blank days counted as 0 steps. If you have not consented, nothing is submitted. You can change this setting on My Page.</p></td></tr>
   </table>
 
@@ -480,7 +487,7 @@ td.k .en { font-weight: 400; }
 
   <div class="note warn">
     <b>注意 / Important</b>
-    <p>リマインドメールは、<b>会社のメールアドレス</b>へ送信されます。会社以外のアドレス（プライベートアドレスなど）への送信も希望する場合は、マイページで設定してください。</p>
+    <p>リマインドメールは、<b>会社のメールアドレス</b>（<b>kenkou@morabu.com</b> より送信）へ届きます。会社以外のアドレス（プライベートアドレスなど）への送信も希望する場合は、マイページで設定してください。</p>
     <p>Reminders are sent to your <b>company email address</b>. If you also want them sent to another address (such as a private address), set this up on My Page.</p>
   </div>
 </section>
@@ -689,7 +696,7 @@ td.k .en { font-weight: 400; }
     <tr><td class="k">前月21日〜今月20日</td><td>毎日の歩数を入力<p class="en">Enter steps daily</p></td><td>―</td></tr>
     <tr><td class="k">今月21日〜翌月1日</td><td>実績表を提出<p class="en">Submit Record</p></td><td>集計画面で提出状況を確認<p class="en">Check submission status on the summary screen</p></td></tr>
     <tr><td class="k">今月26日</td><td>まだ提出していない場合、リマインドメールが届く<p class="en">Reminder email if not yet submitted</p></td><td>送信人数と送信先の一覧がメールで届く<p class="en">Receive an email with the number of reminders sent and the list of recipients</p></td></tr>
-    <tr><td class="k">翌月1日</td><td>提出締切<p class="en">Final deadline</p></td><td>―</td></tr>
+    <tr><td class="k">翌月1日</td><td>提出最終締切日<p class="en">Final deadline</p></td><td>―</td></tr>
     <tr><td class="k">翌月2日</td><td>自動提出に同意している場合、未提出分が自動提出される<p class="en">Auto-submission if you have consented</p></td><td>自動提出完了のメールが届く。Excel を出力して実績を確認し、経費申請書を作成<p class="en">Receive an email confirming auto-submission. Export to Excel, check the records, then prepare the expense request</p></td></tr>
   </table>
 
@@ -723,6 +730,11 @@ td.k .en { font-weight: 400; }
     <tr>
       <td class="k">自動提出の同意を変更したい。<p class="en">I want to change my consent to automatic submission.</p></td>
       <td>マイページで変更し、「プロフィールを保存」を押してください。<p class="en">Change it on My Page and press プロフィールを保存.</p></td>
+    </tr>
+    <tr>
+      <td class="k">健康対策委員会へ連絡したい。<p class="en">I want to contact the Health Promotion Committee.</p></td>
+      <td>メール：<b>kenkou@morabu.com</b><br>TEL：<b>078-335-7391</b>
+        <p class="en">Email: kenkou@morabu.com &nbsp;/&nbsp; Tel: 078-335-7391</p></td>
     </tr>
   </table>
 

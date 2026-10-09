@@ -127,6 +127,9 @@ data.** Load the demo roster first:
 - Chapter 02 states there is no password. Update when password login ships;
   the 社員番号がわからない search can come back at the same time, since a
   number alone will no longer be enough to sign in
+- Chapter 01 (p8) used to say auto-submission runs at 翌月2日 0:00. It runs
+  at 09:00 JST — the jobs all do. Corrected; if the schedule moves, this is
+  the line to move with it
 - The consent is still described as one checkbox. 健康対策委員会 asked for it
   to be split into two — reminder email, and automatic submission — and that
   is on hold pending a discussion, so the app and the manual both still show

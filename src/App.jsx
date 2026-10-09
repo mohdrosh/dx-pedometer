@@ -115,7 +115,10 @@ const STR = {
   consentTitleOpt: ['自動提出への同意（任意）', 'Consent to automatic submission (optional)'],
   consentIntro: ['次の2点に同意する場合は、チェックを入れてください。', 'Tick the box if you agree to both of the following.'],
   consentPoint1: ['5,000歩に届かない月でも、未提出の場合は提出依頼のリマインドメールを受け取る。', 'You will receive a reminder email asking you to submit if you have not submitted, even in a month below 5,000 steps.'],
-  consentPoint2: ['最終提出期限（翌月1日）までに提出しない場合、未入力の日を0歩として自動で提出される。', 'If you do not submit by the final deadline (the 1st of next month), your record will be submitted automatically with blank days counted as 0 steps.'],
+  /* 佐野's note on the manual: say when it happens, not just by when it
+     must not. The same string is on the consent screen and on マイページ,
+     so both read alike — which is the other half of what she asked for. */
+  consentPoint2: ['最終提出期限（翌月1日）までに提出しない場合、翌月2日に未入力の日を0歩として自動で提出される。', 'If you do not submit by the final deadline (the 1st of next month), your record is submitted automatically on the 2nd with blank days counted as 0 steps.'],
   consentAgree: ['同意する', 'I agree'],
   unsubmitted: ['未提出', 'Outstanding'],
   reminders: ['未提出・リマインド', 'Reminders'],
@@ -196,6 +199,7 @@ const STR = {
   sessionGone: ['ログインの有効期限が切れました。お手数ですが、もう一度ログインしてください。', 'Your session has expired. Please sign in again.'],
   emailWork: ['会社のメールアドレス', 'Company email address'],
   email2: ['プライベートメールアドレス（任意）', 'Private email address (optional)'],
+  email2Need: ['先にプライベートメールアドレスを入力してください。', 'Enter the address first, then tick the box.'],
   email2Note: ['このアドレスにもお知らせを送る場合は、チェックボックスにチェックを入れてください。チェックを入れない場合は、会社のアドレスにのみ届きます。',
     'To also receive notices at this address, tick the checkbox. If you do not tick it, notices are sent only to your company address.'],
   consentAdminNote: ['本人がマイページで変更することもできます。', 'The participant can also change this on My Page.'],
@@ -1299,6 +1303,8 @@ function ProfileTab({ user, cfg, roster, setRoster, toast, y, m, onUpdated }) {
     pedometer: user.pedometer || '',
     email2: user.email2 || '', email2On: !!user.email2On, consent: !!user.consent,
   });
+  const [needEmail2, setNeedEmail2] = useState(false);
+  const email2Ref = React.useRef(null);
 
   useEffect(() => {
     let live = true;
@@ -1362,21 +1368,41 @@ function ProfileTab({ user, cfg, roster, setRoster, toast, y, m, onUpdated }) {
 
         {/* The tick sits beside the address rather than under it: below, it
             read as a caption and people typed an address expecting mail to
-            start arriving without ever ticking it. */}
+            start arriving without ever ticking it.
+
+            It used to be disabled until the address had an @ in it, which
+            is how 佐野 came to report that the box would not tick — she
+            pressed it first, as anybody would, and nothing happened and
+            nothing said why. A control that refuses in silence reads as
+            broken. Now it answers: it puts the cursor in the address field
+            and says what it is waiting for. */}
         <div className="fld">
           <span>{t('email2')}</span>
           <div className="withchk">
             <input
-              type="checkbox" checked={f.email2On}
-              disabled={!f.email2.includes('@')}
-              onChange={(e) => setF({ ...f, email2On: e.target.checked })}
+              type="checkbox" checked={f.email2On && f.email2.includes('@')}
+              onChange={(e) => {
+                if (e.target.checked && !f.email2.includes('@')) {
+                  setNeedEmail2(true);
+                  email2Ref.current?.focus();
+                  return;
+                }
+                setNeedEmail2(false);
+                setF({ ...f, email2On: e.target.checked });
+              }}
             />
             <input
+              ref={email2Ref}
               value={f.email2} inputMode="email" placeholder="example@gmail.com"
-              onChange={(e) => setF({ ...f, email2: e.target.value })}
+              onChange={(e) => {
+                setF({ ...f, email2: e.target.value });
+                if (e.target.value.includes('@')) setNeedEmail2(false);
+              }}
             />
           </div>
-          <em className="fld-note">{t('email2Note')}</em>
+          {needEmail2
+            ? <em className="fld-note warn">{t('email2Need')}</em>
+            : <em className="fld-note">{t('email2Note')}</em>}
         </div>
 
         <ConsentPanel
@@ -2943,6 +2969,7 @@ a.btn{text-decoration:none;text-align:center;display:inline-block}
   border-radius:4px;outline:none;font-family:inherit;font-size:15px;line-height:1.7;resize:vertical}
 .fld textarea:focus{border-color:var(--brand);background:#fff}
 .fld-note{display:block;font-style:normal;font-size:12px;color:var(--dim);margin-top:5px}
+.fld-note.warn{color:var(--warn)}
 .trial-cta{width:100%;margin-top:20px;border-color:var(--brand);color:var(--brand)}
 .trial-cta:hover{background:var(--brand-wash)}
 /* a removed participant, shown only when 削除済みを表示 is ticked */
