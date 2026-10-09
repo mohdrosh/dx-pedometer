@@ -3,6 +3,7 @@ import * as XLSX from 'xlsx';
 import MoraBot, { MORABOT_CSS } from './MoraBot';
 import KintaiTab, { KINTAI_CSS } from './Kintai';
 import KoutsuuhiTab, { KOUTSUUHI_CSS } from './Koutsuuhi';
+import { matches as fareMatches, parsePaste, mergeRows, cleanRow } from './fare-table';
 import {
   S, registerTrial, saveFeedback, fetchFeedback,
   IS_LOCAL, fetchBootstrap, apiLogin, apiLogout, apiMe, apiSaveMe, apiConsent, setLeaving,
@@ -139,9 +140,28 @@ const STR = {
   sunHol: ['日・祝日', 'Sunday / holiday'],
   blank: ['未入力', 'Blank'],
   name: ['氏名', 'Name'],
-  fareLookupOnly: ['運賃は経路検索の結果のみ受け付ける', 'Fares must come from the route planner'],
-  fareLookupOnlyNote: ['手入力の運賃では交通費を提出できなくなります。経路検索が設定されていない間は無効です。',
-    'Expenses cannot be submitted with a hand-typed fare. Ignored while no route planner is configured.'],
+  fareTable: ['運賃表', 'Approved fares'],
+  fareTableNote: ['通勤など決まった区間の運賃を登録しておくと、社員は選ぶだけで入力できます。手入力を禁止している場合も、この表の運賃は受け付けます。',
+    'Register the fare for a fixed route once and people pick it rather than type it. These count as verified even when typing is blocked.'],
+  fareTableCount: ['{n}区間', '{n} routes'],
+  fareFrom_: ['発駅', 'From'],
+  fareTo_: ['着駅', 'To'],
+  fareLine: ['路線', 'Line'],
+  fareAmount: ['運賃（片道）', 'Fare (one way)'],
+  fareNote: ['備考', 'Note'],
+  fareAdd: ['区間を追加', 'Add a route'],
+  farePaste: ['まとめて貼り付け', 'Paste a list'],
+  farePasteNote: ['Excelから「発駅／着駅／路線／運賃」の列をそのまま貼り付けられます。1行1区間。',
+    'Paste the columns straight out of Excel — from, to, line, fare. One route a line.'],
+  farePasteDo: ['取り込む', 'Import'],
+  farePasteDone: ['{a}件を追加、{u}件を更新しました。', 'Added {a}, updated {u}.'],
+  farePasteBad: ['{n}行は読み取れませんでした（{l}行目など）。', '{n} lines could not be read (line {l} and others).'],
+  fareDup: ['同じ区間・同じ路線がすでにあります。上書きしました。', 'That route was already listed — it has been replaced.'],
+  fareNeed: ['発駅・着駅・運賃を入力してください。', 'From, to and the fare are all needed.'],
+  fareTableEmpty: ['まだ登録がありません。', 'Nothing registered yet.'],
+  fareLookupOnly: ['運賃は経路検索・運賃表の結果のみ受け付ける', 'Fares must come from the planner or the approved table'],
+  fareLookupOnlyNote: ['手入力の運賃では交通費を提出できなくなります。運賃表も経路検索も無い間は無効です。',
+    'Expenses cannot be submitted with a hand-typed fare. Ignored while there is neither a table nor a planner.'],
   region: ['所属地域', 'Region'],
   dept: ['部署', 'Department'],
   section: ['課', 'Section'],
@@ -2013,6 +2033,129 @@ function FeedbackAdmin() {
 }
 
 /* ============================ Admin: settings ============================= */
+/* 運賃表. A commute is one route and one price until the operator changes
+   its fares, so the figure belongs in a table the committee approves once
+   rather than in a lookup repeated forty times a month. Pasting is the way
+   it will actually be filled: 総務 has these in Excel already. */
+function FareTableAdmin({ toast }) {
+  const t = useT();
+  const [rows, setRows] = useState(null);
+  const [draft, setDraft] = useState({ from: '', to: '', line: '', fare: '', note: '' });
+  const [paste, setPaste] = useState('');
+  const [showPaste, setShowPaste] = useState(false);
+  const [q, setQ] = useState('');
+
+  useEffect(() => { S.get('fares').then((v) => setRows(Array.isArray(v) ? v : [])); }, []);
+
+  const save = async (next) => {
+    setRows(next);
+    const ok = await S.set('fares', next);
+    if (!ok) toast(t('saveFail'));
+    return ok;
+  };
+
+  const add = async () => {
+    const clean = cleanRow(draft);
+    if (!clean) { toast(t('fareNeed')); return; }
+    const { table, updated } = mergeRows(rows, [clean]);
+    await save(table);
+    setDraft({ from: '', to: '', line: '', fare: '', note: '' });
+    toast(updated ? t('fareDup') : t('saved'));
+  };
+
+  const importPaste = async () => {
+    const { rows: got, bad } = parsePaste(paste);
+    if (!got.length) { toast(t('fareNeed')); return; }
+    const { table, added, updated } = mergeRows(rows, got);
+    await save(table);
+    setPaste(''); setShowPaste(false);
+    toast(t('farePasteDone').replace('{a}', added).replace('{u}', updated));
+    if (bad.length) {
+      toast(t('farePasteBad').replace('{n}', bad.length).replace('{l}', bad[0].line));
+    }
+  };
+
+  const remove = async (i) => save(rows.filter((_, j) => j !== i));
+
+  if (!rows) return <div className="card"><span className="muted">{t('loading')}</span></div>;
+
+  const shown = q
+    ? rows.filter((r) => `${r.from}${r.to}${r.line}`.includes(q.trim()))
+    : rows;
+
+  return (
+    <div className="card">
+      <div className="navrow wrap" style={{ justifyContent: 'space-between' }}>
+        <strong>{t('fareTable')}</strong>
+        <span className="muted sm">{t('fareTableCount').replace('{n}', rows.length)}</span>
+      </div>
+      <p className="muted sm">{t('fareTableNote')}</p>
+
+      <div className="ft-new">
+        <input placeholder={t('fareFrom_')} value={draft.from}
+          onChange={(e) => setDraft({ ...draft, from: e.target.value })} />
+        <input placeholder={t('fareTo_')} value={draft.to}
+          onChange={(e) => setDraft({ ...draft, to: e.target.value })} />
+        <input placeholder={t('fareLine')} value={draft.line}
+          onChange={(e) => setDraft({ ...draft, line: e.target.value })} />
+        <input placeholder={t('fareAmount')} inputMode="numeric" value={draft.fare}
+          onChange={(e) => setDraft({ ...draft, fare: e.target.value })} />
+        <button className="btn primary" onClick={add}>{t('fareAdd')}</button>
+      </div>
+
+      <div className="navrow wrap mt8">
+        <button className="btn" onClick={() => setShowPaste((v) => !v)}>{t('farePaste')}</button>
+        {rows.length > 6 && (
+          <input className="ft-q" placeholder={t('search')} value={q}
+            onChange={(e) => setQ(e.target.value)} />
+        )}
+      </div>
+
+      {showPaste && (
+        <>
+          <p className="muted sm mt8">{t('farePasteNote')}</p>
+          <textarea
+            className="ft-paste" rows={6} value={paste}
+            onChange={(e) => setPaste(e.target.value)}
+            placeholder={'姫路\t三ノ宮\tJR神戸線\t960'}
+          />
+          <button className="btn primary mt8" onClick={importPaste}>{t('farePasteDo')}</button>
+        </>
+      )}
+
+      {!rows.length && <p className="muted sm mt8">{t('fareTableEmpty')}</p>}
+
+      {!!shown.length && (
+        <div className="tablewrap mt8">
+          <table className="tbl">
+            <thead>
+              <tr>
+                <th>{t('fareFrom_')}</th><th>{t('fareTo_')}</th>
+                <th>{t('fareLine')}</th><th className="r">{t('fareAmount')}</th><th />
+              </tr>
+            </thead>
+            <tbody>
+              {shown.map((r) => {
+                const i = rows.indexOf(r);
+                return (
+                  <tr key={`${r.from}|${r.to}|${r.line}`}>
+                    <td>{r.from}</td><td>{r.to}</td>
+                    <td className="muted">{r.line}</td>
+                    <td className="r">¥{Number(r.fare).toLocaleString('ja-JP')}</td>
+                    <td className="r">
+                      <button className="mini danger" onClick={() => remove(i)}>{t('remove')}</button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function SettingsAdmin({ cfg, setCfg, toast, onDemo, onWipe }) {
   const t = useT();
   const [fb, setFb] = useState(null);
@@ -2095,6 +2238,8 @@ function SettingsAdmin({ cfg, setCfg, toast, onDemo, onWipe }) {
         <label className="check"><input type="radio" checked={cfg.exportLayout === 'spec'} onChange={() => upd({ exportLayout: 'spec' })} /><span>{t('layoutSpec')}</span></label>
         <label className="check"><input type="radio" checked={cfg.exportLayout === 'legacy'} onChange={() => upd({ exportLayout: 'legacy' })} /><span>{t('layoutLegacy')}</span></label>
       </div>
+
+      <FareTableAdmin toast={toast} />
 
       <div className="card soft">
         <div className="navrow wrap">
@@ -2363,6 +2508,13 @@ export default function App() {
 function Styles() {
   return (
     <style>{MORABOT_CSS + KINTAI_CSS + KOUTSUUHI_CSS + `
+.ft-new{display:grid;grid-template-columns:1fr 1fr 1fr 90px auto;gap:8px;margin-top:10px}
+.ft-new input{min-width:0}
+.ft-q{max-width:180px}
+.ft-paste{width:100%;margin-top:8px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+  font-size:12px;line-height:1.7;padding:10px;border:1px solid var(--rule-2);border-radius:8px}
+.tbl td.r,.tbl th.r{text-align:right}
+@media (max-width:640px){.ft-new{grid-template-columns:1fr 1fr;}.ft-new button{grid-column:1/-1}}
 /* ---------------------------------------------------------------------------
    Type: Inter for Latin and every figure (real tabular numerals, so step
    counts align in a column), Noto Sans JP for Japanese. Both are drawn for

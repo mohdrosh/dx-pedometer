@@ -55,8 +55,9 @@ export function totals(rows = []) {
 /** Journeys whose fare nobody checked — the ones a lookup-only policy
     refuses. A row with no fare at all is simply unfinished, not unchecked,
     and is caught by the ordinary "nothing entered" rule instead. */
+export const VERIFIED = ['lookup', 'table'];
 export const unverified = (rows = []) =>
-  rows.filter(filled).filter((r) => yen(r.fare) > 0 && r.fareSource !== 'lookup');
+  rows.filter(filled).filter((r) => yen(r.fare) > 0 && !VERIFIED.includes(r.fareSource));
 
 /** ¥1,280 */
 export const yenFmt = (n) => `¥${Number(n || 0).toLocaleString('ja-JP')}`;
@@ -75,7 +76,7 @@ export function roundTrip(route, date) {
     /* A commute generated from a looked-up route is itself looked up; one
        generated from a fare somebody typed is not, and the claim should
        keep saying so rather than launder it into something checked. */
-    fareSource: route.fareSource === 'lookup' ? 'lookup' : 'manual',
+    fareSource: VERIFIED.includes(route.fareSource) ? route.fareSource : 'manual',
   });
   return [leg(route.from, route.to), leg(route.to, route.from)];
 }

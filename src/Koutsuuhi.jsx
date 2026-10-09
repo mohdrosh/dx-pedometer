@@ -27,6 +27,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { S, setLeaving, apiFeatures, apiFareRoutes } from './storage';
+import { matches as tableMatches } from './fare-table';
 import {
   ROWS_PER_SHEET, MAX_ROWS, totals, filled, travelKey, yenFmt,
   sheetCount, roundTrip, routeReady, hasRoute, workedDays, frequentRoutes,
@@ -73,16 +74,18 @@ const L = {
     'From this period and the last. Tap one to add it again.'],
 
   /* 運賃は検索のみ */
-  lockNote: ['運賃は経路検索から入力してください。手入力はできません。',
-    'Fares come from the route planner — they cannot be typed in.'],
-  lockBlocked: ['手入力の運賃が{n}件あります。経路検索で入れ直してください。',
-    '{n} fares were typed in. Look them up again before submitting.'],
+  lockNote: ['運賃は下から選んでください。手入力はできません。',
+    'Pick the fare below — it cannot be typed in.'],
+  lockBlocked: ['手入力の運賃が{n}件あります。運賃表または経路検索から入れ直してください。',
+    '{n} fares were typed in. Set them from the approved table or the planner before submitting.'],
   lockRow: ['要確認', 'Unchecked'],
 
   /* 運賃検索 */
   findFare: ['運賃を調べる', 'Look up the fare'],
   finding: ['検索中…', 'Looking…'],
   fareFrom: ['駅すぱあと', 'Route planner'],
+  fareTableSrc: ['運賃表', 'Approved'],
+  fareTableHead: ['登録されている運賃', 'Approved fare for this journey'],
   fareManual: ['手入力', 'Typed in'],
   farePick: ['経路を選んでください', 'Pick the route'],
   fareMins: ['分', 'min'],
@@ -168,7 +171,7 @@ function Clock({ h, m, onChange, label, disabled }) {
    says — the fare, and the lines it takes, which is what tells 地下鉄 and JR
    apart between the same pair of stations. Picking one fills both boxes and
    marks the figure as looked up rather than claimed. */
-function FareFinder({ from, to, t, tErr, onPick, disabled }) {
+function FareFinder({ from, to, t, tErr, onPick, disabled, table = [], canSearch }) {
   const [busy, setBusy] = useState(false);
   const [routes, setRoutes] = useState(null);
   const [err, setErr] = useState('');
@@ -190,11 +193,37 @@ function FareFinder({ from, to, t, tErr, onPick, disabled }) {
     }
   };
 
+  /* The company's own table first: it is free, instant, works with no
+     network, and the figure on it has already been approved. The planner
+     is for the journey nobody planned for. */
+  const approved = tableMatches(table, from, to);
+
   return (
     <div className="tr-find">
-      <button className="btn wide" disabled={disabled || busy} onClick={go}>
-        {busy ? t('finding') : t('findFare')}
-      </button>
+      {!!approved.length && (
+        <>
+          <p className="muted sm tr-find-h">{t('fareTableHead')}</p>
+          <div className="tr-opts">
+            {approved.map((r, i) => (
+              <button
+                type="button" key={i} className="tr-opt approved"
+                onClick={() => onPick({ label: r.line, fare: r.fare }, 'table')}
+              >
+                <span className="tr-opt-l">
+                  <b>{r.line || `${r.from} → ${r.to}`}</b>
+                  {r.note && <small>{r.note}</small>}
+                </span>
+                <span className="tr-opt-f">{yenFmt(r.fare)}</span>
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+      {canSearch && (
+        <button className="btn wide mt8" disabled={disabled || busy} onClick={go}>
+          {busy ? t('finding') : t('findFare')}
+        </button>
+      )}
       {err && <p className="tr-find-err">{err}</p>}
       {routes && (
         <>
@@ -203,7 +232,7 @@ function FareFinder({ from, to, t, tErr, onPick, disabled }) {
             {routes.map((r, i) => (
               <button
                 type="button" key={i} className="tr-opt"
-                onClick={() => { onPick(r); setRoutes(null); }}
+                onClick={() => { onPick(r, 'lookup'); setRoutes(null); }}
               >
                 <span className="tr-opt-l">
                   <b>{r.label}</b>
@@ -225,9 +254,11 @@ function FareFinder({ from, to, t, tErr, onPick, disabled }) {
 /* ¥960 駅すぱあと / ¥960 手入力 — so an approver can see at a glance which
    figures were looked up and which somebody typed. */
 function FareBadge({ source, t }) {
+  const label = source === 'lookup' ? t('fareFrom')
+    : source === 'table' ? t('fareTableSrc') : t('fareManual');
   return (
-    <span className={'tr-src ' + (source === 'lookup' ? 'ok' : '')}>
-      {source === 'lookup' ? t('fareFrom') : t('fareManual')}
+    <span className={'tr-src ' + (source === 'lookup' || source === 'table' ? 'ok' : '')}>
+      {label}
     </span>
   );
 }
@@ -253,7 +284,11 @@ export default function KoutsuuhiTab({ user, y, m, days, cfg = {}, lang, toast, 
   const [ask, setAsk] = useState(false);
   /* The lookup only appears when the server has been given a key for it. */
   const [canFind, setCanFind] = useState(false);
-  useEffect(() => { apiFeatures().then((f) => setCanFind(!!f.fare)); }, []);
+  const [fareTable, setFareTable] = useState([]);
+  useEffect(() => {
+    apiFeatures().then((f) => setCanFind(!!f.fare));
+    S.get('fares').then((v) => setFareTable(Array.isArray(v) ? v : []));
+  }, []);
 
   /* Last month is read for two reasons: to carry the 通勤経路 forward, so it
      is entered once rather than every month, and to offer back the journeys
@@ -316,7 +351,7 @@ export default function KoutsuuhiTab({ user, y, m, days, cfg = {}, lang, toast, 
   /* 運賃は検索のみ. Only meaningful while there is a planner to look fares
      up with — with the toggle on and no key, every fare would be
      unenterable, so the policy stands down rather than locking the screen. */
-  const lockFare = !!cfg.fareLookupOnly && canFind;
+  const lockFare = !!cfg.fareLookupOnly && (canFind || fareTable.length > 0);
   const unchecked = useMemo(() => (lockFare ? unverified(rows) : []), [lockFare, rows]);
 
   const first = days[0]?.iso;
@@ -558,11 +593,12 @@ export default function KoutsuuhiTab({ user, y, m, days, cfg = {}, lang, toast, 
               </label>
             </div>
             {lockFare && <p className="muted sm tr-lock">{t('lockNote')}</p>}
-            {canFind && (
+            {(canFind || !!fareTable.length) && (
               <FareFinder
                 from={editRoute.from} to={editRoute.to} t={t} tErr={tErr}
-                onPick={(r) => setEditRoute({
-                  ...editRoute, line: r.label, fare: r.fare, fareSource: 'lookup',
+                table={fareTable} canSearch={canFind}
+                onPick={(r, src) => setEditRoute({
+                  ...editRoute, line: r.label || editRoute.line, fare: r.fare, fareSource: src,
                 })}
               />
             )}
@@ -768,10 +804,13 @@ export default function KoutsuuhiTab({ user, y, m, days, cfg = {}, lang, toast, 
               </div>
               {lockFare && !locked && <p className="muted sm tr-lock">{t('lockNote')}</p>}
 
-              {canFind && !locked && (
+              {(canFind || !!fareTable.length) && !locked && (
                 <FareFinder
                   from={o.from} to={o.to} t={t} tErr={tErr}
-                  onPick={(r) => patch(open, { line: r.label, fare: r.fare, fareSource: 'lookup' })}
+                  table={fareTable} canSearch={canFind}
+                  onPick={(r, src) => patch(open, {
+                    line: r.label || o.line, fare: r.fare, fareSource: src,
+                  })}
                 />
               )}
 
@@ -889,6 +928,14 @@ export const KOUTSUUHI_CSS = `
 .tr-src{margin-left:6px;font-size:9.5px;font-weight:600;padding:1px 5px;border-radius:3px;
   background:var(--warn-wash);color:var(--warn);vertical-align:1px}
 .tr-src.ok{background:var(--brand-wash);color:var(--brand)}
+.tr-opt.approved{border-color:var(--brand);background:var(--brand-wash)}
+/* Inside the editor the choices are the one part that grows without limit —
+   a pair of stations can have three or four routes. So the list scrolls
+   inside itself and the panel around it stays the size it was, rather than
+   the whole sheet growing past the screen. */
+.tr-sheet .tr-opts{max-height:124px;overflow-y:auto;overscroll-behavior:contain}
+.tr-sheet .tr-opt{padding:8px 10px}
+.tr-sheet .tr-find-h{margin-top:8px}
 .tr-lock{margin:7px 2px 0;line-height:1.6}
 .tr-f .tr-q{display:block;font-style:normal;font-size:9.5px;font-weight:600;
   color:var(--warn);margin-top:1px}
@@ -910,19 +957,31 @@ export const KOUTSUUHI_CSS = `
 .tr-sheet .tr-acts>.btn{padding:10px 6px}
 .tr-close{margin-top:9px;padding:13px;font-size:15px}
 
+/* A four-inch phone (320×568) has room for the fields and nothing else, so
+   the two labels that repeat what is beside them step aside. Anything
+   taller keeps them. */
+@media (max-height:600px){
+  .tr-sheet .tr-time>span{display:none}
+  .tr-sheet .tr-find-h{display:none}
+}
+
 /* An old 4-inch phone is 568px tall and the panel is 56px over. Tighter
    again, and the note under the switch steps aside — the label still says
    what the box is for. */
-@media (max-height:640px){
-  .tr-sheet{max-height:96vh}
+@media (max-height:700px){
+  .sheet.tr-sheet{max-height:97vh}
   .tr-sheet .sheet-h{padding:9px 13px}
   .tr-sheet .sheet-b{padding:9px 13px 11px}
-  .tr-sheet .fld{margin-bottom:6px}
+  .tr-sheet .fld{margin-bottom:5px}
   .tr-sheet .fld>span{margin-bottom:2px}
   .tr-sheet .fld input{padding:7px 10px;font-size:14px}
   .tr-sheet .tr-time input[type=time]{padding:7px 4px;font-size:14px}
   .tr-sheet .tr-sw{padding:7px 10px}
   .tr-sheet .tr-sw em{display:none}
+  .sheet.tr-sheet{max-height:97vh}
+  .tr-sheet .tr-opts{max-height:66px}
+  .tr-sheet .tr-opt{padding:7px 10px}
+  .tr-sheet .tr-lock{margin-top:5px;font-size:11px}
   .tr-sheet .tr-acts{margin-top:7px}
   .tr-sheet .tr-acts>.btn{padding:8px 5px}
   .tr-close{margin-top:7px;padding:11px;font-size:14.5px}

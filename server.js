@@ -134,6 +134,8 @@ function mayTouchKey(sess, key, write) {
   const m = /^(?:st|kt|tr):([^:]+):(.+)$/.exec(key);
   if (m) return String(m[2]) === String(sess.employeeId);
   if (key === 'cfg') return !write;
+  /* 運賃表 — everyone reads it to fill a fare, only the committee sets it. */
+  if (key === 'fares') return !write;
   return false;
 }
 
@@ -590,7 +592,12 @@ const server = http.createServer(async (req, res) => {
            is blocked: a part-finished month is free to hold anything. */
         if (!sess.isAdmin && /^tr:/.test(body.key) && body.value?.submitted) {
           const cfg = (await getKey('cfg')) || {};
-          if (cfg.fareLookupOnly && fare.hasProvider()
+          const table = (await getKey('fares')) || [];
+          /* The policy needs *some* way to verify a fare, or it would lock
+             the screen with no way out: either a planner key, or rows in
+             the approved table. */
+          const canVerify = fare.hasProvider() || table.length > 0;
+          if (cfg.fareLookupOnly && canVerify
             && unverified(body.value.rows || []).length) {
             return sendJson(res, 400, { error: 'fare_not_verified' });
           }
