@@ -25,6 +25,23 @@ const TIMEOUT_MS = 8000;
 
 export const hasProvider = () => !!process.env.EKISPERT_API_KEY;
 
+/* Which route search this key is allowed to call.
+
+   /search/course/extreme is the full one the documentation leads with. The
+   buy-in packs — the ¥5,500 / ¥11,000 / ¥22,000 ones sold through Amazon,
+   which is the only way a company buys this without a contract — do not
+   include it; their plan table says 経路探索 制限あり and a request comes
+   back refused. What they do include is /search/course/plain, which finds
+   the same routes without timetable times.
+
+   For a fare that does not matter. 新長田 to 三ノ宮 costs ¥190 whichever
+   train you catch, and this asks what a journey costs, never when it
+   leaves. So rather than require the expensive plan, try the full one and
+   fall back — and remember which answered, so it is one wasted request per
+   process and not one per lookup. */
+const COURSE = ['/search/course/extreme', '/search/course/plain'];
+let courseEndpoint = null;
+
 /* 駅すぱあと collapses a one-element array into the element itself, so every
    list in the response has to be coaxed back into being a list. Forgetting
    this is the classic way to break on the one-leg journey. */
@@ -147,14 +164,29 @@ export async function lookup({ from, to, date }) {
   };
   const [ca, cb] = [await code(a), await code(b)];
 
-  const rs = await call('/search/course/extreme', {
+  const params = {
     viaList: `${ca}:${cb}`,
     /* A commute is not a flight and not usually a 新幹線, and leaving them in
        produces routes nobody would claim. */
     plane: false, shinkansen: false, limitedExpress: false,
     searchType: 'plain',
     ...(date ? { date: date.replace(/-/g, '') } : {}),
-  });
+  };
+
+  let rs = null; let lastErr = null;
+  for (const path of (courseEndpoint ? [courseEndpoint] : COURSE)) {
+    try {
+      rs = await call(path, params);
+      courseEndpoint = path;
+      break;
+    } catch (err) {
+      lastErr = err;
+      /* Nothing to gain from trying the other endpoint when the network is
+         down or the key is simply wrong. */
+      if (err.code === 'timeout' || err.code === 'unreachable' || err.code === 'no_key') throw err;
+    }
+  }
+  if (!rs) throw lastErr;
 
   const out = arr(rs.Course).map((c) => {
     const lines = legsOf(c);
@@ -178,4 +210,8 @@ export async function lookup({ from, to, date }) {
 
 /* Exported for the tests, which feed it recorded responses rather than
    calling anyone. */
-export const _internal = { arr, num, legsOf, fareOf };
+export const _internal = {
+  arr, num, legsOf, fareOf,
+  endpoint: () => courseEndpoint,
+  reset: () => { courseEndpoint = null; },
+};

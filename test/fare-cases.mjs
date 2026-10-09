@@ -127,6 +127,45 @@ is('still parsed', one.length, 1);
 is('fare', one[0].fare, 960);
 is('line', one[0].label, 'JR神戸線');
 
+/* ---- the plan that cannot call the full route search -------------------
+   The buy-in packs sold through Amazon — the ¥5,500 one among them — do
+   not include /search/course/extreme. They do include /search/course/plain,
+   which finds the same routes without timetable times; a fare is the same
+   either way. Buying the cheap pack has to work, or the price quoted to
+   the committee is the wrong price.                                     */
+console.log('a key that only has the cheaper route search');
+_internal.reset();
+serve((path, url) => {
+  if (path.endsWith('/station')) return stationFor(url);
+  if (path.endsWith('/search/course/extreme')) {
+    return { __status: 403, body: { ResultSet: { Error: { message: 'not available on this plan' } } } };
+  }
+  if (path.endsWith('/search/course/plain')) return ROUTES;
+  return null;
+});
+const cheap = await lookup({ from: '新長田', to: '三ノ宮' });
+is('the fares still come back', cheap.map((x) => x.fare), [190, 240]);
+is('and the lines with them', cheap.map((x) => x.label), ['JR神戸線', '神戸市営地下鉄西神・山手線']);
+is('it settled on the endpoint that answered', _internal.endpoint(), '/search/course/plain');
+const tried = seen.filter((u) => u.includes('/search/course/')).length;
+is('both were tried on the first lookup', tried, 2);
+
+const before = seen.length;
+await lookup({ from: '新長田', to: '三ノ宮' });
+is('the second lookup does not try the refused one again',
+  seen.slice(before).filter((u) => u.includes('extreme')).length, 0);
+
+console.log('a key that has the full one uses it');
+_internal.reset();
+serve({ '/v1/json/station': STATIONS, '/v1/json/search/course/extreme': ROUTES });
+await lookup({ from: '新長田', to: '三ノ宮' });
+is('no fallback needed', _internal.endpoint(), '/search/course/extreme');
+/* every course URL carries searchType=plain as a parameter, so this has
+   to look at the path and not at the whole string */
+is('and the fallback was never called',
+  seen.filter((u) => new URL(u).pathname.endsWith('/course/plain')).length, 0);
+_internal.reset();
+
 /* ---- the ways it can fail ---------------------------------------------- */
 console.log('failures say which failure');
 const code = async (fn) => { try { await fn(); return 'no error'; } catch (e) { return e.code; } };
