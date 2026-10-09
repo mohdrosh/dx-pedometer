@@ -14,7 +14,7 @@
    the two from ever disagreeing.
    ========================================================================= */
 
-import { computeMonth, splitHM } from './kintai.js';
+import { computeMonth, splitHM, LEAVE } from './kintai.js';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -81,10 +81,19 @@ export async function buildTimesheet({ y, m, person, days, holidays = {}, rules 
     }
     put(COL.dom, d.dom);
     put(COL.dow, DOW_JA[d.dow]);
-    put(COL.inH, d.inH ?? null);
-    put(COL.inM, d.inH == null ? null : (d.inM ?? 0));
-    put(COL.outH, d.outH ?? null);
-    put(COL.outM, d.outH == null ? null : (d.outM ?? 0));
+
+    /* A day of 有給休暇 is not a day worked 09:00–17:45, and the form knows
+       it — BI throws the times away, so 休憩 and 実働時間 come out blank
+       beside them. Printing the hours anyway leaves a row that reads like
+       a half-filled one. The one-tap month fill puts standard hours on
+       every weekday, so this is the common case, not a rare one. The times
+       stay in the record; only the form leaves them off, so unpicking the
+       status brings them straight back. */
+    const away = LEAVE.includes(d.status1);
+    put(COL.inH, away ? null : (d.inH ?? null));
+    put(COL.inM, away || d.inH == null ? null : (d.inM ?? 0));
+    put(COL.outH, away ? null : (d.outH ?? null));
+    put(COL.outM, away || d.outH == null ? null : (d.outM ?? 0));
     put(COL.note, d.note || null);
     put(COL.status1, d.status1 || null);
     put(COL.status2, d.status2 || null);

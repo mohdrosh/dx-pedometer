@@ -47,7 +47,32 @@ PY
 
 Check afterwards that the cell references in `src/kintai-xlsx.js` still point
 at the right boxes — it writes by address, so a row inserted into the form
-moves them all.
+moves them all. `node test/template-cases.mjs` is the guard for the rest.
+
+## The holes in the day grid
+
+The printed columns of the day grid have gaps in the form people actually
+use: 休憩 (M), 実働時間 (O) and the three overtime columns (S, W, AA) have
+no formula at all in thirteen to fifteen of the thirty-one rows — 10, 11,
+17, 18, 24, 25, 31… It is what a block of cells deleted with the Delete key
+looks like, repeated over a few years of hands.
+
+Nobody noticed, for two reasons. The hidden helper columns beside them (BH,
+BI, BO, BU, BY…) are intact in every row and the month totals are summed
+from those, so the figures at the foot of the page were always right while
+the rows above them went blank. And on paper, filled in by hand, the gaps
+did not show.
+
+Typed into by a machine, every row gets used and the gaps show at once —
+which is how 佐野 found them. `make-template.mjs` repairs them: each column
+takes the formula from whichever row still has it, moves the row numbers to
+match, and writes one into every row 9–39. The shared-formula groups are
+flattened in the process, which is a fair price for every row computing.
+
+This matters when the form is replaced. A fresh copy from 総務 will have
+its own holes, probably in different rows; the repair runs on every
+rebuild, so it fixes those too, and `test/template-cases.mjs` fails if a
+rebuild ever leaves one behind.
 
 ---
 

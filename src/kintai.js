@@ -28,7 +28,7 @@ export const STATUS_1 = [
 export const STATUS_2 = ['直帰', '早退'];
 
 /** The ones that mean "not at work", which zero the day's times (BI). */
-const LEAVE = ['有給休暇', '欠勤', '振替休日', '特別休暇'];
+export const LEAVE = ['有給休暇', '欠勤', '振替休日', '特別休暇'];
 
 /* The defaults are モラブ阪神's, read off the 就業時間 panel of the sheet
    (AW16/AZ16, AW24, AW27 and the 平日/休憩/深夜/早朝 block at BE3:BG7). A

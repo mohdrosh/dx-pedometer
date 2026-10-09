@@ -30,9 +30,70 @@ for (let r = 9; r <= 39; r++) {
   for (const c of ['E', 'G', 'I', 'K', 'AE', 'AJ', 'AN']) ws.getCell(`${c}${r}`).value = null;
 }
 
+repairDayFormulas(ws);
+
 /* Excel must work the totals out for itself when payroll opens the file —
    the cached results in the template belong to somebody else's September. */
 wb.calcProperties = { ...(wb.calcProperties || {}), fullCalcOnLoad: true };
 
 await wb.xlsx.writeFile(OUT);
 console.log('written', OUT);
+
+/* ---------------------------------------------------------------------------
+   The printed columns of the day grid have holes in them.
+
+   休憩, 実働時間 and the three overtime columns are formulas, and in the
+   workbook people actually use, thirteen to fifteen of the thirty-one rows
+   have no formula at all — M, O, S, W and AA, in rows that look arbitrary
+   (10, 11, 17, 18, 24, 25, 31…). It is what a block of cells deleted with
+   the Delete key looks like, repeated over a few years of hands.
+
+   Nobody noticed because the hidden helper columns beside them (BH, BI, BO,
+   BU, BY…) are intact in every row, and the month totals are summed from
+   those — so the figures at the foot of the page have always been right
+   while the rows above them went blank. On paper, filled in by hand, the
+   gaps did not show either.
+
+   Typed into by a machine, every row gets used, and the gaps show at once.
+   So the template is repaired: each of those columns takes the formula from
+   whichever row still has it, with the row numbers moved to match, and
+   every row 9–39 gets one. The shared-formula groups are flattened in the
+   process, which is a fair price for every row computing.
+--------------------------------------------------------------------------- */
+function repairDayFormulas(sheet) {
+  const FIRST = 9; const LAST = 39;
+  const COLS = ['M', 'O', 'S', 'W', 'AA', 'AP'];
+  const fixed = [];
+
+  for (const col of COLS) {
+    /* A donor: a row whose cell holds the formula text itself rather than a
+       pointer at the row above. */
+    let donorRow = null; let text = null;
+    for (let r = FIRST; r <= LAST; r++) {
+      const v = sheet.getCell(`${col}${r}`).value;
+      if (v && typeof v === 'object' && typeof v.formula === 'string') {
+        donorRow = r; text = v.formula; break;
+      }
+    }
+    if (!donorRow) { console.warn(`  ! ${col}: no formula anywhere — left alone`); continue; }
+
+    let n = 0;
+    for (let r = FIRST; r <= LAST; r++) {
+      const before = sheet.getCell(`${col}${r}`).value;
+      if (before == null) n += 1;
+      sheet.getCell(`${col}${r}`).value = { formula: moveRows(text, donorRow, r) };
+    }
+    fixed.push(`${col}+${n}`);
+  }
+  console.log('  day formulas restored:', fixed.join(' ') || 'none needed');
+}
+
+/* Move a formula from one row to another: BO9 becomes BO17, while $BH$3 and
+   the bare numbers in (BO9+BQ9)*60 are left exactly as they are. Only a row
+   number that follows a column letter, is not anchored with $, and is the
+   donor's own row is rewritten. */
+function moveRows(formula, from, to) {
+  return formula.replace(/(\$?[A-Z]{1,3})(\$?)(\d+)/g, (whole, colPart, anchor, rowPart) => (
+    anchor === '' && Number(rowPart) === from ? `${colPart}${to}` : whole
+  ));
+}
