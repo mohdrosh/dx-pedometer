@@ -18,9 +18,9 @@ python3 build.py
 
 | File | Chapters | Pages |
 |---|---|---|
-| `…_参加者用.pdf` | 01 はじめに, ログイン方法 … リマインドメール, 巻末 | 17 |
-| `…_管理者用.pdf` | 01 はじめに, 集計 … 設定, 巻末 | 16 |
-| `…_全体.pdf` | everything, original numbering | 28 |
+| `…_参加者用.pdf` | 01 はじめに, ログイン方法 … リマインドメール, 巻末 | 22 |
+| `…_管理者用.pdf` | 01 はじめに, 集計 … 設定, 巻末 | 19 |
+| `…_全体.pdf` | everything, original numbering | 35 |
 
 Participants are given the first; the committee keeps the other two.
 Participants must not be handed the administrator edition — that is the
@@ -80,6 +80,7 @@ themselves.
 | Class | What it does |
 |---|---|
 | `.sec` | a chapter — forces a page break before |
+| `.pb` | forces a page break before any element — used on an `h3` that would otherwise be stranded at the foot of a page |
 | `.en` | the English translation line, grey and slightly smaller |
 | `.blue` | inline highlight in the brand blue |
 | `.chip` | a small outlined box for UI labels, e.g. `<span class="chip">リスト</span>` |

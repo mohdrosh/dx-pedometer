@@ -124,12 +124,15 @@ const STR = {
   reminders: ['未提出・リマインド', 'Reminders'],
   finalDeadline: ['最終締切', 'Final deadline'],
   consent: ['自動提出同意', 'Auto-submit consent'],
-  autoTag: ['自動提出', 'Auto'],
+  autoTag: ['自動提出済', 'Auto-submitted'],   // the count already submitted by the job, not the count pending
   showMail: ['文面を表示', 'Preview mail'],
   copyBody: ['本文をコピー', 'Copy body'],
   openMail: ['メールを開く', 'Open in mail'],
   runAuto: ['自動提出を実行', 'Run auto-submission'],
-  runAutoNote: ['同意済みかつ未提出の方について、未入力の日を0歩として提出済みにします。通常は翌月2日以降にサーバーが自動実行します。', 'Marks consented, unsubmitted records as submitted with blank days as 0. Normally the server runs this from the 2nd of the following month.'],
+  /* 佐野:「未提出 かつ 同意済みの方」の順に。未提出が主で、同意は条件。 */
+  runAutoNote: ['未提出かつ同意済みの方について、未入力の日を0歩として提出済みにします。通常は翌月2日以降にサーバーが自動実行します。', 'Marks outstanding records as submitted, with blank days as 0, for those who consented. Normally the server runs this from the 2nd of the following month.'],
+  runAutoNone: ['自動提出の対象者はいません。未提出で、かつ自動提出に同意している方が対象です。',
+    'Nobody to auto-submit. It applies to people who are outstanding and have consented.'],
   autoDone: ['{n}名を自動提出しました', 'Auto-submitted {n}'],
   notDueYet: ['まだ自動提出の期日（翌月2日）ではありません。実行しますか？', 'The auto-submission date (the 2nd) has not arrived. Run anyway?'],
   noneOutstanding: ['未提出者はいません', 'Nobody outstanding'],
@@ -438,12 +441,21 @@ function buildWorkbook({ y, m, roster, entries, cfg, layout, lang }) {
 
   /* header block (rows 1-2) */
   put(0, 1, n(y)); put(0, 2, s('年')); put(0, 4, n(m)); put(0, 5, s('月分'));
+  /* 佐野: 「日付のでかたがおかしいです。二重に日にちがあります。」
+
+     The header reads （月 ／ 日 ～ 月 ／ 日）, and the two 日 are the
+     fixed 21 and 20 of the period. This used to put a whole date where
+     the month belongs, so the sheet came out
+       （2026/8/21 ／ 21 ～ 2026/9/20 ／ 20）
+     with the day printed twice. Their own 集計表 has （9 ／ 21 ～ 10 ／ 20）,
+     so the month alone is what goes there. */
   put(0, 6, s('（'));
-  put(0, 7, { t: 'd', v: periodStart(y, m), z: 'yyyy/m/d' });
+  put(0, 7, n(periodStart(y, m).getMonth() + 1));
   put(0, 8, s('／')); put(0, 9, n(21)); put(0, 10, s('～'));
-  put(0, 11, { t: 'd', v: periodEnd(y, m), z: 'yyyy/m/d' });
+  put(0, 11, n(periodEnd(y, m).getMonth() + 1));
   put(0, 12, s('／')); put(0, 13, n(20)); put(0, 14, s('）'));
-  put(1, 2, s('健康対策委員会'));
+  /* 佐野 asked for this in column A rather than C. */
+  put(1, 0, s('健康対策委員会'));
 
   /* column headers (row 4) + weekday row (row 5) */
   const regionHdr = '地区別';
@@ -514,7 +526,7 @@ function buildWorkbook({ y, m, roster, entries, cfg, layout, lang }) {
   const ws2 = {};
   const put2 = (r, col, cell) => { ws2[XLSX.utils.encode_cell({ r, c: col })] = cell; };
   put2(0, 0, s('万歩計実績表（開発部用）'));
-  put2(1, 1, s('健康対策委員会'));
+  put2(1, 0, s('健康対策委員会'));   // 佐野: B → A
   put2(2, 0, s('参加人数')); put2(2, 1, s('社員番号')); put2(2, 2, s('名前'));
   put2(2, 3, s(`${nf(cfg.threshold)}歩以上\n（月間連続）`));
   people.forEach((p, i) => {
@@ -1683,7 +1695,16 @@ function RemindersAdmin({ cfg, roster, entries, y, m, onReload, toast, setBusy }
   const [preview, setPreview] = useState(null);
 
   const out = (entries == null) ? [] : roster.filter((p) => !entries[p.id]?.submitted);
+  /* 自動提出 the statistic — how many of this month's records were submitted
+     by the job rather than by hand. */
   const auto = (entries == null) ? [] : roster.filter((p) => entries[p.id]?.auto);
+  /* 自動提出 the action — who pressing the button would actually affect. The
+     same filter runAutoSubmit applies, so the number on the button is the
+     number that will move. The two are easy to confuse and are not the same
+     set: once the job has run, `auto` is full and `eligible` is empty. */
+  const eligible = (entries == null)
+    ? []
+    : roster.filter((p) => p.active !== false && p.consent && !entries[p.id]?.submitted);
   const url = typeof window !== 'undefined'
     ? window.location.origin + import.meta.env.BASE_URL.replace(/\/$/, '')
     : '';
@@ -1711,13 +1732,26 @@ function RemindersAdmin({ cfg, roster, entries, y, m, onReload, toast, setBusy }
           <Stat label={t('autoTag')} value={auto.length} sub={lang === 'ja' ? '名' : ''} />
           <Stat label={t('finalDeadline')} value={lang === 'ja' ? deadlineTextJa(y, m) : deadlineTextEn(y, m)} />
         </div>
+        {/* 佐野:「ここに記載があっても、どのボタンの内容かわかりません。」
+            The note described 自動提出を実行 but sat under both buttons, so
+            it read as describing neither. It now belongs to its button, and
+            says how many people pressing it would actually affect — her
+            other question was 「おすと全員が自動提出になるのでしょうか？」,
+            and the answer is no: only those who consented and have not
+            submitted. Better shown than explained. */}
         <div className="navrow wrap">
           <button className="btn" onClick={() => copy(out.map((p) => companyEmail(p.email)).filter(Boolean).join('; '))}>
             {t('copyEmails')}
           </button>
-          <button className="btn" onClick={runAuto}>{t('runAuto')}</button>
         </div>
-        <p className="muted sm mt">{t('runAutoNote')}</p>
+        <div className="runauto">
+          <button className="btn" onClick={runAuto} disabled={!eligible.length}>
+            {t('runAuto')}{eligible.length ? `（${eligible.length}${lang === 'ja' ? '名' : ''}）` : ''}
+          </button>
+          <p className="muted sm">
+            {eligible.length ? t('runAutoNote') : t('runAutoNone')}
+          </p>
+        </div>
       </div>
 
       <div className="tablewrap">
@@ -2821,6 +2855,13 @@ function Styles() {
 .gate-btns{display:flex;flex-direction:column;gap:10px;margin-top:20px}
 .gate-btns .btn{width:100%}
 .gate-lang{position:absolute;top:14px;right:14px}
+
+/* The 自動提出を実行 button and the line that explains it, kept together
+   so it is never in doubt which button the line is about. */
+.runauto{margin-top:10px;padding:11px 12px;border:1px solid var(--hair);border-radius:8px;
+  background:var(--wash)}
+.runauto .btn{width:100%}
+.runauto p{margin:8px 0 0}
 
 /* an address field with its own tick beside it, not under it */
 .withchk{display:flex;gap:10px;align-items:center}

@@ -122,6 +122,6 @@ export function summaryMail(o) {
   }
   return {
     subject: `【自動送信】${y}年${m}月度 自動提出結果（${autoSubmitted.length}名）`,
-    body: `${y}年${m}月度について、同意済みかつ未提出の方の実績を自動提出しました。\nAuto-submitted ${autoSubmitted.length} record(s). Blank days were recorded as 0.\n\n対象者 / Records:\n${list(autoSubmitted)}\n`,
+    body: `${y}年${m}月度について、未提出かつ同意済みの方の実績を自動提出しました。\nAuto-submitted ${autoSubmitted.length} record(s). Blank days were recorded as 0.\n\n対象者 / Records:\n${list(autoSubmitted)}\n`,
   };
 }

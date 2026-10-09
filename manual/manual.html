@@ -87,6 +87,7 @@ strong, b { font-weight: 700; }
 
 /* ===================== sections ===================== */
 .sec { break-before: page; }
+.pb  { break-before: page; }     /* force a heading onto a fresh page */
 .sec-h { display: flex; align-items: flex-start; gap: 5mm; margin-bottom: 5mm; }
 .sec-h .num {
   background: var(--brand); color: #fff; font-size: 12pt; font-weight: 700;
@@ -577,7 +578,7 @@ td.k .en { font-weight: 400; }
     <figcaption>▲ 未提出タブ（英語表示）。最終締切が曜日つきで表示されます。<br>The Outstanding tab, shown in English. The final deadline includes the day of the week.</figcaption>
   </figure>
 
-  <h3>リマインドメールの文面を確認する<em>Previewing the reminder</em></h3>
+  <h3 class="pb">リマインドメールの文面を確認する<em>Previewing the reminder</em></h3>
   <p class="ja">各行の <b>文面を表示</b> を押すと、その方に送られるメールの宛先・件名・本文が確認できます。日本語と英語が 1 通にまとめられ、お名前と最終締切が自動で差し込まれます。</p>
   <p class="en">Press 文面を表示 on any row to see the exact address, subject and body. Japanese and English are combined into one message, with the person's name and the deadline inserted automatically.</p>
 
@@ -591,15 +592,15 @@ td.k .en { font-weight: 400; }
     <tr><td class="k">未提出者のメールをコピー<p class="en">Copy emails</p></td><td>未提出者全員の会社アドレスをまとめてコピーします。<p class="en">Copies the company addresses of everyone outstanding.</p></td></tr>
     <tr><td class="k">本文をコピー<p class="en">Copy body</p></td><td>メール本文をコピーします。<p class="en">Copies the message body.</p></td></tr>
     <tr><td class="k">メールを開く<p class="en">Open in mail</p></td><td>宛先・件名・本文を入れた状態でメールソフトが開きます。<p class="en">Opens your mail client with everything filled in.</p></td></tr>
-    <tr><td class="k">自動提出を実行<p class="en">Run auto-submission</p></td><td>同意済みかつ未提出の方を、未入力の日を 0 歩として提出済みにします。<p class="en">Submits consented, outstanding records with blanks as 0.</p></td></tr>
+    <tr><td class="k">自動提出を実行<p class="en">Run auto-submission</p></td><td>未提出かつ同意済みの方を、未入力の日を 0 歩として提出済みにします。<b>対象者が全員になるわけではありません</b>— 同意していない方は対象外です。ボタンには対象となる人数が表示され、対象者がいないときは押せません。<p class="en">Submits consented, outstanding records with blanks as 0. <b>Not everyone outstanding</b> — those who have not consented are left alone. The button shows how many people it would affect, and is disabled when there are none.</p></td></tr>
   </table>
 
   <div class="note ok">
     <b>ポイント / Tip</b>
     <p>通常、26 日のリマインド送信と翌月 2 日の自動提出は<b>サーバーが自動で実行</b>します。上のボタンは、確認したいときや手動で行いたいときのためのものです。</p>
-    <p>Normally the server sends the reminders on the 26th and runs the auto-submission on the 2nd. These buttons are for checking, or for running it by hand.</p>
-    <p>翌月 2 日に自動提出が実行されると、「同意済みかつ未提出の方の実績を自動提出しました。」というメールが管理者アドレスに届きます。</p>
-    <p>When auto-submission runs on the 2nd of next month, an email saying 「同意済みかつ未提出の方の実績を自動提出しました。」 is sent to the admin address.</p>
+    <p>翌月 2 日に自動提出が実行されると、「未提出かつ同意済みの方の実績を自動提出しました。」というメールが管理者アドレスに届きます。</p>
+    <p class="sep">Normally the server sends the reminders on the 26th and runs the auto-submission on the 2nd. These buttons are for checking, or for running it by hand.</p>
+    <p>When auto-submission runs on the 2nd of next month, an email saying 「未提出かつ同意済みの方の実績を自動提出しました。」 is sent to the admin address.</p>
   </div>
 
   <div class="note warn">
@@ -679,8 +680,8 @@ td.k .en { font-weight: 400; }
   <div class="note warn">
     <b>注意 / Important</b>
     <p><b>管理者のログインID</b>を変更すると、それまでの ID ではログインできなくなります。保存する前に綴りをご確認ください。誤って保存すると、どなたも管理画面に入れなくなります。</p>
-    <p>Changing the <b>administrator ID</b> stops the previous one working. Check the spelling before saving — a typo locks everyone out of the administrator screens.</p>
     <p>設定画面の下部にある <b>デモデータを生成</b> と <b>この月度のデータを削除</b> は、動作確認用の機能です。運用開始後は使用しないでください。実際の入力データが失われます。</p>
+    <p class="sep">Changing the <b>administrator ID</b> stops the previous one working. Check the spelling before saving — a typo locks everyone out of the administrator screens.</p>
     <p>The <b>デモデータを生成</b> and <b>この月度のデータを削除</b> buttons at the bottom are for testing only. Do not use them once the system is live — real entries will be lost.</p>
   </div>
 </section>
