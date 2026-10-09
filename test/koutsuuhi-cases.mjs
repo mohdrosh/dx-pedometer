@@ -121,6 +121,10 @@ const rt = roundTrip(route, '2026-09-28');
 is('out and back', rt.map((r) => `${r.from}→${r.to}`), ['姫路→三ノ宮', '三ノ宮→姫路']);
 is('both marked 通勤', rt.every((r) => r.commute), true);
 is('both carry the one-way fare', rt.map((r) => r.fare), [960, 960]);
+is('a typed fare stays typed', rt.map((r) => r.fareSource), ['manual', 'manual']);
+is('a looked-up one stays looked up',
+  roundTrip({ ...route, fareSource: 'lookup' }, '2026-09-28').map((r) => r.fareSource),
+  ['lookup', 'lookup']);
 is('a day already covered is recognised, either way round',
   hasRoute(rt, route, '2026-09-28'), true);
 is('another day is not', hasRoute(rt, route, '2026-09-29'), false);

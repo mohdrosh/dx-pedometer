@@ -249,6 +249,35 @@ export async function apiMe() {
   } catch { return null; }
 }
 
+/* Which optional pieces the server has been given the keys for. Asked once
+   and remembered: it cannot change without a restart at the other end. */
+let featuresOnce = null;
+export function apiFeatures() {
+  if (!featuresOnce) {
+    featuresOnce = (async () => {
+      try {
+        const res = await fetch(`${base()}/api/me`, { credentials: 'same-origin' });
+        if (!res.ok) return {};
+        return (await res.json()).features || {};
+      } catch { return {}; }
+    })();
+  }
+  return featuresOnce;
+}
+
+/** The fare a route planner gives for a pair of stations. */
+export async function apiFareRoutes(from, to) {
+  const res = await fetch(`${base()}/api/fare/routes`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'same-origin',
+    body: JSON.stringify({ from, to }),
+  });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) { const e = new Error(body.error || 'lookup_failed'); e.code = body.error; throw e; }
+  return body.routes || [];
+}
+
 /** Saves the signed-in participant's own details. */
 export async function apiSaveMe(fields) {
   try {

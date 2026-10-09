@@ -66,6 +66,10 @@ export function roundTrip(route, date) {
   const leg = (from, to) => ({
     date, from, to, line: route.line || '', commute: true,
     fare: yen(route.fare) || null,
+    /* A commute generated from a looked-up route is itself looked up; one
+       generated from a fare somebody typed is not, and the claim should
+       keep saying so rather than launder it into something checked. */
+    fareSource: route.fareSource === 'lookup' ? 'lookup' : 'manual',
   });
   return [leg(route.from, route.to), leg(route.to, route.from)];
 }

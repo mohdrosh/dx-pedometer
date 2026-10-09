@@ -26,7 +26,7 @@
    ========================================================================= */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { S, setLeaving } from './storage';
+import { S, setLeaving, apiFeatures, apiFareRoutes } from './storage';
 import {
   ROWS_PER_SHEET, MAX_ROWS, totals, filled, travelKey, yenFmt,
   sheetCount, roundTrip, routeReady, hasRoute, workedDays, frequentRoutes,
@@ -70,6 +70,28 @@ const L = {
   freqHead: ['よく使う経路', 'Journeys you make often'],
   freqNote: ['今月と先月に入力した経路です。タップすると同じ内容で追加します。',
     'From this period and the last. Tap one to add it again.'],
+
+  /* 運賃検索 */
+  findFare: ['運賃を調べる', 'Look up the fare'],
+  finding: ['検索中…', 'Looking…'],
+  fareFrom: ['駅すぱあと', 'Route planner'],
+  fareManual: ['手入力', 'Typed in'],
+  farePick: ['経路を選んでください', 'Pick the route'],
+  fareMins: ['分', 'min'],
+  fareTransfer: ['乗換{n}回', '{n} changes'],
+  fareNoStations: ['先に両方の駅を入力してください。', 'Enter both stations first.'],
+  fareErr: {
+    unknown_station: ['駅が見つかりませんでした。別の表記でお試しください。',
+      'That station was not found — try another spelling.'],
+    two_stations: ['先に両方の駅を入力してください。', 'Enter both stations first.'],
+    no_provider: ['運賃検索は現在利用できません。', 'Fare lookup is not available.'],
+    no_key: ['運賃検索は現在利用できません。', 'Fare lookup is not available.'],
+    bad_key: ['運賃検索は現在利用できません。', 'Fare lookup is not available.'],
+    timeout: ['検索に時間がかかっています。もう一度お試しください。', 'That timed out — try again.'],
+    unreachable: ['検索できませんでした。通信状況をご確認ください。', 'Could not reach the planner.'],
+    too_many: ['検索回数が多すぎます。少し待ってからお試しください。', 'Too many lookups — wait a moment.'],
+    lookup_failed: ['検索できませんでした。', 'The lookup failed.'],
+  },
 
   date: ['日付', 'Date'],
   fromSt: ['乗車地（発駅）', 'From'],
@@ -131,8 +153,83 @@ function Clock({ h, m, onChange, label, disabled }) {
   );
 }
 
+/* ------------------------------------------------------------- 運賃検索 */
+
+/* A fare somebody remembers is a guess. This asks the route planner for the
+   journey between the two stations already typed and offers back what it
+   says — the fare, and the lines it takes, which is what tells 地下鉄 and JR
+   apart between the same pair of stations. Picking one fills both boxes and
+   marks the figure as looked up rather than claimed. */
+function FareFinder({ from, to, t, tErr, onPick, disabled }) {
+  const [busy, setBusy] = useState(false);
+  const [routes, setRoutes] = useState(null);
+  const [err, setErr] = useState('');
+
+  /* A new pair of stations invalidates whatever is on screen. */
+  useEffect(() => { setRoutes(null); setErr(''); }, [from, to]);
+
+  const go = async () => {
+    if (busy) return;
+    if (!from?.trim() || !to?.trim()) { setErr(tErr('two_stations')); return; }
+    setBusy(true); setErr(''); setRoutes(null);
+    try {
+      const r = await apiFareRoutes(from.trim(), to.trim());
+      if (!r.length) setErr(tErr('unknown_station')); else setRoutes(r);
+    } catch (e) {
+      setErr(tErr(e.code));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="tr-find">
+      <button className="btn wide" disabled={disabled || busy} onClick={go}>
+        {busy ? t('finding') : t('findFare')}
+      </button>
+      {err && <p className="tr-find-err">{err}</p>}
+      {routes && (
+        <>
+          <p className="muted sm tr-find-h">{t('farePick')}</p>
+          <div className="tr-opts">
+            {routes.map((r, i) => (
+              <button
+                type="button" key={i} className="tr-opt"
+                onClick={() => { onPick(r); setRoutes(null); }}
+              >
+                <span className="tr-opt-l">
+                  <b>{r.label}</b>
+                  <small>
+                    {r.minutes != null ? `${r.minutes}${t('fareMins')}` : ''}
+                    {r.transfers > 0 ? ` · ${t('fareTransfer').replace('{n}', r.transfers)}` : ''}
+                  </small>
+                </span>
+                <span className="tr-opt-f">{yenFmt(r.fare)}</span>
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+/* ¥960 駅すぱあと / ¥960 手入力 — so an approver can see at a glance which
+   figures were looked up and which somebody typed. */
+function FareBadge({ source, t }) {
+  return (
+    <span className={'tr-src ' + (source === 'lookup' ? 'ok' : '')}>
+      {source === 'lookup' ? t('fareFrom') : t('fareManual')}
+    </span>
+  );
+}
+
 export default function KoutsuuhiTab({ user, y, m, days, lang, toast, base = '' }) {
   const t = useCallback((k) => (L[k] ? L[k][lang === 'ja' ? 0 : 1] || L[k][0] : k), [lang]);
+  const tErr = useCallback((code) => {
+    const e = L.fareErr[code] || L.fareErr.lookup_failed;
+    return e[lang === 'ja' ? 0 : 1] || e[0];
+  }, [lang]);
   const pk = `${String(y % 100).padStart(2, '0')}${pad2(m)}`;
   const prevPk = m === 1
     ? `${String((y - 1) % 100).padStart(2, '0')}12`
@@ -146,6 +243,9 @@ export default function KoutsuuhiTab({ user, y, m, days, lang, toast, base = '' 
   const [saveState, setSaveState] = useState('');
   const [busy, setBusy] = useState('');
   const [ask, setAsk] = useState(false);
+  /* The lookup only appears when the server has been given a key for it. */
+  const [canFind, setCanFind] = useState(false);
+  useEffect(() => { apiFeatures().then((f) => setCanFind(!!f.fare)); }, []);
 
   /* Last month is read for two reasons: to carry the 通勤経路 forward, so it
      is entered once rather than every month, and to offer back the journeys
@@ -313,6 +413,7 @@ export default function KoutsuuhiTab({ user, y, m, days, lang, toast, base = '' 
       commuteRoute: {
         from: r.from.trim(), to: r.to.trim(), line: (r.line || '').trim(),
         fare: r.fare === '' || r.fare == null ? null : Number(r.fare),
+        fareSource: r.fareSource === 'lookup' ? 'lookup' : 'manual',
       },
     });
     setEditRoute(null);
@@ -428,14 +529,28 @@ export default function KoutsuuhiTab({ user, y, m, days, lang, toast, base = '' 
                   onChange={(e) => setEditRoute({ ...editRoute, line: e.target.value })}
                 />
               </label>
-              <label className="fld grow tr-fare"><span>{t('routeOneWay')}</span>
+              <label className="fld grow tr-fare">
+                <span>
+                  {t('routeOneWay')}
+                  {(editRoute.fare ?? '') !== '' && <FareBadge source={editRoute.fareSource} t={t} />}
+                </span>
                 <input
                   type="number" inputMode="numeric" min="0" step="10"
                   value={editRoute.fare ?? ''}
-                  onChange={(e) => setEditRoute({ ...editRoute, fare: e.target.value })}
+                  onChange={(e) => setEditRoute({
+                    ...editRoute, fare: e.target.value, fareSource: 'manual',
+                  })}
                 />
               </label>
             </div>
+            {canFind && (
+              <FareFinder
+                from={editRoute.from} to={editRoute.to} t={t} tErr={tErr}
+                onPick={(r) => setEditRoute({
+                  ...editRoute, line: r.label, fare: r.fare, fareSource: 'lookup',
+                })}
+              />
+            )}
             <div className="tr-acts two">
               <button className="btn ghost" onClick={() => setEditRoute(null)}>{t('cancel')}</button>
               <button className="btn primary" onClick={saveRoute}>{t('routeSet')}</button>
@@ -610,14 +725,28 @@ export default function KoutsuuhiTab({ user, y, m, days, lang, toast, base = '' 
                     onChange={(e) => patch(open, { line: e.target.value })}
                   />
                 </label>
-                <label className="fld grow tr-fare"><span>{t('fare')}</span>
+                <label className="fld grow tr-fare">
+                  <span>
+                    {t('fare')}
+                    {o.fare != null && <FareBadge source={o.fareSource} t={t} />}
+                  </span>
                   <input
                     type="number" inputMode="numeric" min="0" step="10" disabled={locked}
                     value={o.fare ?? ''}
-                    onChange={(e) => patch(open, { fare: e.target.value === '' ? null : Number(e.target.value) })}
+                    onChange={(e) => patch(open, {
+                      fare: e.target.value === '' ? null : Number(e.target.value),
+                      fareSource: 'manual',
+                    })}
                   />
                 </label>
               </div>
+
+              {canFind && !locked && (
+                <FareFinder
+                  from={o.from} to={o.to} t={t} tErr={tErr}
+                  onPick={(r) => patch(open, { line: r.label, fare: r.fare, fareSource: 'lookup' })}
+                />
+              )}
 
               {/* the switch and the reason for it are one box, so the panel
                   fits a phone without scrolling */}
@@ -713,6 +842,26 @@ export const KOUTSUUHI_CSS = `
 .tr-sw b{display:block;font-size:13px;font-weight:600;color:var(--ink)}
 .tr-sw em{display:block;font-style:normal;font-size:10.5px;color:var(--ink-2);
   line-height:1.45;margin-top:2px}
+
+/* 運賃検索 */
+.tr-find{margin-top:4px}
+.tr-find-err{margin:8px 2px 0;font-size:11.5px;color:var(--warn);line-height:1.6}
+.tr-find-h{margin:10px 2px 0}
+.tr-opts{display:flex;flex-direction:column;gap:6px;margin-top:7px}
+.tr-opt{display:flex;align-items:center;gap:10px;width:100%;padding:9px 11px;
+  border:1px solid var(--hair);border-radius:8px;background:var(--wash);
+  font:inherit;text-align:left}
+.tr-opt:hover{border-color:var(--brand);background:#fff}
+.tr-opt-l{flex:1;min-width:0}
+.tr-opt-l b{display:block;font-size:12.5px;font-weight:600;color:var(--ink);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tr-opt-l small{display:block;font-size:10.5px;color:var(--ink-2);margin-top:1px}
+.tr-opt-f{flex:none;font-size:15px;font-weight:700;color:var(--ink);
+  font-variant-numeric:tabular-nums}
+/* which figures were looked up and which somebody typed */
+.tr-src{margin-left:6px;font-size:9.5px;font-weight:600;padding:1px 5px;border-radius:3px;
+  background:var(--warn-wash);color:var(--warn);vertical-align:1px}
+.tr-src.ok{background:var(--brand-wash);color:var(--brand)}
 
 /* The journey editor is nine fields and four buttons. On a phone that is
    more than a screen at the app's usual spacing, and a panel you have to

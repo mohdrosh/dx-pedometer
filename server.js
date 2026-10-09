@@ -33,6 +33,7 @@ import { buildTimesheet, timesheetFilename } from './src/kintai-xlsx.js';
 import { noticesFor, buildTodoke, todokeFilename } from './src/todoke.js';
 import { buildKoutsuuhi, koutsuuhiFilename } from './src/koutsuuhi.js';
 import { sheetCount } from './src/koutsuuhi-calc.js';
+import * as fare from './src/fare.js';
 import { DEFAULT_CFG, ROSTER_SEED, orderRegions } from './src/defaults.js';
 
 if (!process.env.DATABASE_URL) {
@@ -103,6 +104,22 @@ function rateLimited(key, max, windowMs) {
   h.n += 1;
   return h.n > max;
 }
+/* A fare lookup fails in ways the person on the screen can act on — a
+   station nobody recognises is theirs to fix, a key the plan does not cover
+   is not — so the reason is passed back as a code. Still a code and nothing
+   else: no provider message, no URL, no key. */
+function fareError(res, err) {
+  const known = {
+    unknown_station: 404, two_stations: 400, no_key: 503,
+    bad_key: 503, timeout: 504, unreachable: 502,
+  };
+  const code = known[err.code] ? err.code : 'lookup_failed';
+  if (!known[err.code] || err.code === 'bad_key') {
+    console.error('fare lookup failed', err.code || err.message, err.status || '');
+  }
+  return sendJson(res, known[code] || 502, { error: code });
+}
+
 const clientIp = (req) =>
   (req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.socket.remoteAddress || '?';
 
@@ -321,7 +338,9 @@ const server = http.createServer(async (req, res) => {
         const user = sess.isAdmin
           ? { admin: true, id: 'admin', name: '健康対策委員会' }
           : { admin: false, ...(await getEmployee(sess.employeeId)) };
-        return sendJson(res, 200, { user });
+        /* Whether the fare lookup is available at all, so the screen can
+           offer it or keep quiet rather than show a button that 503s. */
+        return sendJson(res, 200, { user, features: { fare: fare.hasProvider() } });
       }
       /* A participant edits their own row only — no path here writes anyone
          else's, and name and employee number are not editable at all. */
@@ -395,6 +414,35 @@ const server = http.createServer(async (req, res) => {
         'Cache-Control': 'no-store',
       });
       return res.end(Buffer.from(buf));
+    }
+
+    /* 運賃 — asked of a route planner rather than of the person claiming it.
+       Every call costs the company a request, so it is rate limited per
+       person rather than per IP: one office behind one address should not
+       lock itself out, and one person holding a key down should not spend
+       the budget. The key never leaves this process. */
+    if (url.pathname === '/api/fare/stations' && req.method === 'GET') {
+      if (!sess) return deny(res);
+      if (!fare.hasProvider()) return sendJson(res, 503, { error: 'no_provider' });
+      if (rateLimited(`fare:${sess.sid}`, 60, 60_000)) return sendJson(res, 429, { error: 'too_many' });
+      try {
+        return sendJson(res, 200, { stations: await fare.stations(url.searchParams.get('q')) });
+      } catch (err) {
+        return fareError(res, err);
+      }
+    }
+
+    if (url.pathname === '/api/fare/routes' && req.method === 'POST') {
+      if (!sess) return deny(res);
+      if (!fare.hasProvider()) return sendJson(res, 503, { error: 'no_provider' });
+      if (rateLimited(`fare:${sess.sid}`, 60, 60_000)) return sendJson(res, 429, { error: 'too_many' });
+      const b = await readBody(req).catch(() => null);
+      try {
+        const routes = await fare.lookup({ from: b?.from, to: b?.to, date: b?.date });
+        return sendJson(res, 200, { routes });
+      } catch (err) {
+        return fareError(res, err);
+      }
     }
 
     /* 交通費精算書, filled from the journeys on screen. The rows are read
