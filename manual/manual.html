@@ -106,7 +106,14 @@ h3 em { font-style: normal; color: var(--dim); font-weight: 400; font-size: 8.6p
 
 /* ===================== figures ===================== */
 figure { margin: 6mm 0 5mm; text-align: center; break-inside: avoid; }
-figure img { border: 1px solid var(--rule); border-radius: 1.2mm; display: block; margin: 0 auto; }
+/* The width classes below set how wide a figure wants to be. A tall capture
+   — a whole phone screen — can still come out taller than the page at that
+   width and be cut off at the bottom, which is what happened to マイページ.
+   The height cap wins over the width and the picture scales down whole, so
+   a figure can never run off the page again. A4 leaves 259mm between the
+   margins; this keeps room for the caption under it. */
+figure img { border: 1px solid var(--rule); border-radius: 1.2mm; display: block;
+  margin: 0 auto; max-height: 225mm; }
 figcaption { font-size: 8pt; color: var(--dim); margin-top: 2.6mm; line-height: 1.6; }
 .w40 img { width: 40%; } .w50 img { width: 50%; } .w58 img { width: 58%; }
 .w66 img { width: 66%; } .w76 img { width: 76%; } .w86 img { width: 86%; }
@@ -176,8 +183,8 @@ td.k .en { font-weight: 400; }
     <dl class="meta">
       <div><dt>対象 / For</dt><dd>参加者・健康対策委員会（管理者）</dd></div>
       <div><dt>対応端末 / Devices</dt><dd>スマートフォン ／ PC ブラウザ</dd></div>
-      <div><dt>版 / Edition</dt><dd>第 5 版</dd></div>
-      <div><dt>発行日 / Issued</dt><dd>2026年10月9日</dd></div>
+      <div><dt>版 / Edition</dt><dd>{{EDITION}}</dd></div>
+      <div><dt>発行日 / Issued</dt><dd>{{ISSUED}}</dd></div>
     </dl>
   </div>
   <div class="cover-foot">
@@ -575,7 +582,7 @@ td.k .en { font-weight: 400; }
 
   <figure class="w76">
     <img src="img/admin_outstanding.png" alt="未提出タブ">
-    <figcaption>▲ 未提出タブ（英語表示）。最終締切が曜日つきで表示されます。<br>The Outstanding tab, shown in English. The final deadline includes the day of the week.</figcaption>
+    <figcaption>▲ 未提出タブ。最終締切が曜日つきで表示されます。<br>The Outstanding tab. The final deadline includes the day of the week.</figcaption>
   </figure>
 
   <h3 class="pb">リマインドメールの文面を確認する<em>Previewing the reminder</em></h3>
@@ -742,7 +749,7 @@ td.k .en { font-weight: 400; }
   <div class="end">
     ご不明な点は、健康対策委員会までお問い合わせください。<br>
     For any questions, please contact the Health Promotion Committee.<br><br>
-    万歩計実績表 利用マニュアル ／ 第 4 版 ／ 2026年10月5日<br>
+    万歩計実績表 利用マニュアル ／ {{EDITION}} ／ {{ISSUED}}<br>
     モラブ阪神工業株式会社 健康対策委員会
   </div>
 </section>

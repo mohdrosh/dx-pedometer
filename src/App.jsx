@@ -3,6 +3,7 @@ import * as XLSX from 'xlsx';
 import MoraBot, { MORABOT_CSS } from './MoraBot';
 import KintaiTab, { KINTAI_CSS } from './Kintai';
 import KoutsuuhiTab, { KOUTSUUHI_CSS } from './Koutsuuhi';
+import { inSubmissionWindow } from './submission-window.js';
 import { matches as fareMatches, parsePaste, mergeRows, cleanRow } from './fare-table';
 import {
   S, registerTrial, saveFeedback, fetchFeedback,
@@ -218,7 +219,7 @@ const STR = {
   emailWork: ['会社のメールアドレス', 'Company email address'],
   email2: ['プライベートメールアドレス（任意）', 'Private email address (optional)'],
   email2Need: ['先にプライベートメールアドレスを入力してください。', 'Enter the address first, then tick the box.'],
-  email2Note: ['このアドレスにもお知らせを送る場合は、チェックボックスにチェックを入れてください。チェックを入れない場合は、会社のアドレスにのみ届きます。',
+  email2Note: ['このアドレスにもお知らせを送る場合は、チェックボックスにチェックを入れてください。チェックを入れない場合は、会社のアドレスのみに届きます。',
     'To also receive notices at this address, tick the checkbox. If you do not tick it, notices are sent only to your company address.'],
   consentAdminNote: ['本人がマイページで変更することもできます。', 'The participant can also change this on My Page.'],
   dateOrder: ['日付の並び', 'Order'],
@@ -271,7 +272,8 @@ const STR = {
     'Maximum steps per day (entries of this many steps or more are rejected)'],
   overMax: ['{n}歩以上は入力できません', 'Enter fewer than {n} steps'],
   enforceWindow: ['提出期間の制限を有効にする', 'Enforce the submission window'],
-  enforceNote: ['デモ中はOFFのままにするといつでも提出できます。', 'Leave off during the demo so submission works any day.'],
+  enforceNote: ['ONにすると、対象月のみ提出できます。対象月とは、締め（20日）が過ぎた月のことで、その提出期間は21日から翌月1日までです。前月・翌月の提出はできません。OFFのあいだは、どの月でもいつでも提出できます。',
+    'When on, only the target month can be submitted — the month whose period has just closed on the 20th, during its window from the 21st to the 1st of the next month. Earlier and later months cannot be submitted. While off, any month can be submitted on any day.'],
   demoData: ['デモデータを生成', 'Generate demo data'],
   demoNote: ['先頭40名にサンプル歩数を入れて提出済みにします。', 'Fills sample steps for the first 40 people and marks them submitted.'],
   resetAll: ['この月度のデータを削除', 'Delete this period’s data'],
@@ -296,6 +298,10 @@ const STR = {
   idExists: ['この社員番号はすでに登録されています。そのままログインしてください。', 'That employee number is already registered — please just sign in.'],
   trialTag: ['お試し', 'Trial'],
   showTrial: ['お試し登録者を表示', 'Show trial users'],
+  promote: ['本登録にする', 'Make permanent'],
+  promoteAsk: ['{name} さんを本登録に変更します。\n\n集計・完歩賞・未提出の対象になり、リマインドメールも届くようになります。ログイン方法は変わりません。',
+    'Change {name} to a full participant.\n\nThey will count towards the summary, the bonus and the outstanding list, and will start receiving reminder emails. How they sign in does not change.'],
+  promoted: ['本登録に変更しました', 'Now a full participant'],
   trialCount: ['お試し登録', 'Trial users'],
   feedback: ['ご意見・不具合の報告', 'Feedback'],
   fbSend: ['送信する', 'Send'],
@@ -380,11 +386,6 @@ function currentPeriod(today = new Date()) {
 /** Opens the day after the 20th cutoff, closes end of the 1st of the next
     month. The 25th is only the first notice; the 26th reminder goes out to
     anyone still outstanding. */
-function inSubmissionWindow(y, m, today = new Date()) {
-  const from = new Date(y, m - 1, 21);
-  const to = new Date(y, m, 1, 23, 59, 59);
-  return today >= from && today <= to;
-}
 /** Auto-submission runs from the 2nd of the month after the period end. */
 function autoSubmitDue(y, m, today = new Date()) {
   return today >= new Date(y, m, 2);
@@ -938,7 +939,7 @@ function StepsTab({ user, cfg, holidays, y, m, setPeriod, toast }) {
   const total = filled.reduce((a, d) => a + Number(steps[d.iso]), 0);
   const allIn = filled.length === days.length;
   const qualified = allIn && filled.every((d) => Number(steps[d.iso]) >= cfg.threshold);
-  const windowOpen = !cfg.enforceWindow || inSubmissionWindow(y, m);
+  const windowOpen = !cfg.enforceWindow || inSubmissionWindow(y, m, isoOf(new Date()));
 
   const timer = React.useRef(null);
   const latest = React.useRef(null);
@@ -1351,12 +1352,21 @@ function ProfileTab({ user, cfg, roster, setRoster, toast, y, m, onUpdated }) {
      participant could rewrite everybody. This sends only their own fields, and
      the server ignores whose they claim to be. */
   const save = async () => {
+    /* Ticked, but no address to send to. Read the field itself rather than
+       the state, so an autofilled address still counts. */
+    const typed = String(email2Ref.current?.value ?? f.email2);
+    if (f.email2On && !typed.includes('@')) {
+      setNeedEmail2(true); email2Ref.current?.focus(); return;
+    }
+    setNeedEmail2(false);
+    const body = { ...f, email2: typed };
+    if (typed !== f.email2) setF(body);
     if (IS_LOCAL) {
-      const next = roster.map((p) => (String(p.id) === String(user.id) ? { ...p, ...f } : p));
+      const next = roster.map((p) => (String(p.id) === String(user.id) ? { ...p, ...body } : p));
       setRoster(next); await S.set('roster', next); toast(t('saved'));
       return;
     }
-    const updated = await apiSaveMe(f);
+    const updated = await apiSaveMe(body);
     if (!updated) { toast(t('saveFailed')); return; }
     onUpdated(updated); toast(t('saved'));
   };
@@ -1398,23 +1408,24 @@ function ProfileTab({ user, cfg, roster, setRoster, toast, y, m, onUpdated }) {
             start arriving without ever ticking it.
 
             It used to be disabled until the address had an @ in it, which
-            is how 佐野 came to report that the box would not tick — she
-            pressed it first, as anybody would, and nothing happened and
-            nothing said why. A control that refuses in silence reads as
-            broken. Now it answers: it puts the cursor in the address field
-            and says what it is waiting for. */}
+            is how 佐野 came to report twice that the box would not tick. The
+            second report had an address already in the field, so the gate was
+            not merely unexplained — it was wrong. An address the browser
+            autofills, or one pasted in a way that does not raise a change
+            event, leaves the field looking full while the state behind it is
+            still empty, and the tick stays dead with the reason invisible.
+
+            So the tick no longer depends on the address at all. It is always
+            live, and the pairing is checked once on 保存, against the field
+            as it actually reads — which is the moment it matters, and the one
+            place that cannot be fooled by how the text arrived. */}
         <div className="fld">
           <span>{t('email2')}</span>
           <div className="withchk">
             <input
-              type="checkbox" checked={f.email2On && f.email2.includes('@')}
+              type="checkbox" checked={!!f.email2On}
               onChange={(e) => {
-                if (e.target.checked && !f.email2.includes('@')) {
-                  setNeedEmail2(true);
-                  email2Ref.current?.focus();
-                  return;
-                }
-                setNeedEmail2(false);
+                if (!e.target.checked) setNeedEmail2(false);
                 setF({ ...f, email2On: e.target.checked });
               }}
             />
@@ -1868,6 +1879,29 @@ function PeopleAdmin({ cfg, setCfg, roster, setRoster, toast }) {
     toast(t('restored'));
   };
 
+  /* 佐野:「本始動前に本登録へ変更し、お試しから削除してください。」 Six people
+     had signed themselves up through お試し登録 and turned out to be on the
+     participant list after all. Nothing could clear the flag — the edit
+     dialog carries it through untouched — so the only way out was the
+     database. One button, on the row that already shows the お試し pill.
+
+     Clearing it is all that is needed: 社員番号 is what signs a person in,
+     and the flag has never had any part in that, so the account carries on
+     exactly as before and keeps everything already entered. What changes is
+     that they start counting — in 対象者数, in 完歩賞, in 未提出 and its
+     reminders, and in the downloaded 万歩計実績表. */
+  const promote = async (id) => {
+    const p = roster.find((x) => String(x.id) === String(id));
+    if (!p) return;
+    if (!window.confirm(t('promoteAsk').replace('{name}', p.name))) return;
+    await save(roster.map((x) => {
+      if (String(x.id) !== String(id)) return x;
+      const { trial, ...rest } = x;
+      return rest;
+    }), true);
+    toast(t('promoted'));
+  };
+
   const deletedCount = roster.filter((p) => p.active === false).length;
 
   /* Employee numbers are strings of differing length, so they are padded
@@ -1948,6 +1982,9 @@ function PeopleAdmin({ cfg, setCfg, roster, setRoster, toast }) {
                       <button className="mini" onClick={() => restore(p.id)}>{t('restore')}</button>
                     ) : (
                       <>
+                        {p.trial && (
+                          <button className="mini go" onClick={() => promote(p.id)}>{t('promote')}</button>
+                        )}
                         <button className="mini" onClick={() => setEdit({ ...p, _orig: p.id })}>{t('edit')}</button>
                         <button className="mini danger" onClick={() => del(p.id)}>{t('remove')}</button>
                       </>
@@ -3047,6 +3084,7 @@ a.btn{text-decoration:none;text-align:center;display:inline-block}
 .tbl tr.gone td{color:var(--dim)}
 .pill.gone{margin-left:7px;border-color:var(--rule-2);color:var(--dim);background:var(--wash);
   font-weight:600;font-size:11px;padding:1px 7px}
+.mini.go{border-color:var(--go);color:var(--go)}
 .pill.trial{margin-left:7px;border-color:var(--brand);color:var(--brand);background:var(--brand-wash);
   font-weight:600;font-size:11px;padding:1px 7px}
 /* Needs the td to out-specify the nowrap on .tbl td — as a bare class it

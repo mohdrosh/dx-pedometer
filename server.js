@@ -36,6 +36,7 @@ import { sheetCount, unverified } from './src/koutsuuhi-calc.js';
 import * as fare from './src/fare.js';
 import { matches as fareTableMatches } from './src/fare-table.js';
 import { DEFAULT_CFG, ROSTER_SEED, orderRegions } from './src/defaults.js';
+import { inSubmissionWindow } from './src/submission-window.js';
 
 if (!process.env.DATABASE_URL) {
   console.error('\n  DATABASE_URL is not set.');
@@ -180,6 +181,24 @@ function submittedTooEarly(key, value) {
   const steps = value.steps || {};
   return periodDays(2000 + Number(m[1]), Number(m[2]))
     .some((iso) => steps[iso] == null || steps[iso] === '');
+}
+
+/* 健康対策委員会 asked whether 提出期間の制限 means the target month only.
+   It does: a period's window opens on the 21st, once the period has ended,
+   and closes on the 1st of the month after — so exactly one month is open at
+   a time, and a month either side of it is shut. The screen already disables
+   the button; this is the same rule where it cannot be stepped around, since
+   the screen is not a guard.
+
+   Only submission is held to the window. Entering and correcting steps for
+   any month stays open, which is what makes a late correction possible at
+   all. */
+function submittedOutsideWindow(key, value, cfg) {
+  if (!cfg?.enforceWindow) return false;
+  if (!value || value.submitted !== true) return false;
+  const m = /^st:(\d{2})(\d{2}):/.exec(key);
+  if (!m) return false;
+  return !inSubmissionWindow(2000 + Number(m[1]), Number(m[2]), tokyoNow().stamp);
 }
 
 function tokyoNow() {
@@ -598,6 +617,12 @@ const server = http.createServer(async (req, res) => {
         if (!mayTouchKey(sess, body.key, true)) return deny(res, 403);
         if (!sess.isAdmin && submittedTooEarly(body.key, body.value)) {
           return sendJson(res, 400, { error: 'incomplete' });
+        }
+        if (!sess.isAdmin && /^st:/.test(body.key) && body.value?.submitted) {
+          const cfg = (await getKey('cfg')) || {};
+          if (submittedOutsideWindow(body.key, body.value, cfg)) {
+            return sendJson(res, 400, { error: 'window_closed' });
+          }
         }
         /* A submitted timesheet is the thing three people sign. The screen
            locks after submission, but the lock has to be here too, or a

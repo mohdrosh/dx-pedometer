@@ -22,6 +22,12 @@ from weasyprint import HTML
 HERE = Path(__file__).parent
 SRC = HERE / 'manual.html'
 
+# 健康対策委員会 found the cover saying 第 5 版 and the colophon on the last
+# page still saying 第 4 版. They are written once here and substituted into
+# both, so they cannot disagree again. Raise them when reissuing.
+EDITION = '第 6 版'
+ISSUED = '2026年10月13日'
+
 EDITIONS = {
     '参加者用': {
         'file': '万歩計実績表_利用マニュアル_参加者用.pdf',
@@ -92,6 +98,7 @@ def renumber(html, keep):
 def build(key):
     ed = EDITIONS[key]
     html = SRC.read_text(encoding='utf-8')
+    html = html.replace('{{EDITION}}', EDITION).replace('{{ISSUED}}', ISSUED)
 
     if ed['keep'] is not None:
         html = drop_sections(html, ed['keep'])
