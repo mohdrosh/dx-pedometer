@@ -22,6 +22,13 @@ export const DEFAULT_CFG = {
   maxSteps: 100000,
   adminIds: ['kenkou@morabu.com'],
   enforceWindow: false,
+  /* Which modules participants can reach. 万歩計 is the system itself and is
+     not listed. The other two ship switched off and are turned on from the
+     設定 tab once 健康対策委員会 has signed them off — so a release does not
+     have to wait on their review, and a module can be withdrawn without a
+     redeploy. A missing key means off, which is what every database written
+     before this existed has. */
+  modules: { timesheet: false, expense: false },
   exportLayout: 'spec',
   /* 運賃は経路検索の結果だけを受け付ける。A fare somebody typed cannot be
      checked by the person approving it, so the committee can require every

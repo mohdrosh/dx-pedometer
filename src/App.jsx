@@ -51,10 +51,16 @@ const HOLIDAYS_FALLBACK = {
 
 /* --- Future modules plug in here ------------------------------------------ */
 const MODULES = [
-  { id: 'steps', ja: '万歩計', en: 'Pedometer', ready: true },
-  { id: 'timesheet', ja: '勤怠', en: 'Timesheet', ready: true },
-  { id: 'expense', ja: '旅費精算', en: 'Expenses', ready: true },
+  { id: 'steps', ja: '万歩計', en: 'Pedometer' },
+  { id: 'timesheet', ja: '勤怠', en: 'Timesheet' },
+  { id: 'expense', ja: '旅費精算', en: 'Expenses' },
 ];
+
+/* Whether a module is open to participants. 万歩計 is the system itself and
+   is always on; the rest wait for 設定. Written as `=== true` so that a
+   settings row saved before the key existed reads as off rather than on —
+   the safe direction for something still under review. */
+const moduleOpen = (cfg, id) => id === 'steps' || cfg?.modules?.[id] === true;
 
 /* ============================== i18n ====================================== */
 const LangCtx = createContext('ja');
@@ -74,6 +80,10 @@ const STR = {
   logout: ['ログアウト', 'Sign out'],
   admin: ['管理者', 'Administrator'],
   soon: ['準備中', 'Coming soon'],
+  modTimesheet: ['勤怠を公開する', 'Open the Timesheet module'],
+  modExpense: ['旅費精算を公開する', 'Open the Expenses module'],
+  modNote: ['公開するまで、対象者にはタブが「準備中」と表示され、中身は開けません。管理者の確認が済んでからONにしてください。',
+    'Until a module is opened, participants see the tab marked 準備中 and cannot open it. Switch it on once the committee has signed it off.'],
   soonBody: ['この機能は今後のリリースで追加されます。', 'This module will be added in a future release.'],
   entry: ['歩数入力', 'Step entry'],
   mypage: ['マイページ', 'My page'],
@@ -2296,6 +2306,21 @@ function SettingsAdmin({ cfg, setCfg, toast, onDemo, onWipe }) {
           <span>{t('fareLookupOnly')}</span>
         </label>
         <p className="muted sm">{t('fareLookupOnlyNote')}</p>
+        <label className="check">
+          <input
+            type="checkbox" checked={!!cfg.modules?.timesheet}
+            onChange={(e) => upd({ modules: { ...cfg.modules, timesheet: e.target.checked } })}
+          />
+          <span>{t('modTimesheet')}</span>
+        </label>
+        <label className="check">
+          <input
+            type="checkbox" checked={!!cfg.modules?.expense}
+            onChange={(e) => upd({ modules: { ...cfg.modules, expense: e.target.checked } })}
+          />
+          <span>{t('modExpense')}</span>
+        </label>
+        <p className="muted sm">{t('modNote')}</p>
       </div>
 
       <div className="card">
@@ -2511,7 +2536,7 @@ export default function App() {
         <main className="main">
           {!user.admin && tab === 'profile' ? (
             <ProfileTab user={me} cfg={cfg} roster={roster} setRoster={setRoster} toast={toast} y={y} m={m} onUpdated={setUser} />
-          ) : mod === 'timesheet' && !user.admin ? (
+          ) : mod === 'timesheet' && !user.admin && moduleOpen(cfg, 'timesheet') ? (
             <>
               <PeriodBar y={y} m={m} setPeriod={setPeriod} lang={lang} />
               <KintaiTab
@@ -2520,7 +2545,7 @@ export default function App() {
                 base={import.meta.env.BASE_URL.replace(/\/$/, '')}
               />
             </>
-          ) : mod === 'expense' && !user.admin ? (
+          ) : mod === 'expense' && !user.admin && moduleOpen(cfg, 'expense') ? (
             <>
               <PeriodBar y={y} m={m} setPeriod={setPeriod} lang={lang} />
               <KoutsuuhiTab
@@ -2548,11 +2573,11 @@ export default function App() {
           {MODULES.map((x) => (
             <button
               key={x.id}
-              className={(mod === x.id && (user.admin || tab !== 'profile') ? 'on ' : '') + (x.ready ? '' : 'dim')}
+              className={(mod === x.id && (user.admin || tab !== 'profile') ? 'on ' : '') + (moduleOpen(cfg, x.id) ? '' : 'dim')}
               onClick={() => { setMod(x.id); setTab(user.admin ? 'admin' : 'entry'); }}
             >
               <span>{lang === 'ja' ? x.ja : x.en}</span>
-              {!x.ready && <em className="badge">{tt('soon')}</em>}
+              {!moduleOpen(cfg, x.id) && <em className="badge">{tt('soon')}</em>}
             </button>
           ))}
           {!user.admin && (
