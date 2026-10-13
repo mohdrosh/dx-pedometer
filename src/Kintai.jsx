@@ -41,6 +41,11 @@ export function tokyoNow(at = new Date()) {
 }
 export const kintaiKey = (pk, id) => `kt:${pk}:${id}`;
 
+/* A period runs 21st to 20th, so half its days belong to the month before the
+   one the period is named after. Reading the month off the period number puts
+   9/25 on the screen as 10/25, which is why this reads it off the day itself. */
+const md = (iso) => { const [, mm, dd] = iso.split('-'); return `${+mm}/${+dd}`; };
+
 const L = {
   head: ['勤怠', 'Timesheet'],
   today: ['きょう', 'Today'],
@@ -49,6 +54,8 @@ const L = {
   clockedIn: ['出勤しました', 'Clocked in'],
   clockedOut: ['お疲れさまでした', 'Clocked out — have a good evening'],
   todayDone: ['本日分は入力済みです', 'Today is entered'],
+  pickDate: ['日付を選ぶ', 'Pick a date'],
+  backToday: ['きょうへ', 'Today'],
   todayEdit: ['修正', 'Edit'],
   todayMore: ['始業・終業・勤怠状況を入力', 'Enter times and status'],
   todayLess: ['閉じる', 'Hide'],
@@ -365,6 +372,24 @@ export default function KintaiTab({ user, y, m, days, holidays, lang, toast, bas
   const todayIso = tokyoNow().iso;
   const todayRow = month.rows.find((r) => r.iso === todayIso) || null;
 
+  /* 佐野:「スクロールしないで、ここに日付を選べるカレンダーをつけてほしい」
+     The card was today and nothing else, so booking leave for the 20th meant
+     scrolling past thirty rows to find it. It now shows whichever day the
+     date field names — today until someone picks another — and the month
+     list below is unchanged for anyone who prefers it.
+
+     null means "follow today", so the card does not keep pointing at a stale
+     date once midnight passes or the period is changed. */
+  const [cardIso, setCardIso] = useState(null);
+  useEffect(() => { setCardIso(null); }, [key]);
+  const cardRow = (cardIso && month.rows.find((r) => r.iso === cardIso))
+    || todayRow
+    || month.rows[0]
+    || null;
+  const isToday = !!cardRow && cardRow.iso === todayIso;
+  const firstIso = month.rows[0]?.iso;
+  const lastIso = month.rows[month.rows.length - 1]?.iso;
+
   const clockIn = () => {
     const [h, mm] = nowOnUnit();
     setDay(todayIso, { inH: h, inM: mm });
@@ -484,54 +509,76 @@ export default function KintaiTab({ user, y, m, days, holidays, lang, toast, bas
       {/* きょう — one tap in, one tap out. She asked for it to work like the
           pedometer, which asks for today and nothing else; the month list
           below is still there for the days you fill in afterwards. */}
-      {todayRow && !locked && (
+      {cardRow && !locked && (
         <div className="card kt-today">
           <div className="kt-today-h">
             <span className="clabel">
-              {t('today')} {m}/{todayRow.dom}（{DOW_JA[todayRow.dow]}）
+              {isToday && `${t('today')} `}{md(cardRow.iso)}（{DOW_JA[cardRow.dow]}）
             </span>
-            {todayRow.calc.entered && <span className="kt-today-ok">{t('todayDone')}</span>}
+            {cardRow.calc.entered && <span className="kt-today-ok">{t('todayDone')}</span>}
+          </div>
+
+          {/* The calendar she asked for. A native date field opens the phone's
+              own picker, which is the calendar people already know, and min/max
+              keep it inside the period on screen. */}
+          <div className="kt-today-pick">
+            <input
+              type="date" value={cardRow.iso} min={firstIso} max={lastIso}
+              aria-label={t('pickDate')}
+              onChange={(e) => setCardIso(e.target.value || null)}
+            />
+            {!isToday && todayRow && (
+              <button className="kt-today-back" onClick={() => setCardIso(null)}>
+                {t('backToday')}
+              </button>
+            )}
           </div>
 
           <div className="kt-today-t">
-            {todayRow.inH != null
+            {cardRow.inH != null
               ? (
                 <>
-                  <b>{pad2(todayRow.inH)}:{pad2(todayRow.inM || 0)}</b>
+                  <b>{pad2(cardRow.inH)}:{pad2(cardRow.inM || 0)}</b>
                   <i>–</i>
-                  {todayRow.outH != null
-                    ? <b>{pad2(todayRow.outH)}:{pad2(todayRow.outM || 0)}</b>
+                  {cardRow.outH != null
+                    ? <b>{pad2(cardRow.outH)}:{pad2(cardRow.outM || 0)}</b>
                     : <b className="kt-wait">--:--</b>}
-                  {todayRow.calc.inside > 0 && (
+                  {cardRow.calc.inside > 0 && (
                     <span className="kt-today-w">
-                      {t('worked')} {fmtHM(todayRow.calc.inside + todayRow.calc.show.overtime)}
+                      {t('worked')} {fmtHM(cardRow.calc.inside + cardRow.calc.show.overtime)}
                     </span>
                   )}
                 </>
               )
-              : <span className="kt-today-none">{todayRow.status1 || t('todayNone')}</span>}
+              : <span className="kt-today-none">{cardRow.status1 || t('todayNone')}</span>}
           </div>
 
-          {/* The one tap, for the ordinary day. */}
-          <div className="kt-today-b">
-            {todayRow.inH == null
-              ? <button className="btn primary wide" onClick={clockIn}>{t('clockIn')}</button>
-              : todayRow.outH == null
-                ? <button className="btn primary wide" onClick={clockOut}>{t('clockOut')}</button>
-                : null}
-          </div>
+          {/* The one tap, for the ordinary day. 出勤 and 退勤 stamp the clock
+              as it reads now, so they belong to today alone; on any other day
+              the fields below are the way in. */}
+          {isToday && (
+            <div className="kt-today-b">
+              {cardRow.inH == null
+                ? <button className="btn primary wide" onClick={clockIn}>{t('clockIn')}</button>
+                : cardRow.outH == null
+                  ? <button className="btn primary wide" onClick={clockOut}>{t('clockOut')}</button>
+                  : null}
+            </div>
+          )}
 
           {/* and everything else about the day, open, not behind a dialog */}
-          <button
-            className="kt-today-more" onClick={() => setMore((v) => !v)}
-            aria-expanded={more}
-          >
-            {more ? t('todayLess') : t('todayMore')}<i>{more ? '▲' : '▼'}</i>
-          </button>
-          {more && (
+          {isToday && (
+            <button
+              className="kt-today-more" onClick={() => setMore((v) => !v)}
+              aria-expanded={more}
+            >
+              {more ? t('todayLess') : t('todayMore')}<i>{more ? '▲' : '▼'}</i>
+            </button>
+          )}
+          {(more || !isToday) && (
             <div className="kt-today-f">
               <DayFields
-                row={todayRow} rules={rules} locked={locked}
+                row={cardRow} rules={rules} locked={locked}
                 setDay={setDay} t={t} lang={lang}
               />
             </div>
@@ -690,7 +737,7 @@ export default function KintaiTab({ user, y, m, days, holidays, lang, toast, bas
               {/* Step along the month from inside the sheet: filling a week of
                   exceptions should not mean closing and reopening seven times. */}
               <button className="kt-step" disabled={!prevIso} onClick={() => setOpen(prevIso)} aria-label="prev">‹</button>
-              <strong>{m}/{openRow.dom}（{DOW_JA[openRow.dow]}）</strong>
+              <strong>{md(openRow.iso)}（{DOW_JA[openRow.dow]}）</strong>
               <button className="kt-step" disabled={!nextIso} onClick={() => setOpen(nextIso)} aria-label="next">›</button>
               <button className="x" onClick={() => setOpen(null)} aria-label="close">✕</button>
             </div>
@@ -733,6 +780,12 @@ export const KINTAI_CSS = `
 .kt-today{border:1px solid var(--brand);box-shadow:0 1px 3px rgba(12,104,179,.08)}
 .kt-today-h{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
 .kt-today-h .clabel{font-size:12.5px;font-weight:600;color:var(--brand)}
+.kt-today-pick{display:flex;gap:8px;align-items:center;margin:8px 0 2px}
+.kt-today-pick input[type=date]{flex:1;min-width:0;padding:9px 11px;font-size:15px;
+  font-variant-numeric:tabular-nums;border:1px solid var(--rule-2);border-radius:8px;
+  background:#fff;color:var(--ink)}
+.kt-today-back{flex:none;padding:9px 12px;font-size:13px;font-weight:600;
+  color:var(--brand);background:#fff;border:1px solid var(--brand);border-radius:8px}
 .kt-today-ok{font-size:10.5px;font-weight:600;color:var(--brand);
   background:var(--brand-wash);padding:2px 7px;border-radius:3px}
 .kt-today-t{display:flex;align-items:baseline;gap:7px;flex-wrap:wrap;margin:10px 0 13px}
