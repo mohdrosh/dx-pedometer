@@ -16,7 +16,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { S, setLeaving } from './storage';
 import {
   computeMonth, splitHM, fmtHM, offUnit, overtimeAlert,
-  DEFAULT_RULES, STATUS_1, STATUS_2,
+  DEFAULT_RULES, rulesFor, STATUS_1, STATUS_2,
 } from './kintai';
 import { noticesFor } from './todoke-runs';
 
@@ -281,7 +281,15 @@ export default function KintaiTab({ user, y, m, days, holidays, lang, toast, bas
      which is the state somebody arriving at the screen is usually in. */
   const [more, setMore] = useState(true);
 
-  const rules = DEFAULT_RULES;
+  /* 働き方 is per person and already differs: 新長田 works 8:45–17:15 and
+     明海 9:00–17:45. Taking it off the record rather than the constant is
+     what makes the figures that follow — 所定時間内, 時間外, 遅刻・早退 —
+     right for whoever is looking at them. Everything else about the rules
+     is still the house default until the committee send theirs.
+
+     useMemo because computeDay runs over every day of the month on every
+     keystroke, and a rules object rebuilt each render would redo all of it. */
+  const rules = useMemo(() => rulesFor(user), [user?.workStart, user?.workEnd]);
 
   useEffect(() => {
     let live = true;

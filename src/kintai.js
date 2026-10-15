@@ -46,6 +46,21 @@ export const DEFAULT_RULES = {
   premiumDow: [0],      // 休日割増適用日  AQ30 — 日曜日
 };
 
+/**
+ * The rules that apply to one person.
+ *
+ * 働き方 is on the record and already differs — 新長田 works 8:45–17:15 and
+ * 明海 9:00–17:45 — so the screen and the downloaded 業務報告書 have to agree
+ * about whose day started when, or the 所定時間内 and the 時間外 on the file
+ * will not be the ones the person was shown. Everything else is the house
+ * default until 健康対策委員会 send their own.
+ */
+export function rulesFor(person, base = DEFAULT_RULES) {
+  return person?.workStart && person?.workEnd
+    ? { ...base, workStart: person.workStart, workEnd: person.workEnd }
+    : base;
+}
+
 /* ------------------------------ time helpers ----------------------------- */
 
 /** "17:45" or "29:00" (meaning 5am the next day) as hours past midnight. */

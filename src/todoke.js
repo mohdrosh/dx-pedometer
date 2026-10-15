@@ -46,8 +46,11 @@ export async function buildTodoke({ notice, person, reason = '', remark = '', ru
   set('AF5', today.getDate());
 
   /* who */
-  set('V9', person.client || '');      // 出向会社名 — the site they are placed at
-  set('R10', person.dept || '');
+  /* 健康対策委員会:「所属や部署名の列を、そのまま記載してください」. 所属 is
+     the one string they maintain, so it goes in whole; the older 出向会社名
+     and 部署 are the fallback for anyone whose record predates it. */
+  set('V9', person.affiliation || person.client || '');
+  set('R10', person.affiliation ? '' : (person.dept || ''));
   set('V11', person.name || '');
   const digits = String(person.id || '').replace(/\D/g, '').slice(-7).padStart(7, ' ');
   ['V', 'W', 'X', 'Y', 'Z', 'AA', 'AB'].forEach((c, i) => {

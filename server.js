@@ -37,6 +37,7 @@ import * as fare from './src/fare.js';
 import { matches as fareTableMatches } from './src/fare-table.js';
 import { DEFAULT_CFG, ROSTER_SEED, orderRegions } from './src/defaults.js';
 import { inSubmissionWindow } from './src/submission-window.js';
+import { rulesFor } from './src/kintai.js';
 
 if (!process.env.DATABASE_URL) {
   console.error('\n  DATABASE_URL is not set.');
@@ -427,9 +428,14 @@ const server = http.createServer(async (req, res) => {
       try {
         buf = await buildTimesheet({
           y, m, days, holidays,
+          /* The same 働き方 the screen used. Without it the file would be
+             computed on the house 9:00–17:45 and the 所定時間内 on the sheet
+             would not match the figures the person was shown. */
+          rules: rulesFor(person),
           person: {
             id: person.id, name: person.name,
             dept: person.dept || '', section: person.section || '',
+            affiliation: person.affiliation || '',
           },
         });
       } catch (err) {
@@ -512,6 +518,7 @@ const server = http.createServer(async (req, res) => {
           person: {
             id: person.id, name: person.name,
             dept: person.dept || '', section: person.section || '',
+            affiliation: person.affiliation || '',
           },
         });
       } catch (err) {
@@ -562,6 +569,7 @@ const server = http.createServer(async (req, res) => {
           person: {
             id: person.id, name: person.name,
             dept: person.dept || '', client: person.client || '',
+            affiliation: person.affiliation || '',
           },
           reason: String(b.reason || '').slice(0, 60),
           remark: String(b.remark || '').slice(0, 60),

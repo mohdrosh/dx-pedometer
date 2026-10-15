@@ -312,12 +312,28 @@ export default function KoutsuuhiTab({ user, y, m, days, cfg = {}, lang, toast, 
       if (!live) return;
       setPrevRows(Array.isArray(p?.rows) ? p.rows : []);
       const base_ = e || { rows: [] };
-      setEntry(base_.commuteRoute || !p?.commuteRoute
-        ? base_
-        : { ...base_, commuteRoute: p.commuteRoute });
+      /* Three places a 通勤経路 can come from, in order: what is already on
+         this month, what was on last month, and what the committee have
+         registered on the person from their 交通費調査書.
+
+         The registered one counts as verified — 'table' rather than
+         'manual' — because it is the figure on a survey 総務 have already
+         stamped, which is exactly the check 運賃は検索のみ exists to make.
+         Without that it would be refused at submission as a self-reported
+         fare, which would be absurd for the one fare nobody typed.
+
+         Only a single-leg commute fills itself in. The form here holds one
+         journey, and quietly keeping the first half of somebody's two-train
+         route would be worse than leaving it to them. */
+      const reg = Array.isArray(user.commute) && user.commute.length === 1 ? user.commute[0] : null;
+      const fromRegistry = reg && reg.from && reg.to
+        ? { from: reg.from, to: reg.to, line: reg.carrier || '', fare: reg.oneWay ?? null, fareSource: 'table' }
+        : null;
+      const carried = base_.commuteRoute || p?.commuteRoute || fromRegistry;
+      setEntry(base_.commuteRoute || !carried ? base_ : { ...base_, commuteRoute: carried });
     });
     return () => { live = false; };
-  }, [key, prevPk, user.id]);
+  }, [key, prevPk, user.id, user.commute]);
 
   /* Saved the same way the timesheet is: a short debounce with a ceiling, so
      a long run of typing still reaches the server. */

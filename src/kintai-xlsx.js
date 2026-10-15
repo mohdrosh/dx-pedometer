@@ -55,8 +55,11 @@ export async function buildTimesheet({ y, m, person, days, holidays = {}, rules 
   /* ---- header ---------------------------------------------------------- */
   ws.getCell('A3').value = y;
   ws.getCell('I3').value = m;
-  ws.getCell('AQ2').value = person.dept || '';
-  ws.getCell('AQ3').value = person.section || '';
+  /* This form has a cell for the 部署 and another for the 課. Where only the
+     single 所属 string is on record — which is every one of the thirteen —
+     it goes in the first rather than leaving both blank. */
+  ws.getCell('AQ2').value = person.dept || person.affiliation || '';
+  ws.getCell('AQ3').value = person.dept ? (person.section || '') : '';
   ws.getCell('AQ4').value = person.name || '';
 
   /* The employee number is seven separate boxes, one digit each, so that the
