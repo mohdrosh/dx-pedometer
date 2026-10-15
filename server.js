@@ -50,6 +50,7 @@ const {
   initSchema, getKey, setKey, delKey, listKeys, registerTrial, addFeedback, listFeedback,
   createSession, getSession, deleteSession, purgeSessions,
   getEmployee, updateEmployeeSelf, setConsent,
+  addUpload, listUploads, getUpload, deleteUpload, uploadBytes,
 } = await import('./src/db.js');
 
 const DIR = path.dirname(fileURLToPath(import.meta.url));
@@ -293,6 +294,56 @@ function readBody(req) {
     req.on('data', (c) => { d += c; if (d.length > 6e6) req.destroy(); });
     req.on('end', () => { try { resolve(JSON.parse(d || '{}')); } catch (e) { reject(e); } });
     req.on('error', reject);
+  });
+}
+
+/* ------------------------------ 添付ファイル ----------------------------- */
+/* 遅延証明書 and whatever follows it. The first thing here that takes a file,
+   so the limits are stated rather than assumed.
+
+   What a train company hands out is a photograph or a small PDF; 4MB is
+   generous for both and small enough that holding one in memory to write it
+   is not a way to take the server down. The types are listed rather than
+   sniffed from the name — an .pdf that is actually something else is still
+   whatever it actually is, and the browser is told exactly what it is
+   getting when it comes back out. */
+const UPLOAD_MAX = 4 * 1024 * 1024;
+const UPLOAD_TOTAL = 40 * 1024 * 1024;      // per person, all months
+const UPLOAD_TYPES = {
+  'image/jpeg': 'jpg', 'image/png': 'png', 'image/heic': 'heic',
+  'image/webp': 'webp', 'application/pdf': 'pdf',
+};
+
+/** A filename a latin-1 header can carry. Quotes and backslashes would end
+ *  the field early, so they go; anything outside printable ASCII is dropped
+ *  rather than transliterated, and if that leaves nothing the extension
+ *  alone is more use than an empty name. */
+function asciiName(name, mime) {
+  const kept = String(name).replace(/[^\x20-\x7E]/g, '').replace(/["\\]/g, '').trim();
+  return kept || `attachment.${UPLOAD_TYPES[mime] || 'bin'}`;
+}
+
+/** The raw body, capped. Resolves null if it runs past the cap.
+ *
+ *  It stops keeping the bytes but goes on reading them. Destroying the
+ *  socket instead is quicker and leaves the person looking at a network
+ *  error rather than at "that file is too big" — the reset arrives before
+ *  the response does. Draining costs one upload's bandwidth and is the
+ *  difference between a message and a mystery.
+ *
+ *  Content-Length is checked before any of this, so an oversized file is
+ *  normally refused without a byte being read; this is the guard for a
+ *  header that lies. */
+function readBytes(req, cap) {
+  return new Promise((resolve) => {
+    const chunks = []; let n = 0; let over = false;
+    req.on('data', (c) => {
+      n += c.length;
+      if (n > cap) { over = true; chunks.length = 0; return; }
+      chunks.push(c);
+    });
+    req.on('end', () => resolve(over ? null : Buffer.concat(chunks)));
+    req.on('error', () => resolve(null));
   });
 }
 
@@ -690,6 +741,81 @@ const server = http.createServer(async (req, res) => {
       const job = url.pathname.split('/').pop();
       if (job === 'reminder') return sendJson(res, 200, { sent: (await sendReminders(y, m)).length, dryRun: DRY_RUN });
       if (job === 'auto') return sendJson(res, 200, { submitted: (await autoSubmit(y, m)).length });
+    }
+
+    /* ---------------------------- 添付ファイル --------------------------- */
+    if (url.pathname === '/api/uploads') {
+      if (!sess || sess.isAdmin) return deny(res, 403);
+      const period = String(url.searchParams.get('period') || '');
+      if (!/^\d{4}$/.test(period)) return sendJson(res, 400, { error: 'period_required' });
+
+      if (req.method === 'GET') {
+        return sendJson(res, 200, { files: await listUploads(sess.employeeId, period) });
+      }
+
+      if (req.method === 'POST') {
+        if (rateLimited(`up:${sess.sid}`, 20, 3600_000)) return sendJson(res, 429, { error: 'too_many' });
+        const mime = String(req.headers['content-type'] || '').split(';')[0].trim();
+        if (!UPLOAD_TYPES[mime]) return sendJson(res, 415, { error: 'type' });
+
+        /* What the browser says it is sending, before reading any of it. */
+        const claimed = Number(req.headers['content-length'] || 0);
+        if (claimed > UPLOAD_MAX) return sendJson(res, 413, { error: 'too_big' });
+
+        const held = await uploadBytes(sess.employeeId);
+        if (held >= UPLOAD_TOTAL) return sendJson(res, 413, { error: 'full' });
+
+        const bytes = await readBytes(req, UPLOAD_MAX);
+        if (!bytes || !bytes.length) return sendJson(res, 413, { error: 'too_big' });
+        if (held + bytes.length > UPLOAD_TOTAL) return sendJson(res, 413, { error: 'full' });
+
+        /* The name is the person's, so it is kept for them to recognise —
+           and kept out of everything else. It never becomes a path. */
+        const given = String(url.searchParams.get('name') || '').slice(0, 80)
+          .replace(/[\r\n\t]/g, ' ').trim();
+        const name = given || `添付.${UPLOAD_TYPES[mime]}`;
+        const kind = String(url.searchParams.get('kind') || 'delay').slice(0, 20);
+
+        const file = await addUpload({
+          id: crypto.randomBytes(16).toString('hex'),
+          employeeId: sess.employeeId, period, kind, name, mime, bytes,
+        });
+        return sendJson(res, 200, { file });
+      }
+      return sendJson(res, 405, { error: 'method' });
+    }
+
+    if (url.pathname.startsWith('/api/uploads/')) {
+      if (!sess || sess.isAdmin) return deny(res, 403);
+      const id = url.pathname.slice('/api/uploads/'.length);
+      if (!/^[0-9a-f]{32}$/.test(id)) return sendJson(res, 400, { error: 'bad_id' });
+
+      if (req.method === 'DELETE') {
+        return sendJson(res, 200, { ok: await deleteUpload(id, sess.employeeId) });
+      }
+      if (req.method === 'GET') {
+        const f = await getUpload(id, sess.employeeId);
+        if (!f) return sendJson(res, 404, { error: 'not_found' });
+        res.writeHead(200, {
+          'Content-Type': UPLOAD_TYPES[f.mime] ? f.mime : 'application/octet-stream',
+          'Content-Length': f.bytes.length,
+          /* Never inline: a file somebody else uploaded should not be able
+             to run as a page on this origin.
+
+             Both spellings of the name. filename* carries the Japanese one
+             and is what every current browser reads; the plain filename is
+             the fallback for anything that does not, and has to be ASCII —
+             a header is latin-1, so 遅延証明書.png in it is mojibake or a
+             broken response. Stripped to the extension when nothing of the
+             name survives, rather than left empty. */
+          'Content-Disposition': `attachment; filename="${asciiName(f.name, f.mime)}"; `
+            + `filename*=UTF-8''${encodeURIComponent(f.name)}`,
+          'Cache-Control': 'private, no-store',
+          'X-Content-Type-Options': 'nosniff',
+        });
+        return res.end(f.bytes);
+      }
+      return sendJson(res, 405, { error: 'method' });
     }
 
     if (SERVE_STATIC && req.method === 'GET' && !url.pathname.startsWith('/api/')) {

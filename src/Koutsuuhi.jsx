@@ -26,7 +26,7 @@
    ========================================================================= */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { S, setLeaving, apiFeatures, apiFareRoutes, apiFareTable } from './storage';
+import { S, setLeaving, apiFeatures, apiFareRoutes, apiFareTable, apiRoot } from './storage';
 import {
   ROWS_PER_SHEET, MAX_ROWS, totals, filled, travelKey, yenFmt,
   sheetCount, roundTrip, routeReady, hasRoute, workedDays, frequentRoutes,
@@ -46,6 +46,20 @@ const L = {
   add: ['経路を追加', 'Add a journey'],
   none: ['まだ入力がありません。通勤経路を登録すると、出勤日の往復をまとめて入力できます。',
     'Nothing yet. Set your commute below and the round trips fill themselves in.'],
+
+  /* 遅延証明書 */
+  attachHead: ['遅延証明書', 'Delay certificates'],
+  attachNote: ['通勤経路で遅延があった場合は、鉄道会社の遅延証明書を添付してください。写真かPDF、1件4MBまで。',
+    'If your commute was delayed, attach the train company\'s certificate — a photo or a PDF, up to 4MB each.'],
+  attachNone: ['添付はありません。', 'Nothing attached.'],
+  attachAdd: ['ファイルを選ぶ', 'Choose a file'],
+  attaching: ['送信中…', 'Uploading…'],
+  attached: ['添付しました', 'Attached'],
+  attachType: ['写真（JPEG・PNG・HEIC・WebP）かPDFのみ添付できます', 'Only photos (JPEG, PNG, HEIC, WebP) or PDF'],
+  attachBig: ['ファイルが大きすぎます（1件4MBまで）', 'That file is too big — 4MB each'],
+  attachFull: ['添付の合計容量が上限に達しました', 'You have reached the total attachment limit'],
+  attachFailed: ['添付できませんでした', 'Could not attach that'],
+  attachDelAsk: ['この添付を削除しますか？', 'Delete this attachment?'],
 
   /* 通勤経路 */
   routeHead: ['通勤経路', 'Your commute'],
@@ -270,6 +284,88 @@ function FareBadge({ source, t }) {
     <span className={'tr-src ' + (source === 'lookup' || source === 'table' ? 'ok' : '')}>
       {label}
     </span>
+  );
+}
+
+/* 遅延証明書 — 健康対策委員会:「通勤経路で遅延があった場合、鉄道会社の遅延
+   証明書をアップロードできるようにしてほしい」.
+
+   A photograph of the slip, or the PDF the train company's site produces.
+   It belongs to the month rather than to one journey: the certificate names
+   a date and a line, and a claim asking which row it goes with would be
+   asking something the person cannot always answer.
+
+   The list never holds the file itself, only its name and size. Opening one
+   is a separate request, answered only for the person it belongs to. */
+function Attachments({ pk, locked, t, toast }) {
+  const [files, setFiles] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const pick = useRef(null);
+
+  const load = useCallback(async () => {
+    try {
+      const r = await fetch(`${apiRoot()}/uploads?period=${pk}`, { credentials: 'include' });
+      setFiles(r.ok ? (await r.json()).files : []);
+    } catch { setFiles([]); }
+  }, [pk]);
+  useEffect(() => { setFiles(null); load(); }, [load]);
+
+  const send = async (file) => {
+    if (!file || busy) return;
+    setBusy(true);
+    try {
+      const r = await fetch(
+        `${apiRoot()}/uploads?period=${pk}&kind=delay&name=${encodeURIComponent(file.name)}`,
+        { method: 'POST', credentials: 'include', headers: { 'content-type': file.type || 'application/octet-stream' }, body: file },
+      );
+      if (r.ok) { toast(t('attached')); await load(); } else {
+        const e = (await r.json().catch(() => ({}))).error;
+        toast(t(e === 'type' ? 'attachType' : e === 'too_big' ? 'attachBig' : e === 'full' ? 'attachFull' : 'attachFailed'));
+      }
+    } catch { toast(t('attachFailed')); }
+    setBusy(false);
+    if (pick.current) pick.current.value = '';
+  };
+
+  const drop = async (id) => {
+    if (!window.confirm(t('attachDelAsk'))) return;
+    await fetch(`${apiRoot()}/uploads/${id}`, { method: 'DELETE', credentials: 'include' });
+    await load();
+  };
+
+  const kb = (n) => (n < 1024 ? `${n} B` : n < 1024 * 1024 ? `${Math.round(n / 1024)} KB` : `${(n / 1048576).toFixed(1)} MB`);
+
+  return (
+    <>
+      <div className="sechead"><span>{t('attachHead')}</span></div>
+      <div className="card pad-less">
+        <p className="muted sm">{t('attachNote')}</p>
+        {files === null ? <p className="muted sm">{t('loading')}</p> : (
+          <>
+            {files.length === 0 && <p className="muted sm">{t('attachNone')}</p>}
+            {files.map((f) => (
+              <div className="attach" key={f.id}>
+                <a href={`${apiRoot()}/uploads/${f.id}`} target="_blank" rel="noreferrer">{f.name}</a>
+                <em>{kb(f.size)}</em>
+                {!locked && <button className="mini danger" onClick={() => drop(f.id)}>{t('remove')}</button>}
+              </div>
+            ))}
+          </>
+        )}
+        {!locked && (
+          <>
+            <input
+              ref={pick} type="file" className="hidden-file"
+              accept="image/jpeg,image/png,image/heic,image/webp,application/pdf"
+              onChange={(e) => send(e.target.files?.[0])}
+            />
+            <button className="btn wide mt8" disabled={busy} onClick={() => pick.current?.click()}>
+              {busy ? t('attaching') : t('attachAdd')}
+            </button>
+          </>
+        )}
+      </div>
+    </>
   );
 }
 
@@ -717,6 +813,8 @@ export default function KoutsuuhiTab({ user, y, m, days, cfg = {}, lang, toast, 
         </>
       )}
 
+      <Attachments pk={pk} locked={locked} t={t} toast={toast} />
+
       {!locked && (
         <div className="card pad-less kt-submit">
           <button
@@ -873,6 +971,12 @@ export default function KoutsuuhiTab({ user, y, m, days, cfg = {}, lang, toast, 
 }
 
 export const KOUTSUUHI_CSS = `
+.attach{display:flex;align-items:center;gap:9px;padding:8px 0;border-bottom:1px solid var(--hair)}
+.attach a{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  color:var(--brand);font-size:14px;font-weight:600}
+.attach em{flex:none;font-style:normal;font-size:12px;color:var(--dim)}
+.hidden-file{display:none}
+
 .tr-tot .tr-tot-g{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--hair);
   border:1px solid var(--hair);border-radius:8px;overflow:hidden}
 .tr-tot-g>div{background:#fff;padding:9px 11px;min-width:0}

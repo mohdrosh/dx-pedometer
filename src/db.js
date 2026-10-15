@@ -145,6 +145,30 @@ export async function initSchema() {
        everyone until set, so the ~140 on the existing screen see no change
        whatsoever. */
     ALTER TABLE employees ADD COLUMN IF NOT EXISTS mypage BOOLEAN NOT NULL DEFAULT FALSE;
+
+    /* 添付 — the files a claim carries. Today that is the 遅延証明書 a train
+       company issues when a commute is late; the kind column is there so the
+       next sort of attachment does not need a second table.
+
+       The bytes live in the database rather than on the disk or in a bucket.
+       The disk is one machine that nothing backs up, and a bucket is another
+       system to configure, grant and audit for what will be a few hundred
+       kilobytes a month. Here they are inside the same backup as the claim
+       they belong to and disappear with it, which is what ON DELETE CASCADE
+       is for — an attachment outliving its owner is a copy of somebody's
+       commute nobody is looking after. */
+    CREATE TABLE IF NOT EXISTS uploads (
+      id          TEXT PRIMARY KEY,
+      employee_id TEXT NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
+      period      TEXT NOT NULL,
+      kind        TEXT NOT NULL,
+      name        TEXT NOT NULL,
+      mime        TEXT NOT NULL,
+      bytes       BYTEA NOT NULL,
+      size        INTEGER NOT NULL,
+      created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE INDEX IF NOT EXISTS uploads_owner_idx ON uploads(employee_id, period);
   `);
 
   /* The consent used to be a checkbox on the sign-in screen, and signing in
@@ -477,6 +501,61 @@ export async function updateEmployeeSelf(id, f) {
      f.address || null, f.homeStation || null],
   );
   return rows.length ? toEmployee(rows[0]) : null;
+}
+
+/* ------------------------------ 添付ファイル ----------------------------- */
+/* Every one of these takes the owner's id from the session and puts it in the
+   WHERE clause, rather than trusting an id that came with the request. A
+   delay certificate carries a name, a date and a station; it is not something
+   one colleague should be able to read off another by guessing a number. */
+
+export async function addUpload({ id, employeeId, period, kind, name, mime, bytes }) {
+  await pool.query(
+    `INSERT INTO uploads (id, employee_id, period, kind, name, mime, bytes, size)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+    [id, String(employeeId), period, kind, name, mime, bytes, bytes.length],
+  );
+  return { id, name, mime, size: bytes.length, kind, createdAt: Date.now() };
+}
+
+/** What a person has attached to one month — never the bytes, which are only
+    ever fetched one at a time. */
+export async function listUploads(employeeId, period) {
+  const { rows } = await pool.query(
+    `SELECT id, kind, name, mime, size, created_at FROM uploads
+      WHERE employee_id = $1 AND period = $2 ORDER BY created_at`,
+    [String(employeeId), period],
+  );
+  return rows.map((r) => ({
+    id: r.id, kind: r.kind, name: r.name, mime: r.mime, size: r.size,
+    createdAt: new Date(r.created_at).getTime(),
+  }));
+}
+
+/** One file, and only if it belongs to the person asking. */
+export async function getUpload(id, employeeId) {
+  const { rows } = await pool.query(
+    'SELECT name, mime, bytes FROM uploads WHERE id = $1 AND employee_id = $2',
+    [id, String(employeeId)],
+  );
+  return rows[0] || null;
+}
+
+export async function deleteUpload(id, employeeId) {
+  const { rowCount } = await pool.query(
+    'DELETE FROM uploads WHERE id = $1 AND employee_id = $2',
+    [id, String(employeeId)],
+  );
+  return rowCount > 0;
+}
+
+/** How much one person is holding, so a limit can be put on it. */
+export async function uploadBytes(employeeId) {
+  const { rows } = await pool.query(
+    'SELECT COALESCE(SUM(size), 0)::bigint AS n FROM uploads WHERE employee_id = $1',
+    [String(employeeId)],
+  );
+  return Number(rows[0].n);
 }
 
 /** The consent screen's answer. Deliberately narrow: it cannot touch any

@@ -31,6 +31,9 @@ const API = import.meta.env.VITE_API_URL || '';
    pointing at /api on the domain root, which is a different application or a
    404, and every sign-in came back looking like a bad employee number. */
 const apiBase = () => (API || import.meta.env.BASE_URL || '').replace(/\/$/, '');
+/* Where /api lives, for the few things that talk to it directly rather
+   than through S — an upload sends raw bytes, not JSON. */
+export const apiRoot = () => `${apiBase()}/api`;
 const USE_LOCAL = import.meta.env.VITE_STORAGE === 'local';
 const PREFIX = 'dx:';
 
