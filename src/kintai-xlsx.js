@@ -14,7 +14,7 @@
    the two from ever disagreeing.
    ========================================================================= */
 
-import { computeMonth, splitHM, LEAVE } from './kintai.js';
+import { computeMonth, splitHM, LEAVE, hhmm, DEFAULT_RULES } from './kintai.js';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -140,6 +140,7 @@ export async function buildTimesheet({ y, m, person, days, holidays = {}, rules 
      formula keeps its formula and is given the result as well, from the
      same engine the screen uses — which is itself a port of these very
      formulas, verified against them.                                     */
+  writeRuleBox(ws, rules || DEFAULT_RULES);
   writeHeaderResults(ws, y, m);
   writeCachedResults(ws, days, holidays, rules);
 
@@ -168,6 +169,56 @@ function cache(ws, ref, result) {
 
    The formulas are left where they are; only the answers beside them are
    brought up to date. */
+/* The 就業時間 reference box — the panel that states what a standard day is
+   for the person whose form this is. Its cells hold the template's own
+   9:00–17:45 and nothing has ever written anything else into them, so the
+   four 新長田 members' forms say their day runs 9:00 to 17:45 when it runs
+   8:45 to 17:15. The figures beside it are right; they are computed from the
+   real rules. The box describing them is not, which on a form 総務 reads is
+   its own kind of wrong.
+
+   The same cached-result problem as the header, one layer deeper: the panel
+   is a dozen formulas pointing at a handful of value cells, so the values go
+   in and every answer that hangs off them is refreshed. Excel would do it on
+   open; a PDF never opens. */
+function writeRuleBox(ws, rules) {
+  const day = (hhmmStr) => hhmm(hhmmStr) / 24;          // Excel keeps a time as a fraction
+  const mins = (pair) => Math.round((hhmm(pair[1]) - hhmm(pair[0])) * 60);
+
+  /* the values the panel reads */
+  ws.getCell('AS9').value = day(rules.workStart);
+  ws.getCell('AW9').value = day(rules.workEnd);
+  ws.getCell('AS10').value = day(rules.break1[0]);
+  ws.getCell('AW10').value = day(rules.break1[1]);
+  ws.getCell('BA10').value = mins(rules.break1);
+  ws.getCell('AS11').value = day(rules.break2[0]);
+  ws.getCell('AW11').value = day(rules.break2[1]);
+  ws.getCell('BA11').value = mins(rules.break2);
+  ws.getCell('BF6').value = day(rules.nightStart);
+  ws.getCell('BG6').value = day(rules.nightEnd);
+  ws.getCell('BF7').value = day(rules.earlyStart);
+
+  /* and every answer that hangs off them */
+  const b1 = mins(rules.break1) / 60;
+  const b2 = mins(rules.break2) / 60;
+  const start = day(rules.workStart);
+  const end = day(rules.workEnd);
+  const r = {
+    BF3: start, BG3: end, BG7: start,
+    BH4: b1, BH5: b2,
+    BH3: hhmm(rules.workEnd) - hhmm(rules.workStart) - b1,
+    BF4: day(rules.break1[0]), BG4: day(rules.break1[1]),
+    BF5: day(rules.break2[0]), BG5: day(rules.break2[1]),
+    BN6: start, BO6: day(rules.break1[0]), BP6: day(rules.break1[1]),
+    BQ6: day(rules.break2[0]), BR6: end,
+    BS6: day(rules.nightStart), BT6: day(rules.earlyStart),
+    BN7: day(rules.break1[0]), BO7: day(rules.break1[1]), BP7: end,
+    BQ7: day(rules.break2[1]), BR7: day(rules.nightStart),
+    BS7: day(rules.nightEnd), BT7: start,
+  };
+  for (const [ref, v] of Object.entries(r)) cache(ws, ref, v);
+}
+
 function writeHeaderResults(ws, y, m) {
   const prevM = m === 1 ? 12 : m - 1;
   const prevY = m === 1 ? y - 1 : y;
