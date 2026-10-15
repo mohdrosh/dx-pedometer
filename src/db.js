@@ -115,6 +115,36 @@ export async function initSchema() {
     ALTER TABLE employees ADD COLUMN IF NOT EXISTS dept TEXT;
     ALTER TABLE employees ADD COLUMN IF NOT EXISTS section TEXT;
     ALTER TABLE employees ADD COLUMN IF NOT EXISTS client TEXT;
+
+    /* 個人情報 — the one place a person's details are kept, so that a change
+       of department is made once and every document follows. Until now the
+       同じ値 was typed again on each paper form.
+
+       affiliation is 「所属や部署名、出向先／派遣先会社名」 held as the single
+       string the committee writes, not split into parts: 健康対策委員会 asked
+       for it to print on the 届 and the 交通費調査書 exactly as they write it,
+       and 「開発部 システム開発1課（明海505）」 does not survive being taken
+       apart and put back together. dept and section stay beside it because
+       the 業務報告書 has a separate cell for each.
+
+       work_start / work_end are per person because they already differ: the
+       新長田 group works 8:45–17:15 and the 明海 group 9:00–17:45. */
+    ALTER TABLE employees ADD COLUMN IF NOT EXISTS affiliation TEXT;
+    ALTER TABLE employees ADD COLUMN IF NOT EXISTS work_start TEXT;
+    ALTER TABLE employees ADD COLUMN IF NOT EXISTS work_end TEXT;
+    ALTER TABLE employees ADD COLUMN IF NOT EXISTS address TEXT;
+    ALTER TABLE employees ADD COLUMN IF NOT EXISTS home_station TEXT;
+    ALTER TABLE employees ADD COLUMN IF NOT EXISTS workplace TEXT;
+    ALTER TABLE employees ADD COLUMN IF NOT EXISTS work_station TEXT;
+    /* The 通勤経路, as the 交通費調査書 lays it out: one row per leg, with
+       使用交通会社名 / 乗車地 / 降車地 / 片道料金 / 1ヶ月定期代. A list rather
+       than columns because the paper form takes several legs, even though
+       every one of the thirteen currently has exactly one. */
+    ALTER TABLE employees ADD COLUMN IF NOT EXISTS commute JSONB;
+    /* Who reaches the new My Page, and with it 勤怠 and 旅費精算. Off for
+       everyone until set, so the ~140 on the existing screen see no change
+       whatsoever. */
+    ALTER TABLE employees ADD COLUMN IF NOT EXISTS mypage BOOLEAN NOT NULL DEFAULT FALSE;
   `);
 
   /* The consent used to be a checkbox on the sign-in screen, and signing in
@@ -147,6 +177,36 @@ const fmtDate = (d) => {
   return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(x.getDate()).padStart(2, '0')}`;
 };
 
+/* 通勤経路 is the only free-form structure on a person's record, and it is
+   written from an import and from a form, so it is normalised on the way in
+   rather than trusted. Anything unrecognisable becomes an empty list: a
+   missing route is a visible gap someone can fix, where a half-parsed one is
+   a wrong fare on a claim. Six legs is what the paper form has room for. */
+const MAX_LEGS = 6;
+const leg = (x) => {
+  const str = (v, n) => String(v ?? '').trim().slice(0, n);
+  /* Number('') is 0, so a blank or unreadable fare would become a ¥0 one —
+     which on a claim reads as "this journey is free" rather than "nobody has
+     filled this in". Empty stays empty. */
+  const yen = (v) => {
+    const cleaned = String(v ?? '').replace(/[^\d.-]/g, '');
+    if (!cleaned || cleaned === '-' || cleaned === '.') return null;
+    const k = Math.round(Number(cleaned));
+    return Number.isFinite(k) && k >= 0 && k <= 1_000_000 ? k : null;
+  };
+  return {
+    carrier: str(x?.carrier, 40),
+    from: str(x?.from, 40),
+    to: str(x?.to, 40),
+    oneWay: yen(x?.oneWay),
+    pass: yen(x?.pass),
+  };
+};
+export const cleanCommute = (v) => (Array.isArray(v) ? v : [])
+  .slice(0, MAX_LEGS)
+  .map(leg)
+  .filter((x) => x.carrier || x.from || x.to || x.oneWay != null || x.pass != null);
+
 const toEmployee = (r) => ({
   id: r.id,
   name: r.name,
@@ -155,6 +215,15 @@ const toEmployee = (r) => ({
   dept: r.dept || '',
   section: r.section || '',
   client: r.client || '',
+  affiliation: r.affiliation || '',
+  workStart: r.work_start || '',
+  workEnd: r.work_end || '',
+  address: r.address || '',
+  homeStation: r.home_station || '',
+  workplace: r.workplace || '',
+  workStation: r.work_station || '',
+  commute: Array.isArray(r.commute) ? r.commute : [],
+  ...(r.mypage ? { mypage: true } : {}),
   email: r.email || '',
   email2: r.email2 || '',
   email2On: !!r.email2_on,
@@ -182,8 +251,11 @@ async function setRoster(list) {
       await client.query(
         `INSERT INTO employees (id, name, region, gender, email, pedometer, active,
                                 consent, consent_asked, consent_at, sort_order, trial, dob,
-                                email2, email2_on, dept, section, client)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)
+                                email2, email2_on, dept, section, client,
+                                affiliation, work_start, work_end, address, home_station,
+                                workplace, work_station, commute, mypage)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,
+                 $19,$20,$21,$22,$23,$24,$25,$26,$27)
          ON CONFLICT (id) DO UPDATE SET
            name = EXCLUDED.name, region = EXCLUDED.region, gender = EXCLUDED.gender,
            email = EXCLUDED.email, pedometer = EXCLUDED.pedometer, active = EXCLUDED.active,
@@ -191,13 +263,22 @@ async function setRoster(list) {
            consent_at = EXCLUDED.consent_at, sort_order = EXCLUDED.sort_order,
            trial = EXCLUDED.trial, dob = EXCLUDED.dob,
            email2 = EXCLUDED.email2, email2_on = EXCLUDED.email2_on,
-           dept = EXCLUDED.dept, section = EXCLUDED.section, client = EXCLUDED.client`,
+           dept = EXCLUDED.dept, section = EXCLUDED.section, client = EXCLUDED.client,
+           affiliation = EXCLUDED.affiliation,
+           work_start = EXCLUDED.work_start, work_end = EXCLUDED.work_end,
+           address = EXCLUDED.address, home_station = EXCLUDED.home_station,
+           workplace = EXCLUDED.workplace, work_station = EXCLUDED.work_station,
+           commute = EXCLUDED.commute, mypage = EXCLUDED.mypage`,
         [
           String(p.id), p.name, p.region || null, p.gender || null, p.email || null,
           p.pedometer || null, p.active !== false, !!p.consent, !!p.consentAsked,
           p.consentAt ? new Date(p.consentAt) : null, i, !!p.trial, p.dob || null,
           p.email2 || null, !!p.email2On,
           p.dept || null, p.section || null, p.client || null,
+          p.affiliation || null, p.workStart || null, p.workEnd || null,
+          p.address || null, p.homeStation || null,
+          p.workplace || null, p.workStation || null,
+          JSON.stringify(cleanCommute(p.commute)), !!p.mypage,
         ],
       );
     }
@@ -376,15 +457,24 @@ export async function updateEmployeeSelf(id, f) {
      deliberately not among them — it is issued, it is what the reminder has to
      reach, and nobody should be able to point their own away from it. The
      private address beside it is theirs to set. */
+  /* Of the new 個人情報 fields only the home address and its nearest station
+     are here. 所属, 働き方, 勤務先 and 通勤経路 are not a person's to set:
+     the first three are assigned, like the company address above, and the
+     working hours decide what counts as overtime — somebody who could move
+     their own 始業 could manufacture it. 通勤経路 carries the fare that ends
+     up on a claim, and 健康対策委員会 have already ruled that a fare nobody
+     checked must not reach an approver. All four are the administrator's. */
   const { rows } = await pool.query(
     `UPDATE employees
         SET region = $2, gender = $3, pedometer = $4,
             email2 = $5, email2_on = $6, consent = $7,
+            address = $8, home_station = $9,
             consent_asked = TRUE,
             consent_at = CASE WHEN consent IS DISTINCT FROM $7 THEN NOW() ELSE consent_at END
       WHERE id = $1 AND active RETURNING *`,
     [id, f.region || null, f.gender || null, f.pedometer || null,
-     f.email2 || null, !!f.email2On, !!f.consent],
+     f.email2 || null, !!f.email2On, !!f.consent,
+     f.address || null, f.homeStation || null],
   );
   return rows.length ? toEmployee(rows[0]) : null;
 }
