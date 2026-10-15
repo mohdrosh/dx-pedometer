@@ -184,6 +184,66 @@ a restart but no rebuild. Build-time settings (`VITE_*`) live in
 
 ---
 
+## PDF output needs LibreOffice on the server
+
+健康対策委員会 asked for the 勤怠 and 旅費精算 forms to come down as PDF as
+well as Excel. The conversion is done by LibreOffice, because it is the only
+thing that reads the xlsx with its merges, borders and print area and writes a
+faithful page.
+
+**This is a server dependency, not an npm one**, so a rebuilt EC2 instance
+loses it. The app does not break when it is missing — it checks at startup and
+simply hides the PDF buttons — which means the feature can disappear quietly
+after a rebuild with nothing in the log to say so. If the buttons are gone,
+this is the first thing to check.
+
+Amazon Linux 2023 has no `libreoffice` package (`dnf search libreoffice` finds
+nothing), so it is installed from The Document Foundation's own RPMs. Run all
+of this as root:
+
+```bash
+# 1. a Japanese font, or every character converts to a box
+dnf -y install google-noto-sans-cjk-ttc-fonts fontconfig && fc-cache -f
+
+# 2. the X11 libraries LibreOffice needs even headless
+dnf -y install libXinerama libXrandr libXext libXrender libSM libICE \
+               libX11 libX11-xcb cups-libs dbus-libs cairo libxslt nss
+
+# 3. LibreOffice itself — ~240MB down, ~700MB installed
+cd /tmp && \
+V=$(curl -s https://download.documentfoundation.org/libreoffice/stable/ | grep -o '[0-9]\+\.[0-9]\+\.[0-9]\+/' | tr -d '/' | sort -uV | tail -1) && \
+F=$(curl -s "https://download.documentfoundation.org/libreoffice/stable/$V/rpm/x86_64/" | grep -o 'LibreOffice_[^"]*_Linux_x86-64_rpm\.tar\.gz' | head -1) && \
+curl -fL -o lo.tar.gz "https://download.documentfoundation.org/libreoffice/stable/$V/rpm/x86_64/$F" && \
+tar xf lo.tar.gz && \
+dnf -y install ./LibreOffice_*/RPMS/*.rpm && \
+ln -sf /opt/libreoffice*/program/soffice /usr/local/bin/soffice && \
+rm -rf /tmp/lo.tar.gz /tmp/LibreOffice_*
+
+# 4. prove it starts, then restart so the app notices
+soffice --version
+systemctl restart pedometer
+```
+
+The symlink matters: the RPMs install to `/opt/libreofficeXX.Y/program/` which
+is not on the PATH, and the app looks for `soffice` by name. `/usr/local/bin`
+is on systemd's default PATH, so no unit file change is needed.
+
+The startup check is cached for the life of the process, so **a restart is
+required after installing** — restarting before `soffice --version` works
+leaves the feature switched off until the next one.
+
+Two ways this goes wrong quietly:
+
+- **Boxes instead of Japanese.** The font is missing. `fc-list :lang=ja` must
+  print something. The PDF looks perfectly converted and is unreadable.
+- **A missing shared library.** `soffice` exits without converting and the
+  route reports the feature unavailable. `ldd /opt/libreoffice*/program/soffice.bin | grep "not found"`
+  names what is missing.
+
+To remove it all again: `dnf -y remove 'libreoffice*' 'libobasis*' && rm -f /usr/local/bin/soffice`.
+
+---
+
 ## Moving to AWS later
 
 Change `DATABASE_URL` to the RDS endpoint and restart. Nothing else changes —
