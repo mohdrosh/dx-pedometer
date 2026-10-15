@@ -38,6 +38,7 @@ import { matches as fareTableMatches } from './src/fare-table.js';
 import { DEFAULT_CFG, ROSTER_SEED, orderRegions } from './src/defaults.js';
 import { inSubmissionWindow } from './src/submission-window.js';
 import { rulesForPerson, closureMap } from './src/company.js';
+import { xlsxToPdf, pdfReady } from './src/topdf.js';
 
 if (!process.env.DATABASE_URL) {
   console.error('\n  DATABASE_URL is not set.');
@@ -314,6 +315,44 @@ const UPLOAD_TYPES = {
   'image/webp': 'webp', 'application/pdf': 'pdf',
 };
 
+/* Send a generated document, as the workbook or as a PDF of it.
+   健康対策委員会 asked for 「今のExcelの形式で…PDF等でダウンロード」, so the
+   PDF is their own form converted, not a second layout that would drift away
+   from the first one the week after it was written.
+
+   A machine that cannot convert says so and sends nothing: a 0-byte file, or
+   a page of boxes where the Japanese should be, is worse than being told the
+   server is not set up for it. */
+async function sendDoc(res, buf, name, wantPdf) {
+  if (!wantPdf) {
+    res.writeHead(200, {
+      'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      /* The filename is Japanese, so it goes in the RFC 5987 form; the
+         plain one beside it is for anything that cannot read that. */
+      'Content-Disposition': `attachment; filename="${name.replace(/[^\x20-\x7E]/g, '') || 'download.xlsx'}"; `
+        + `filename*=UTF-8''${encodeURIComponent(name)}`,
+      'Cache-Control': 'no-store',
+    });
+    return res.end(Buffer.from(buf));
+  }
+  let pdf;
+  try {
+    pdf = await xlsxToPdf(Buffer.from(buf));
+  } catch (err) {
+    if (err.code === 'pdf_unavailable') return sendJson(res, 503, { error: 'pdf_unavailable', why: err.why });
+    console.error('pdf convert failed', err.message);
+    return sendJson(res, 500, { error: 'pdf_failed' });
+  }
+  const pname = name.replace(/\.xlsx$/i, '.pdf');
+  res.writeHead(200, {
+    'Content-Type': 'application/pdf',
+    'Content-Length': pdf.length,
+    'Content-Disposition': `attachment; filename="document.pdf"; filename*=UTF-8''${encodeURIComponent(pname)}`,
+    'Cache-Control': 'no-store',
+  });
+  return res.end(pdf);
+}
+
 /** A filename a latin-1 header can carry. Quotes and backslashes would end
  *  the field early, so they go; anything outside printable ASCII is dropped
  *  rather than transliterated, and if that leaves nothing the extension
@@ -423,7 +462,9 @@ const server = http.createServer(async (req, res) => {
         const table = (await getKey('fares')) || [];
         return sendJson(res, 200, {
           user,
-          features: { fare: fare.hasProvider(), fareTable: table.length },
+          /* …and whether this machine can turn a workbook into a PDF, so
+             the screen offers the button only where it would work. */
+          features: { fare: fare.hasProvider(), fareTable: table.length, pdf: (await pdfReady()).ok },
         });
       }
       /* A participant edits their own row only — no path here writes anyone
@@ -501,15 +542,7 @@ const server = http.createServer(async (req, res) => {
         return sendJson(res, 500, { error: 'build_failed' });
       }
 
-      const name = timesheetFilename(y, m, person.id);
-      res.writeHead(200, {
-        'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        /* The filename is Japanese, so it goes in the RFC 5987 form; the
-           plain one beside it is for anything that cannot read that. */
-        'Content-Disposition': `attachment; filename="timesheet.xlsx"; filename*=UTF-8''${encodeURIComponent(name)}`,
-        'Cache-Control': 'no-store',
-      });
-      return res.end(Buffer.from(buf));
+      return sendDoc(res, buf, timesheetFilename(y, m, person.id), b?.format === 'pdf');
     }
 
     /* The approved fare for one journey. Only the rows for the two stations
@@ -585,15 +618,9 @@ const server = http.createServer(async (req, res) => {
         return sendJson(res, 500, { error: 'build_failed' });
       }
 
-      const name = koutsuuhiFilename(y, m, person.id, page, pages);
-      res.writeHead(200, {
-        'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        'Content-Disposition': `attachment; filename="expenses.xlsx"; filename*=UTF-8''${encodeURIComponent(name)}`,
-        /* so the browser knows whether to come back for another */
-        'X-Sheet-Count': String(pages),
-        'Cache-Control': 'no-store',
-      });
-      return res.end(Buffer.from(buf));
+      /* so the browser knows whether to come back for another */
+      res.setHeader('X-Sheet-Count', String(pages));
+      return sendDoc(res, buf, koutsuuhiFilename(y, m, person.id, page, pages), b?.format === 'pdf');
     }
 
     /* 届 — one notice from the month already entered. The period and the
@@ -637,13 +664,7 @@ const server = http.createServer(async (req, res) => {
         return sendJson(res, 500, { error: 'build_failed' });
       }
 
-      const name = todokeFilename(notice, person.id);
-      res.writeHead(200, {
-        'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        'Content-Disposition': `attachment; filename="todoke.xlsx"; filename*=UTF-8''${encodeURIComponent(name)}`,
-        'Cache-Control': 'no-store',
-      });
-      return res.end(Buffer.from(buf));
+      return sendDoc(res, buf, todokeFilename(notice, person.id), b.format === 'pdf');
     }
 
     if (url.pathname === '/api/feedback') {

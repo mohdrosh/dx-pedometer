@@ -253,17 +253,20 @@ export async function apiMe() {
 }
 
 /* Which optional pieces the server has been given the keys for. Asked once
-   and remembered: it cannot change without a restart at the other end. */
+   and remembered: it cannot change without a restart at the other end.
+
+   Only an answer is remembered. A failure used to be cached just as firmly,
+   so one call made before sign-in — a 401 — or a single dropped request left
+   every optional feature switched off for the rest of the page's life, with
+   nothing on screen to say why and a reload the only way out. */
 let featuresOnce = null;
 export function apiFeatures() {
   if (!featuresOnce) {
     featuresOnce = (async () => {
-      try {
-        const res = await fetch(`${base()}/api/me`, { credentials: 'same-origin' });
-        if (!res.ok) return {};
-        return (await res.json()).features || {};
-      } catch { return {}; }
-    })();
+      const res = await fetch(`${base()}/api/me`, { credentials: 'same-origin' });
+      if (!res.ok) throw new Error(String(res.status));
+      return (await res.json()).features || {};
+    })().catch((e) => { featuresOnce = null; throw e; });
   }
   return featuresOnce;
 }

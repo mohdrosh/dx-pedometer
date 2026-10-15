@@ -47,6 +47,10 @@ const L = {
   none: ['まだ入力がありません。通勤経路を登録すると、出勤日の往復をまとめて入力できます。',
     'Nothing yet. Set your commute below and the round trips fill themselves in.'],
 
+  makingPdf: ['PDFを作成中…', 'Making the PDF…'],
+  downloadPdf: ['PDFでダウンロード', 'Download as PDF'],
+  pdfUnavailable: ['このサーバーではPDF出力が利用できません', 'This server cannot produce PDFs'],
+
   /* 遅延証明書 */
   attachHead: ['遅延証明書', 'Delay certificates'],
   attachNote: ['通勤経路で遅延があった場合は、鉄道会社の遅延証明書を添付してください。写真かPDF、1件4MBまで。',
@@ -394,8 +398,9 @@ export default function KoutsuuhiTab({ user, y, m, days, cfg = {}, lang, toast, 
      for one journey at a time. */
   const [canFind, setCanFind] = useState(false);
   const [tableSize, setTableSize] = useState(0);
+  const [canPdf, setCanPdf] = useState(false);
   useEffect(() => {
-    apiFeatures().then((f) => { setCanFind(!!f.fare); setTableSize(f.fareTable || 0); });
+    apiFeatures().then((f) => { setCanFind(!!f.fare); setTableSize(f.fareTable || 0); setCanPdf(!!f.pdf); }).catch(() => {});
   }, []);
 
   /* Last month is read for two reasons: to carry the 通勤経路 forward, so it
@@ -603,9 +608,10 @@ export default function KoutsuuhiTab({ user, y, m, days, cfg = {}, lang, toast, 
   };
 
   /* One file per copy of the form, fetched in turn. */
-  const download = async () => {
+  const download = async (format) => {
     if (busy) return;
-    setBusy(t('downloading'));
+    const pdf = format === 'pdf';
+    setBusy(t(pdf ? 'makingPdf' : 'downloading'));
     try {
       for (let page = 0; page < sheets; page++) {
         /* eslint-disable no-await-in-loop */
@@ -613,16 +619,17 @@ export default function KoutsuuhiTab({ user, y, m, days, cfg = {}, lang, toast, 
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'same-origin',
-          body: JSON.stringify({ y, m, page }),
+          body: JSON.stringify({ y, m, page, ...(pdf ? { format: 'pdf' } : {}) }),
         });
-        if (!res.ok) throw new Error(String(res.status));
+        if (!res.ok) { toast(t(res.status === 503 ? 'pdfUnavailable' : 'downloadFail')); return; }
+        const ext = pdf ? 'pdf' : 'xlsx';
         const blob = await res.blob();
         const href = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = href;
         a.download = sheets > 1
-          ? `交通費精算書_${pk}_${user.id}_${page + 1}of${sheets}.xlsx`
-          : `交通費精算書_${pk}_${user.id}.xlsx`;
+          ? `交通費精算書_${pk}_${user.id}_${page + 1}of${sheets}.${ext}`
+          : `交通費精算書_${pk}_${user.id}.${ext}`;
         document.body.appendChild(a); a.click(); a.remove();
         setTimeout(() => URL.revokeObjectURL(href), 10000);
         /* Safari drops the second download of a burst; a beat apart is enough. */
@@ -756,9 +763,14 @@ export default function KoutsuuhiTab({ user, y, m, days, cfg = {}, lang, toast, 
       </div>
 
       <div className="card pad-less">
-        <button className="btn wide" disabled={!!busy || !used} onClick={download}>
+        <button className="btn wide" disabled={!!busy || !used} onClick={() => download()}>
           {busy || (sheets > 1 ? t('downloadN').replace('{n}', sheets) : t('download'))}
         </button>
+        {canPdf && (
+          <button className="btn wide mt8" disabled={!!busy || !used} onClick={() => download('pdf')}>
+            {t('downloadPdf')}
+          </button>
+        )}
         <p className="muted sm mt8">{t('downloadNote')}</p>
         {sheets > 1 && <p className="muted sm">{t('sheetsNote').replace('{n}', sheets)}</p>}
         {locked && <p className="muted sm">{t('lockedNote')}</p>}

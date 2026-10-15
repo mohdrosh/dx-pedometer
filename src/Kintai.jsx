@@ -13,7 +13,7 @@
    ========================================================================= */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { S, setLeaving } from './storage';
+import { S, setLeaving, apiFeatures } from './storage';
 import {
   computeMonth, splitHM, fmtHM, offUnit, overtimeAlert,
   DEFAULT_RULES, STATUS_1, STATUS_2,
@@ -79,6 +79,9 @@ const L = {
   standard: ['標準', 'Standard'],
   fillAll: ['営業日を標準で埋める', 'Fill weekdays with standard hours'],
   download: ['業務報告書をダウンロード', 'Download the timesheet'],
+  makingPdf: ['PDFを作成中…', 'Making the PDF…'],
+  downloadPdf: ['PDFでダウンロード', 'Download as PDF'],
+  pdfUnavailable: ['このサーバーではPDF出力が利用できません', 'This server cannot produce PDFs'],
   downloading: ['作成中…', 'Building…'],
   downloadFail: ['作成できませんでした', 'Could not build the file'],
   downloadNote: ['入力した内容をそのままの様式で書き出します。合計は Excel 側で計算されます。',
@@ -281,6 +284,9 @@ export default function KintaiTab({ user, cfg = {}, y, m, days, holidays, lang, 
   /* きょう opens showing its details when the day has not been answered —
      which is the state somebody arriving at the screen is usually in. */
   const [more, setMore] = useState(true);
+  /* Whether this server has LibreOffice and a Japanese font. */
+  const [canPdf, setCanPdf] = useState(false);
+  useEffect(() => { apiFeatures().then((f) => setCanPdf(!!f.pdf)).catch(() => {}); }, []);
 
   /* 働き方 is per person and already differs: 新長田 works 8:45–17:15 and
      明海 9:00–17:45. Taking it off the record rather than the constant is
@@ -454,24 +460,25 @@ export default function KintaiTab({ user, cfg = {}, y, m, days, holidays, lang, 
   const notices = useMemo(() => noticesFor(month.rows), [month.rows]);
   const [reasons, setReasons] = useState({});
 
-  const makeTodoke = async (n) => {
+  const makeTodoke = async (n, format) => {
     const reason = (reasons[n.from.iso + n.kind] || '').trim();
     if (!reason) { toast(t('todokeNeedReason')); return; }
     if (busy) return;
-    setBusy(t('downloading'));
+    const pdf = format === 'pdf';
+    setBusy(t(pdf ? 'makingPdf' : 'downloading'));
     try {
       const res = await fetch(`${base}/api/kintai/todoke`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'same-origin',
-        body: JSON.stringify({ y, m, from: n.from.iso, kind: n.kind, reason }),
+        body: JSON.stringify({ y, m, from: n.from.iso, kind: n.kind, reason, ...(pdf ? { format: 'pdf' } : {}) }),
       });
-      if (!res.ok) throw new Error(String(res.status));
+      if (!res.ok) { toast(t(res.status === 503 ? 'pdfUnavailable' : 'downloadFail')); return; }
       const blob = await res.blob();
       const href = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = href;
-      a.download = `届_${n.kind}_${n.from.iso.replace(/-/g, '')}_${user.id}.xlsx`;
+      a.download = `届_${n.kind}_${n.from.iso.replace(/-/g, '')}_${user.id}.${pdf ? 'pdf' : 'xlsx'}`;
       document.body.appendChild(a); a.click(); a.remove();
       setTimeout(() => URL.revokeObjectURL(href), 10000);
     } catch {
@@ -485,22 +492,29 @@ export default function KintaiTab({ user, cfg = {}, y, m, days, holidays, lang, 
      this posts and saves the response rather than assembling anything here.
      The holiday list goes with it: the browser has the authoritative one and
      the sheet must agree with what was on screen. */
-  const download = async () => {
+  const download = async (format) => {
     if (busy) return;
-    setBusy(t('downloading'));
+    const pdf = format === 'pdf';
+    /* Converting takes a couple of seconds, which is long enough that the
+       button has to say it is working or it will be pressed again. */
+    setBusy(t(pdf ? 'makingPdf' : 'downloading'));
     try {
       const res = await fetch(`${base}/api/kintai/xlsx`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'same-origin',
-        body: JSON.stringify({ y, m, holidays }),
+        body: JSON.stringify({ y, m, holidays, ...(pdf ? { format: 'pdf' } : {}) }),
       });
-      if (!res.ok) throw new Error(String(res.status));
+      if (!res.ok) {
+        const why = res.status === 503 ? 'pdfUnavailable' : 'downloadFail';
+        toast(t(why));
+        return;
+      }
       const blob = await res.blob();
       const href = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = href;
-      a.download = `業務報告書_${pk}_${user.id}.xlsx`;
+      a.download = `業務報告書_${pk}_${user.id}.${pdf ? 'pdf' : 'xlsx'}`;
       document.body.appendChild(a); a.click(); a.remove();
       setTimeout(() => URL.revokeObjectURL(href), 10000);
     } catch {
@@ -615,9 +629,16 @@ export default function KintaiTab({ user, cfg = {}, y, m, days, holidays, lang, 
 
       <div className="card pad-less">
         {!locked && <button className="btn wide" onClick={fillWeekdays}>{t('fillAll')}</button>}
-        <button className={`btn wide${locked ? ' primary' : ''}${locked ? '' : ' mt8'}`} disabled={!!busy} onClick={download}>
+        <button className={`btn wide${locked ? ' primary' : ''}${locked ? '' : ' mt8'}`} disabled={!!busy} onClick={() => download()}>
           {busy || t('download')}
         </button>
+        {/* Only where the server can convert. A button that answers 503 is
+            worse than one that is not there. */}
+        {canPdf && (
+          <button className="btn wide mt8" disabled={!!busy} onClick={() => download('pdf')}>
+            {t('downloadPdf')}
+          </button>
+        )}
         <p className="muted sm mt8">{t('downloadNote')}</p>
         {locked && <p className="muted sm">{t('lockedNote')}</p>}
       </div>
@@ -679,6 +700,11 @@ export default function KintaiTab({ user, cfg = {}, y, m, days, holidays, lang, 
                   onChange={(e) => setReasons((r) => ({ ...r, [k]: e.target.value }))}
                 />
               </label>
+              {canPdf && (
+                <button className="btn wide mt8" disabled={!!busy} onClick={() => makeTodoke(n, 'pdf')}>
+                  {t('downloadPdf')}
+                </button>
+              )}
               <button className="btn wide" disabled={!!busy} onClick={() => makeTodoke(n)}>
                 {busy || t('todokeMake')}
               </button>

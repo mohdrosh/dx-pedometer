@@ -53,7 +53,17 @@ export async function buildTimesheet({ y, m, person, days, holidays = {}, rules 
   if (!ws) throw new Error(`template is missing ${SHEET}`);
 
   /* ---- header ---------------------------------------------------------- */
+  /* 年 is 18pt MS UI Gothic in their template, and that font is not on a
+     Linux server. Converting to PDF substitutes something wider, 2026 stops
+     fitting the merged cell, and the form prints ### where the year should
+     be — which is not a thing to send to 総務.
+
+     shrinkToFit rather than a smaller font, because the right size depends
+     on which font the converting machine happens to substitute, and that is
+     not knowable from here. This asks the renderer to make it fit whatever
+     it has, and Excel honours it too, so the file still looks as it did. */
   ws.getCell('A3').value = y;
+  ws.getCell('A3').alignment = { ...(ws.getCell('A3').alignment || {}), shrinkToFit: true };
   ws.getCell('I3').value = m;
   /* This form has a cell for the 部署 and another for the 課. Where only the
      single 所属 string is on record — which is every one of the thirteen —
@@ -130,6 +140,7 @@ export async function buildTimesheet({ y, m, person, days, holidays = {}, rules 
      formula keeps its formula and is given the result as well, from the
      same engine the screen uses — which is itself a port of these very
      formulas, verified against them.                                     */
+  writeHeaderResults(ws, y, m);
   writeCachedResults(ws, days, holidays, rules);
 
   wb.calcProperties = { ...(wb.calcProperties || {}), fullCalcOnLoad: true };
@@ -145,6 +156,27 @@ function cache(ws, ref, result) {
   const f = cell.value && cell.value.formula;
   if (!f) return;                       // a plain cell, or an empty one
   cell.value = { formula: f, result };
+}
+
+/* The period across the top of the form is four formulas off the 年 and 月
+   cells, and the cached results saved in the template belong to the month it
+   was built for. Excel recalculates the moment it opens the file, so nobody
+   reading it in Excel ever saw this. Anything that does not — LibreOffice,
+   a PDF made from it, a preview pane — prints the template's month instead
+   of the one on the sheet, and a 業務報告書 for 10月分 goes to payroll saying
+   8月21日〜9月20日.
+
+   The formulas are left where they are; only the answers beside them are
+   brought up to date. */
+function writeHeaderResults(ws, y, m) {
+  const prevM = m === 1 ? 12 : m - 1;
+  const prevY = m === 1 ? y - 1 : y;
+  const from = Number(ws.getCell('G5').value) || 21;
+  const to = Number(ws.getCell('T5').value) || 20;
+  cache(ws, 'B5', prevM);                              // 締め開始の月
+  cache(ws, 'O5', m);                                  // 締め終了の月
+  cache(ws, 'BJ5', `${prevY}/${prevM}/${from}`);       // 期間 開始
+  cache(ws, 'BK5', `${y}/${m}/${to}`);                 // 期間 終了
 }
 
 function writeCachedResults(ws, days, holidays, rules) {
