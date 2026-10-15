@@ -23,6 +23,7 @@
      node tools/iit-import.mjs --xlsx IITメンバー所属一覧.xlsx \
        --url https://dx.morabu.com/pedometer --admin kenkou@morabu.com
      node tools/iit-import.mjs ... --apply     # and write it
+     node tools/iit-import.mjs ... --create    # and add those not on the 名簿
 
    A member whose 交通費調査書 has not arrived yet — シンアマン, at the time
    of writing — is listed and skipped, not treated as a failure. Their 所属
@@ -50,6 +51,13 @@ const APPLY = process.argv.includes('--apply');
    whether four people belong on the 名簿 at all, that default holds up the
    other nine for no reason. This says "I know, go on without them". */
 const SKIP_MISSING = process.argv.includes('--skip-missing');
+/* The committee have since filled in 性別, 地区 and メールアドレス — the three
+   things that were missing before — so the four who are not on the 名簿 can
+   now be created from this file rather than waiting to be added by hand.
+   Still opt-in: creating a person is the one thing here that is not a
+   correction, and it puts them into 対象者数, 完歩賞, 未提出 and the
+   reminder mail. */
+const CREATE = process.argv.includes('--create');
 
 if (!XLSX || !fs.existsSync(XLSX)) {
   console.error('\n  --xlsx <IITメンバー所属一覧.xlsx> is required.\n');
@@ -95,10 +103,25 @@ const cell = (row, i) => textOf(row.getCell(i).value);
    its own — it is used only to suggest what the character ought to be. */
 const RADICALS = /[\u2E80-\u2FDF]/g;
 const RADICAL_HINT = { '\u2ED1': '長', '\u2E8C': '小', '\u2ECC': '衣' };
+
+/* Leaving them alone was the first instinct — the string prints on official
+   paper, so rewriting it seemed like ours to not do. It was wrong. Somebody
+   had already typed 新長田216 correctly on the site, and an import that
+   wrote the sheet's version back put the broken characters on a record that
+   was right: the care not to touch it is what did the damage.
+
+   Only the radical characters are replaced, never the whole string through
+   NFKC, which would also pull （）down to () and change how the 所属 reads
+   on the form. A radical with no known kanji is left as it is rather than
+   guessed at. Every correction is printed. */
+const fixRadicals = (text) => String(text).replace(
+  RADICALS,
+  (c) => RADICAL_HINT[c] || (c.normalize('NFKC') !== c ? c.normalize('NFKC') : c),
+);
 const suspectChars = (text) => [...new Set(String(text).match(RADICALS) || [])]
   .map((c) => {
-    const guess = RADICAL_HINT[c] || (c.normalize('NFKC') !== c ? c.normalize('NFKC') : '?');
-    return `${c} (U+${c.codePointAt(0).toString(16).toUpperCase()} → ${guess})`;
+    const fixed = fixRadicals(c);
+    return `${c} (U+${c.codePointAt(0).toString(16).toUpperCase()} → ${fixed === c ? '?' : fixed})`;
   });
 
 const normId = (v) => wide(v).replace(/\D/g, '');
@@ -175,6 +198,13 @@ const cName = colOf(mh.cols, '氏名');
 const cId = colOf(mh.cols, '社員');
 const cAff = colOf(mh.cols, '所属');
 const cHours = colOf(mh.cols, '働き方');
+/* Only needed to create somebody. An older copy of the sheet has none of
+   them, and reading it to update the nine who already exist must still
+   work, so these are looked up softly rather than with colOf. */
+const optCol = (needle) => (mh.cols.find((c) => c.text.includes(needle)) || {}).col || null;
+const cGender = optCol('性別');
+const cRegion = optCol('地区');
+const cEmail = optCol('メール');
 
 const people = new Map();
 for (let r = mh.row + 1; r <= mem.rowCount; r += 1) {
@@ -189,9 +219,13 @@ for (let r = mh.row + 1; r <= mem.rowCount; r += 1) {
   people.set(id, {
     id,
     sheetName: cell(row, cName),
-    affiliation: cell(row, cAff),
+    affiliationRaw: cell(row, cAff),
+    affiliation: fixRadicals(cell(row, cAff)),
     workStart: hrs.start,
     workEnd: hrs.end,
+    gender: cGender ? cell(row, cGender) : '',
+    region: cRegion ? cell(row, cRegion) : '',
+    email: cEmail ? cell(row, cEmail) : '',
     commute: [],
     noRoute: '',
   });
@@ -256,17 +290,51 @@ await api('/api/login', { method: 'POST', body: JSON.stringify({ id: ADMIN }) })
 const current = (await api('/api/kv?key=roster')).value || [];
 const byId = new Map(current.map((p) => [normId(p.id), p]));
 
-/* Nobody is created from this file — it has no address and no 地区. */
+/* Four of the thirteen have never been on the 名簿. With 性別, 地区 and
+   メールアドレス now on the sheet they can be created from it; without
+   --create the old behaviour stands, because adding somebody to the 名簿
+   is a decision rather than a correction. */
+const cfg = (await api('/api/kv?key=cfg')).value || {};
+const REGIONS = Array.isArray(cfg.regions) ? cfg.regions : [];
+
 const missing = [...people.values()].filter((p) => !byId.has(p.id));
-if (missing.length && !SKIP_MISSING) {
+
+if (missing.length && CREATE) {
+  /* Checked before anything is written, and all of them reported at once:
+     being told about one fault, fixing it and being told about the next is
+     the slowest way to find three. */
+  const faults = [];
+  for (const p of missing) {
+    if (!p.sheetName) faults.push(`${p.id}  has no 氏名`);
+    if (!['男', '女'].includes(p.gender)) faults.push(`${p.id} ${p.sheetName}  性別 「${p.gender || '—'}」 is not 男 or 女`);
+    if (!p.region) faults.push(`${p.id} ${p.sheetName}  has no 地区`);
+    else if (REGIONS.length && !REGIONS.includes(p.region)) {
+      faults.push(`${p.id} ${p.sheetName}  地区 「${p.region}」 is not one of the site's: ${REGIONS.join(' / ')}`);
+    }
+    /* Only the shape, because the mail that matters is the reminder and a
+       bad address there fails silently a fortnight from now. */
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(p.email)) {
+      faults.push(`${p.id} ${p.sheetName}  メールアドレス 「${p.email || '—'}」 does not look like an address`);
+    }
+    const clash = current.find((x) => normId(x.id) !== p.id && String(x.email || '').toLowerCase() === p.email.toLowerCase());
+    if (clash) faults.push(`${p.id} ${p.sheetName}  shares メールアドレス ${p.email} with ${clash.id} ${clash.name}`);
+  }
+  if (faults.length) {
+    console.error(`REFUSING: cannot create ${missing.length} members from this sheet:`);
+    faults.forEach((f) => console.error(`   ${f}`));
+    console.error('\n  Nothing has been written. Ask 健康対策委員会 to correct the sheet.\n');
+    process.exit(1);
+  }
+}
+
+if (missing.length && !CREATE && !SKIP_MISSING) {
   console.error(`REFUSING: ${missing.length} of them are not on the site's 名簿 at all:`);
   missing.forEach((p) => console.error(`   ${p.id} ${p.sheetName}`));
-  console.error('\n  This file carries no メールアドレス or 地区, so they cannot be added');
-  console.error('  properly from it. Ask 健康対策委員会 to put them on the 名簿 first.');
-  console.error('  To go ahead with the rest meanwhile: --skip-missing\n');
+  console.error('\n  To add them from this sheet: --create');
+  console.error('  To go ahead without them:     --skip-missing\n');
   process.exit(1);
 }
-if (missing.length) {
+if (missing.length && !CREATE) {
   console.log(`SKIPPING: ${missing.length} are not on the 名簿 and are left out of this run.`);
   missing.forEach((p) => console.log(`   ${p.id} ${p.sheetName}`));
   console.log('      Nothing is created for them. Add them to the 名簿, then run this again —');
@@ -275,7 +343,8 @@ if (missing.length) {
 }
 
 /* A 社員№ typed one digit out would otherwise quietly rewrite a stranger. */
-const differing = [...people.values()].filter((p) => normName(byId.get(p.id).name) !== normName(p.sheetName));
+const onSite = [...people.values()].filter((p) => byId.has(p.id));
+const differing = onSite.filter((p) => normName(byId.get(p.id).name) !== normName(p.sheetName));
 const mismatched = differing.filter((p) => loose(byId.get(p.id).name) !== loose(p.sheetName));
 const spelled = differing.filter((p) => !mismatched.includes(p));
 if (mismatched.length) {
@@ -327,16 +396,52 @@ for (const { p, diffs } of changes) {
   console.log();
 }
 
+/* New records go on the end, where the 名簿 sorts them by 社員№ anyway, and
+   they start as an ordinary participant: active, no consent yet, so each is
+   asked on their first sign-in exactly like everybody else. */
+const created = (CREATE ? missing : []).map((p) => ({
+  id: p.id,
+  name: p.sheetName,
+  region: p.region,
+  gender: p.gender,
+  email: p.email,
+  affiliation: p.affiliation,
+  workStart: p.workStart,
+  workEnd: p.workEnd,
+  commute: p.commute,
+  mypage: true,
+  active: true,
+  consent: false,
+}));
+next.push(...created);
+
+if (created.length) {
+  console.log(`CREATING: ${created.length} new members on the 名簿 —`);
+  console.log('          they count in 対象者数, 完歩賞 and 未提出 from now on,');
+  console.log('          and are asked for consent on their first sign-in.');
+  for (const c of created) {
+    console.log(`   ${c.id}  ${c.name}`);
+    console.log(`       ${c.region} / ${c.gender} / ${c.email}`);
+    console.log(`       ${c.affiliation}   ${c.workStart}–${c.workEnd}`);
+    console.log(`       通勤 ${routeOf(c.commute)}`);
+  }
+  console.log();
+}
+
 const odd = [...people.values()]
-  .map((p) => ({ p, chars: suspectChars(p.affiliation) }))
+  .map((p) => ({ p, chars: suspectChars(p.affiliationRaw) }))
   .filter((x) => x.chars.length);
 if (odd.length) {
-  console.log(`WARNING: ${odd.length} 所属 contain radical-block look-alikes rather than kanji.`);
-  console.log('         They print on the 届 and the 交通費調査書 as written, and a search');
-  console.log('         for the real kanji will not find them. Worth asking 健康対策委員会');
-  console.log('         to retype them in the sheet rather than fixing it here.');
-  for (const { p, chars } of odd) console.log(`   ${p.id} ${p.sheetName}  ${p.affiliation}  —  ${chars.join(', ')}`);
-  console.log();
+  console.log(`CORRECTED: ${odd.length} 所属 on the sheet use radical-block look-alikes`);
+  console.log('           rather than kanji — characters an IME offers beside the real ones');
+  console.log('           and which no search for 新長田 will ever match. Written as kanji:');
+  for (const { p, chars } of odd) {
+    console.log(`   ${p.id} ${p.sheetName}`);
+    console.log(`       ${p.affiliationRaw}`);
+    console.log(`    →  ${p.affiliation}        ${chars.join(', ')}`);
+  }
+  console.log('           Worth asking 健康対策委員会 to retype them in their own file too,');
+  console.log('           or the next copy of the sheet brings them back.\n');
 }
 
 const noRoute = [...people.values()].filter((p) => !p.commute.length);
@@ -347,13 +452,19 @@ if (noRoute.length) {
   console.log();
 }
 
-if (next.length !== current.length) {
-  console.error(`REFUSING: the roster changed length, ${current.length} → ${next.length}.`);
+const expected = current.length + created.length;
+if (next.length !== expected) {
+  console.error(`REFUSING: the roster should be ${expected} long and is ${next.length}.`);
+  process.exit(1);
+}
+const ids = next.map((p) => normId(p.id));
+if (new Set(ids).size !== ids.length) {
+  console.error('REFUSING: the roster would hold the same 社員№ twice.');
   process.exit(1);
 }
 
-console.log(`result: ${changes.length} of ${people.size} members change; `
-  + `${current.length} on the roster, untouched in number.`);
+console.log(`result: ${changes.length} of ${people.size} members change, ${created.length} are new; `
+  + `${current.length} on the roster → ${next.length}.`);
 console.log(`        ${next.filter((p) => p.mypage).length} will have マイページ open.\n`);
 
 if (!APPLY) {
