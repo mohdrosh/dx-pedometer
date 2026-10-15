@@ -1585,6 +1585,18 @@ function ProfileTab({ user, cfg, roster, setRoster, toast, y, m, onUpdated, show
         <div className="fld">
           <span>{t('email2')}</span>
           <div className="withchk">
+            {/* A bare 19px square with nothing clickable around it. It has
+                been reported as "won't tick" three times now, twice by the
+                same person, and each time the cause turned out to be
+                somewhere other than the tick itself — but a target that
+                small invites the report, so it is bigger now.
+
+                Bigger by a pseudo-element on the input rather than a label
+                around it: a wrapping label takes the click as well as the
+                box does, the two cancel out, and the tick genuinely stops
+                working — which is what happened the first time I tried to
+                fix this. ::before belongs to the input, so a click on it is
+                a click on the input and nothing fires twice. */}
             <input
               type="checkbox" checked={!!f.email2On}
               onChange={(e) => {
@@ -3184,7 +3196,10 @@ function Styles() {
 
 /* an address field with its own tick beside it, not under it */
 .withchk{display:flex;gap:10px;align-items:center}
-.withchk input[type=checkbox]{width:19px;height:19px;margin:0;flex:0 0 auto;accent-color:var(--brand)}
+.withchk input[type=checkbox]{width:21px;height:21px;margin:0;flex:0 0 auto;
+  accent-color:var(--brand);cursor:pointer;position:relative}
+/* the target, not the box: 21px drawn, 45px to hit */
+.withchk input[type=checkbox]::before{content:'';position:absolute;inset:-12px}
 .withchk input[type=checkbox]:disabled{opacity:.4}
 .withchk input[type=email],.withchk input:not([type]){flex:1;min-width:0}
 
