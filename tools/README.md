@@ -114,3 +114,52 @@ hand in 運賃表 afterwards.
 
 An xlsx is a zip of XML and the tool reads the little of it it needs, so
 like roster-import it is one file and runs on a bare Node.
+
+
+## iit-import.mjs — IITメンバーの個人情報の取り込み
+
+The thirteen IIT members' 所属, 働き方 and 通勤経路, from the committee's
+own `IITメンバー所属一覧.xlsx`. It reads both sheets — `メンバー一覧` for the
+所属 and the 働き方, `交通費` for the commute — and matches them to the site
+by 社員№.
+
+```bash
+# look first — writes nothing
+node tools/iit-import.mjs \
+  --xlsx ~/Downloads/IITメンバー所属一覧.xlsx \
+  --url https://dx.morabu.com/pedometer \
+  --admin kenkou@morabu.com
+
+# then, if the report reads right
+node tools/iit-import.mjs ... --apply
+```
+
+Takes the `.xlsx` directly — no CSV export, so the two sheets stay together
+and nothing has to be chosen in a save dialog.
+
+### What it sets, and what it leaves alone
+
+| From the sheet | Left as it is |
+|---|---|
+| 所属や部署名（届・交通費調査書に記載） | 氏名・地区・性別・メールアドレス |
+| 働き方（始業・終業） | 同意と同意日 |
+| 通勤経路（交通機関・乗車駅・到着駅・片道・定期） | 自宅住所・万歩計番号 |
+| マイページを開く | 入力済みの歩数・勤怠・交通費 |
+
+It adds nobody and removes nobody. A 社員№ that is not already on the 名簿
+stops the run: this file has no メールアドレス and no 地区, so there is
+nothing to create a person properly from. Ask the committee to add them to
+the 名簿 first. A 社員№ whose name does not match the site stops it too —
+one digit out would otherwise rewrite a stranger's record.
+
+### Two things it reports rather than fixes
+
+**A member with no 交通費調査書 yet** (シンアマン, as of October) is listed
+and skipped. Their 所属 and 働き方 still go in; the route stays empty.
+
+**所属 written with radical look-alikes.** Four of them read 新⻑⽥216, where
+the ⻑ is U+2ED1 and the ⽥ is U+2F65 — characters an IME offers beside the
+real kanji, near-identical in most fonts. That string prints on the 届 and
+the 交通費調査書, so the tool will not quietly rewrite it; it names the
+characters and the correction so the committee can retype their own file.
+A search for 新長田 will not find 新⻑⽥ until they do.
