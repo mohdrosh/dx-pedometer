@@ -154,6 +154,12 @@ one digit out would otherwise rewrite a stranger's record.
 
 ### Two things it reports rather than fixes
 
+**A 社員№ not on the 名簿.** The run stops, because this file has nothing to
+create a person from. While the committee decide whether those people belong
+on the 名簿 at all, `--skip-missing` goes ahead with the rest and names the
+ones it left out. Nothing is created for them. Run it again once they are
+added — it is safe to repeat and only touches what is still different.
+
 **A member with no 交通費調査書 yet** (シンアマン, as of October) is listed
 and skipped. Their 所属 and 働き方 still go in; the route stays empty.
 

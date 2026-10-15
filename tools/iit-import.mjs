@@ -44,6 +44,12 @@ const XLSX = arg('xlsx');
 const URL_ = (arg('url') || 'http://127.0.0.1:8787').replace(/\/$/, '');
 const ADMIN = arg('admin') || 'kenkou@morabu.com';
 const APPLY = process.argv.includes('--apply');
+/* Refusing on a 社員№ that is not on the 名簿 is the right default — it is
+   usually a typo, and creating somebody from a file with no address and no
+   地区 would make a broken record. But when the committee are still deciding
+   whether four people belong on the 名簿 at all, that default holds up the
+   other nine for no reason. This says "I know, go on without them". */
+const SKIP_MISSING = process.argv.includes('--skip-missing');
 
 if (!XLSX || !fs.existsSync(XLSX)) {
   console.error('\n  --xlsx <IITメンバー所属一覧.xlsx> is required.\n');
@@ -243,12 +249,20 @@ const byId = new Map(current.map((p) => [normId(p.id), p]));
 
 /* Nobody is created from this file — it has no address and no 地区. */
 const missing = [...people.values()].filter((p) => !byId.has(p.id));
-if (missing.length) {
+if (missing.length && !SKIP_MISSING) {
   console.error(`REFUSING: ${missing.length} of them are not on the site's 名簿 at all:`);
   missing.forEach((p) => console.error(`   ${p.id} ${p.sheetName}`));
   console.error('\n  This file carries no メールアドレス or 地区, so they cannot be added');
-  console.error('  properly from it. Ask 健康対策委員会 to put them on the 名簿 first.\n');
+  console.error('  properly from it. Ask 健康対策委員会 to put them on the 名簿 first.');
+  console.error('  To go ahead with the rest meanwhile: --skip-missing\n');
   process.exit(1);
+}
+if (missing.length) {
+  console.log(`SKIPPING: ${missing.length} are not on the 名簿 and are left out of this run.`);
+  missing.forEach((p) => console.log(`   ${p.id} ${p.sheetName}`));
+  console.log('      Nothing is created for them. Add them to the 名簿, then run this again —');
+  console.log('      it is safe to repeat and will only touch what is still different.\n');
+  for (const p of missing) people.delete(p.id);
 }
 
 /* A 社員№ typed one digit out would otherwise quietly rewrite a stranger. */
