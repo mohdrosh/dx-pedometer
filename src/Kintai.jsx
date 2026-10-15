@@ -16,9 +16,10 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { S, setLeaving } from './storage';
 import {
   computeMonth, splitHM, fmtHM, offUnit, overtimeAlert,
-  DEFAULT_RULES, rulesFor, STATUS_1, STATUS_2,
+  DEFAULT_RULES, STATUS_1, STATUS_2,
 } from './kintai';
 import { noticesFor } from './todoke-runs';
+import { rulesForPerson, closureMap } from './company.js';
 
 const DOW_JA = ['日', '月', '火', '水', '木', '金', '土'];
 const pad2 = (n) => String(n).padStart(2, '0');
@@ -267,7 +268,7 @@ function DayFields({ row, rules, locked, setDay, t, lang }) {
 
 /* ------------------------------------------------------------------ screen */
 
-export default function KintaiTab({ user, y, m, days, holidays, lang, toast, base = '' }) {
+export default function KintaiTab({ user, cfg = {}, y, m, days, holidays, lang, toast, base = '' }) {
   const t = useCallback((k) => (L[k] ? L[k][lang === 'ja' ? 0 : 1] || L[k][0] : k), [lang]);
   const pk = `${String(y % 100).padStart(2, '0')}${pad2(m)}`;
   const key = kintaiKey(pk, user.id);
@@ -289,7 +290,11 @@ export default function KintaiTab({ user, y, m, days, holidays, lang, toast, bas
 
      useMemo because computeDay runs over every day of the month on every
      keystroke, and a rules object rebuilt each render would redo all of it. */
-  const rules = useMemo(() => rulesFor(user), [user?.workStart, user?.workEnd]);
+  /* 就業条件: the house rules, what the company changed, then this person's
+     own 始業・終業. cfg arrives from 設定, so a change there reaches every
+     figure on this screen without a deploy. */
+  const rules = useMemo(() => rulesForPerson(cfg, user),
+    [cfg?.companies, user?.workStart, user?.workEnd]);
 
   useEffect(() => {
     let live = true;
@@ -333,11 +338,16 @@ export default function KintaiTab({ user, y, m, days, holidays, lang, toast, bas
   }, [key]);
 
   /* The period's days, each carrying whatever has been entered for it. */
+  /* 稼働カレンダー: the company's own 休業日 on top of the public holidays.
+     A day shut for either reason is shut, and the day row cannot tell the
+     difference — which is right, because the arithmetic should not. */
+  const shut = useMemo(() => ({ ...holidays, ...closureMap(cfg, user) }), [holidays, cfg?.companies]);
+
   const rows = useMemo(() => days.map((d) => ({
     iso: d.iso, dom: d.dom, dow: d.dow,
-    holiday: !!holidays[d.iso], holidayName: holidays[d.iso] || '',
+    holiday: !!shut[d.iso], holidayName: shut[d.iso] || '',
     ...(entry?.days?.[d.iso] || {}),
-  })), [days, holidays, entry]);
+  })), [days, shut, entry]);
 
   const month = useMemo(() => computeMonth(rows, rules), [rows, rules]);
   const alert60 = overtimeAlert(month);

@@ -6,6 +6,8 @@
    somebody has signed in — and nobody can sign in until the roster exists.
 ========================================================================== */
 
+import { DEFAULT_COMPANY } from './company.js';
+
 export const DEFAULT_REGIONS = ['神戸', '東京', '大阪', '京都', '姫路', '三田', '請負', 'その他'];
 
 /* Keeps a stored region list in the order above; anything unrecognised
@@ -29,6 +31,9 @@ export const DEFAULT_CFG = {
      redeploy. A missing key means off, which is what every database written
      before this existed has. */
   modules: { timesheet: false, expense: false },
+  /* 会社情報・就業条件・稼働カレンダー. Registered here for now, shaped so the
+     core system can supply the same objects later — see src/company.js. */
+  companies: [DEFAULT_COMPANY],
   exportLayout: 'spec',
   /* 運賃は経路検索の結果だけを受け付ける。A fare somebody typed cannot be
      checked by the person approving it, so the committee can require every

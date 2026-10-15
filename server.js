@@ -37,7 +37,7 @@ import * as fare from './src/fare.js';
 import { matches as fareTableMatches } from './src/fare-table.js';
 import { DEFAULT_CFG, ROSTER_SEED, orderRegions } from './src/defaults.js';
 import { inSubmissionWindow } from './src/submission-window.js';
-import { rulesFor } from './src/kintai.js';
+import { rulesForPerson, closureMap } from './src/company.js';
 
 if (!process.env.DATABASE_URL) {
   console.error('\n  DATABASE_URL is not set.');
@@ -417,7 +417,14 @@ const server = http.createServer(async (req, res) => {
       const person = await getEmployee(sess.employeeId);
       if (!person) return deny(res, 403);
       const saved = (await getKey(`kt:${periodKey(y, m)}:${person.id}`)) || { days: {} };
-      const holidays = (b.holidays && typeof b.holidays === 'object') ? b.holidays : {};
+      /* The public holidays the browser fetched, plus the company's own
+         休業日 from 設定 — the screen merges the same two, and the file has
+         to agree with what the person was shown. */
+      const cfgNow = (await getKey('cfg')) || {};
+      const holidays = {
+        ...((b.holidays && typeof b.holidays === 'object') ? b.holidays : {}),
+        ...closureMap(cfgNow, null),
+      };
 
       const days = periodDays(y, m).map((iso) => {
         const d = new Date(`${iso}T00:00:00`);
@@ -431,7 +438,7 @@ const server = http.createServer(async (req, res) => {
           /* The same 働き方 the screen used. Without it the file would be
              computed on the house 9:00–17:45 and the 所定時間内 on the sheet
              would not match the figures the person was shown. */
-          rules: rulesFor(person),
+          rules: rulesForPerson(cfgNow, person),
           person: {
             id: person.id, name: person.name,
             dept: person.dept || '', section: person.section || '',

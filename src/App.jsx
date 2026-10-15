@@ -5,6 +5,8 @@ import KintaiTab, { KINTAI_CSS } from './Kintai';
 import KoutsuuhiTab, { KOUTSUUHI_CSS } from './Koutsuuhi';
 import { inSubmissionWindow } from './submission-window.js';
 import { matches as fareMatches, parsePaste, mergeRows, cleanRow } from './fare-table';
+import { DEFAULT_RULES } from './kintai.js';
+import { companiesOf, cleanCompany } from './company.js';
 import {
   S, registerTrial, saveFeedback, fetchFeedback,
   IS_LOCAL, fetchBootstrap, apiLogin, apiLogout, apiMe, apiSaveMe, apiConsent, setLeaving,
@@ -65,6 +67,8 @@ const MODULES = [
    Both are written `=== true`, so a settings row or a record saved before
    these keys existed reads as closed. The safe direction for something
    nobody has signed off. */
+const DOW_JA_SHORT = ['日', '月', '火', '水', '木', '金', '土'];
+
 const moduleOpen = (cfg, person, id) => id === 'steps'
   || person?.mypage === true
   || cfg?.modules?.[id] === true;
@@ -118,6 +122,35 @@ const STR = {
   entry: ['歩数入力', 'Step entry'],
   mypage: ['マイページ', 'My page'],
   personalInfo: ['個人情報', 'Personal info'],
+  companyHead: ['会社情報', 'Company'],
+  companyNote: ['会社名・就業条件・稼働カレンダーをここで登録します。基幹システムと連携できるようになれば、こちらの登録は不要になります。',
+    'The company, its working conditions and its calendar. Once the core system can be read, this registration is no longer needed.'],
+  companyName: ['会社名', 'Company name'],
+  rulesHead: ['就業条件', 'Working conditions'],
+  rulesNote: ['空欄のままにすると、既定値（かっこ内）が使われます。ここを変更すると、勤怠の計算すべてに反映されます。',
+    'Leave a field blank to use the default shown in it. Changes here affect every timesheet calculation.'],
+  workHoursCo: ['所定労働時間', 'Standard hours'],
+  workHoursCoNote: ['個人ごとの働き方が登録されている場合は、そちらが優先されます。',
+    "A person's own hours, where set, override this."],
+  break1: ['休憩1', 'Break 1'],
+  break2: ['休憩2', 'Break 2'],
+  nightBand: ['深夜時間帯', 'Night hours'],
+  nightNote: ['翌日にまたがる場合は24を超える時刻で入力します（例 29:00＝翌朝5時）。',
+    'Past midnight is written beyond 24 — 29:00 means 5am the next day.'],
+  earlyFrom: ['早朝時間帯の開始', 'Early morning from'],
+  unitMin: ['割増単位', 'Overtime unit'],
+  unitMinNote: ['この単位に揃っていない日には、勤怠画面で注意が表示されます。時間が自動で丸められるわけではありません。',
+    'A day whose figures do not land on this unit is flagged on the timesheet. It does not round anything automatically.'],
+  houseDefault: ['既定', 'Default'],
+  calendarHead: ['稼働カレンダー', 'Work calendar'],
+  workDays: ['所定労働日', 'Working days'],
+  premiumDowLabel: ['休日割増の曜日', 'Holiday-rate days'],
+  premiumNote: ['この曜日は休日割増で計算されます。日本の祝日は自動で取得され、別途反映されます。',
+    'These days are paid at the holiday rate. Japanese public holidays are fetched automatically and applied as well.'],
+  closures: ['休業日', 'Company closures'],
+  closuresNote: ['年末年始や夏季休暇など、祝日以外の休業日を登録します。',
+    'New year, summer shutdown and the like — days off that are not public holidays.'],
+  closureName: ['名称（任意）', 'Name (optional)'],
   pedometerSettings: ['万歩計の設定', 'Pedometer settings'],
   affiliation: ['所属・部署', 'Affiliation'],
   workHours: ['働き方', 'Working hours'],
@@ -1661,6 +1694,145 @@ function ProfileTab({ user, cfg, roster, setRoster, toast, y, m, onUpdated, show
   );
 }
 
+/* 会社情報・就業条件・稼働カレンダー — 健康対策委員会's item 8, and the
+   settings half of item 6. The arithmetic has always taken all of this as
+   data; until now there was nowhere to change it.
+
+   One company, because all thirteen are モラブ阪神's own. The shape is a
+   list so a second one costs a row rather than a migration, and which
+   person belongs to which is the piece to add when that happens.
+
+   A field left blank means "whatever the house rule is", and the
+   placeholder shows what that is — so the screen says what a day is
+   actually worth rather than only what somebody has typed. */
+function CompanyPanel({ cfg, upd, t }) {
+  const co = companiesOf(cfg)[0];
+  const [newDate, setNewDate] = useState('');
+  const [newName, setNewName] = useState('');
+
+  const set = (patch) => upd({ companies: [cleanCompany({ ...co, ...patch })] });
+  const setRule = (k, v) => {
+    const rules = { ...co.rules };
+    if (v === '' || v == null) delete rules[k]; else rules[k] = v;
+    set({ rules });
+  };
+  const setBreak = (k, i, v) => {
+    const pair = co.rules[k] || DEFAULT_RULES[k];
+    setRule(k, i === 0 ? [v, pair[1]] : [pair[0], v]);
+  };
+  const r = { ...DEFAULT_RULES, ...co.rules };
+  /* A time input ignores `placeholder` — it draws --:-- and nothing else —
+     so the house rule cannot be shown inside an empty field the way it can
+     for text. It goes underneath instead, or the page would show a row of
+     blanks and never say what a working day currently is. */
+  const time = (k) => (
+    <input type="time" value={co.rules[k] ?? ''}
+      onChange={(e) => setRule(k, e.target.value)} />
+  );
+  const fallback = (...keys) => {
+    const shown = keys.map((k) => (Array.isArray(DEFAULT_RULES[k])
+      ? DEFAULT_RULES[k].join('–') : DEFAULT_RULES[k])).join(' – ');
+    const set_ = keys.every((k) => co.rules[k] != null);
+    return set_ ? null : <em className="fld-note">{t('houseDefault')}：{shown}</em>;
+  };
+  const dowRow = (on, toggle, tone) => (
+    <div className="dows">
+      {DOW_JA_SHORT.map((d, i) => (
+        <button key={i} type="button" className={`dow${on.includes(i) ? ` on${tone ? ` ${tone}` : ''}` : ''}`}
+          onClick={() => toggle(i)}>{d}</button>
+      ))}
+    </div>
+  );
+
+  return (
+    <div className="cosec">
+      <div className="sechead"><span>{t('companyHead')}</span></div>
+      <p className="muted sm">{t('companyNote')}</p>
+
+      <label className="fld"><span>{t('companyName')}</span>
+        <input value={co.name} maxLength={80} onChange={(e) => set({ name: e.target.value })} />
+      </label>
+
+      <div className="sechead"><span>{t('rulesHead')}</span></div>
+      <p className="muted sm">{t('rulesNote')}</p>
+
+      <div className="fld"><span>{t('workHoursCo')}</span>
+        <div className="pair">{time('workStart')}<i>–</i>{time('workEnd')}</div>
+        {fallback('workStart', 'workEnd')}
+        <em className="fld-note">{t('workHoursCoNote')}</em>
+      </div>
+      {['break1', 'break2'].map((k) => (
+        <div className="fld" key={k}><span>{t(k)}</span>
+          <div className="pair">
+            <input type="time" value={co.rules[k]?.[0] ?? ''}
+              onChange={(e) => setBreak(k, 0, e.target.value)} />
+            <i>–</i>
+            <input type="time" value={co.rules[k]?.[1] ?? ''}
+              onChange={(e) => setBreak(k, 1, e.target.value)} />
+          </div>
+          {fallback(k)}
+        </div>
+      ))}
+      <div className="fld"><span>{t('nightBand')}</span>
+        <div className="pair">{time('nightStart')}<i>–</i>{time('nightEnd')}</div>
+        {fallback('nightStart', 'nightEnd')}
+        <em className="fld-note">{t('nightNote')}</em>
+      </div>
+      <div className="fld"><span>{t('earlyFrom')}</span>
+        <div className="pair">{time('earlyStart')}</div>
+        {fallback('earlyStart')}
+      </div>
+
+      {/* 割増単位 only. 控除単位 is in DEFAULT_RULES and read by nothing —
+          a control for it would do nothing at all, which is worse than not
+          offering one. It goes in when the engine uses it. */}
+      <label className="fld"><span>{t('unitMin')}</span>
+        <select value={co.rules.unitMin ?? ''}
+          onChange={(e) => setRule('unitMin', e.target.value === '' ? '' : Number(e.target.value))}>
+          <option value="">{t('houseDefault')}（{DEFAULT_RULES.unitMin}分）</option>
+          {[1, 5, 10, 15, 30].map((v) => <option key={v} value={v}>{v}分</option>)}
+        </select>
+        <em className="fld-note">{t('unitMinNote')}</em>
+      </label>
+
+      <div className="sechead"><span>{t('calendarHead')}</span></div>
+      <div className="fld"><span>{t('workDays')}</span>
+        {dowRow(co.workDays, (i) => set({
+          workDays: co.workDays.includes(i) ? co.workDays.filter((x) => x !== i) : [...co.workDays, i],
+        }))}
+      </div>
+      <div className="fld"><span>{t('premiumDowLabel')}</span>
+        {dowRow(r.premiumDow, (i) => setRule('premiumDow',
+          r.premiumDow.includes(i) ? r.premiumDow.filter((x) => x !== i) : [...r.premiumDow, i]), 'warn')}
+        <em className="fld-note">{t('premiumNote')}</em>
+      </div>
+
+      <div className="fld"><span>{t('closures')}</span>
+        <em className="fld-note">{t('closuresNote')}</em>
+        {co.closures.map((c) => (
+          <div className="leg-pair mt8" key={c.date}>
+            <strong className="grow">{c.date}{c.name ? `　${c.name}` : ''}</strong>
+            <button className="mini danger"
+              onClick={() => set({ closures: co.closures.filter((x) => x.date !== c.date) })}>
+              {t('remove')}
+            </button>
+          </div>
+        ))}
+        <div className="leg-pair mt8">
+          <input type="date" value={newDate} onChange={(e) => setNewDate(e.target.value)} />
+          <input placeholder={t('closureName')} maxLength={40} value={newName}
+            onChange={(e) => setNewName(e.target.value)} />
+          <button className="mini" disabled={!newDate}
+            onClick={() => {
+              set({ closures: [...co.closures, { date: newDate, name: newName }] });
+              setNewDate(''); setNewName('');
+            }}>＋</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ============================ Admin: summary ============================== */
 function AdminTab({ cfg, setCfg, roster, setRoster, y, m, setPeriod, toast, holidays }) {
   const t = useT(); const lang = useLang();
@@ -2593,6 +2765,9 @@ function SettingsAdmin({ cfg, setCfg, toast, onDemo, onWipe }) {
           <span>{t('fareLookupOnly')}</span>
         </label>
         <p className="muted sm">{t('fareLookupOnlyNote')}</p>
+
+        <CompanyPanel cfg={cfg} upd={upd} t={t} />
+
         <label className="check">
           <input
             type="checkbox" checked={!!cfg.modules?.timesheet}
@@ -2830,7 +3005,7 @@ export default function App() {
             <>
               <PeriodBar y={y} m={m} setPeriod={setPeriod} lang={lang} />
               <KintaiTab
-                user={me} y={y} m={m} days={periodDays(y, m)}
+                user={me} cfg={cfg} y={y} m={m} days={periodDays(y, m)}
                 holidays={holidays} lang={lang} toast={toast}
                 base={import.meta.env.BASE_URL.replace(/\/$/, '')}
               />
@@ -3372,6 +3547,13 @@ a.btn{text-decoration:none;text-align:center;display:inline-block}
 .leg-pair{display:flex;align-items:center;gap:7px}
 .leg-pair input{flex:1;min-width:0}
 .leg-pair i{font-style:normal;color:var(--dim);flex:none}
+.cosec{margin-top:18px;padding-top:4px;border-top:1px solid var(--rule-2)}
+.dows{display:flex;gap:6px;flex-wrap:wrap}
+.dow{flex:1;min-width:38px;padding:9px 0;font-size:13.5px;font-weight:600;border:1px solid var(--rule-2);
+  border-radius:8px;background:#fff;color:var(--ink-2);cursor:pointer}
+.dow.on{background:var(--brand);border-color:var(--brand);color:#fff}
+.dow.on.warn{background:var(--warn);border-color:var(--warn)}
+.leg-pair .grow{flex:1;min-width:0;font-size:14px}
 .commute{border:1px solid var(--hair);border-radius:8px;overflow:hidden}
 .commute-row{padding:9px 11px;background:var(--field)}
 .commute-row+.commute-row{border-top:1px solid var(--hair)}

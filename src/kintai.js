@@ -42,6 +42,9 @@ export const DEFAULT_RULES = {
   nightEnd: '29:00',    // 深夜 まで(翌5時) BG6
   earlyStart: '05:00',  // 早朝 から      BF7
   unitMin: 15,          // 割増単位       AW24
+  /* 控除単位 is on the master form at AW27 and nothing here reads it yet,
+     so it is deliberately not offered in 設定 — a control that changes
+     nothing is worse than none. Wire it up before exposing it. */
   deductUnitMin: 15,    // 控除単位       AW27
   premiumDow: [0],      // 休日割増適用日  AQ30 — 日曜日
 };
