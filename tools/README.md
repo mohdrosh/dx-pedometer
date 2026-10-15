@@ -160,6 +160,14 @@ on the 名簿 at all, `--skip-missing` goes ahead with the rest and names the
 ones it left out. Nothing is created for them. Run it again once they are
 added — it is safe to repeat and only touches what is still different.
 
+**A name spelled two ways.** 2603004 is バールティアヌラグクマール on the
+sheet and バールティ　アヌラーグ　クマール on the site. Transliterating a
+foreign name into katakana has no single right answer about where the ー
+goes, so a difference of only spacing or 長音符 is reported and taken to be
+the same person; the site keeps its own spelling and no name is ever
+rewritten. Any other difference still stops the run — that is the one that
+means a digit was typed wrong.
+
 **A member with no 交通費調査書 yet** (シンアマン, as of October) is listed
 and skipped. Their 所属 and 働き方 still go in; the route stays empty.
 

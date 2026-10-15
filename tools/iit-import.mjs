@@ -102,9 +102,18 @@ const suspectChars = (text) => [...new Set(String(text).match(RADICALS) || [])]
   });
 
 const normId = (v) => wide(v).replace(/\D/g, '');
-/* Names are written with and without spaces in different places — the site
-   has モハメド ロシャン where the sheet has モハメドロシャン — so they are
-   compared with the spaces taken out, and only ever to catch a wrong 社員№. */
+/* Names are compared only ever to catch a wrong 社員№, so the comparison is
+   made deaf to the ways the same name is legitimately written twice.
+
+   Spacing differs between the two sources — the site has モハメド ロシャン
+   where the sheet has モハメドロシャン — and so does the 長音符: 2603004 is
+   バールティアヌラグクマール on the sheet and バールティ　アヌラーグ　クマール
+   on the site. Transliterating a foreign name into katakana has no single
+   right answer about where the ー goes, and neither spelling is a mistake.
+
+   Only those two are ignored. Any other difference still stops the run,
+   because that is the one that means a digit was typed wrong. */
+const loose = (v) => wide(v).replace(/[\s・ー]/g, '');
 const normName = (v) => wide(v).replace(/[\s・]/g, '');
 
 /** 「8:45~17:15」 → { start: '08:45', end: '17:15' } */
@@ -266,15 +275,21 @@ if (missing.length) {
 }
 
 /* A 社員№ typed one digit out would otherwise quietly rewrite a stranger. */
-const mismatched = [...people.values()].filter((p) => {
-  const was = byId.get(p.id);
-  return normName(was.name) !== normName(p.sheetName);
-});
+const differing = [...people.values()].filter((p) => normName(byId.get(p.id).name) !== normName(p.sheetName));
+const mismatched = differing.filter((p) => loose(byId.get(p.id).name) !== loose(p.sheetName));
+const spelled = differing.filter((p) => !mismatched.includes(p));
 if (mismatched.length) {
   console.error(`REFUSING: ${mismatched.length} 社員№ point at a different name on the site:`);
   mismatched.forEach((p) => console.error(`   ${p.id}  sheet: ${p.sheetName}   site: ${byId.get(p.id).name}`));
   console.error('\n  One of the two is wrong. Check before writing anything.\n');
   process.exit(1);
+}
+if (spelled.length) {
+  console.log(`NOTE: ${spelled.length} names are spelled differently in the two places —`);
+  console.log('      only by spacing or a 長音符, so they are taken to be the same person.');
+  console.log('      The site keeps its own spelling; this run does not change any name.');
+  spelled.forEach((p) => console.log(`   ${p.id}  sheet: ${p.sheetName}   site: ${byId.get(p.id).name}`));
+  console.log();
 }
 
 /* ------------------------------ the report ------------------------------ */
