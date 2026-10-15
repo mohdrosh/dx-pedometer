@@ -57,11 +57,40 @@ const MODULES = [
   { id: 'expense', ja: '旅費精算', en: 'Expenses' },
 ];
 
-/* Whether a module is open to participants. 万歩計 is the system itself and
-   is always on; the rest wait for 設定. Written as `=== true` so that a
-   settings row saved before the key existed reads as off rather than on —
-   the safe direction for something still under review. */
-const moduleOpen = (cfg, id) => id === 'steps' || cfg?.modules?.[id] === true;
+/* Whether a module is open to this person. 万歩計 is the system itself and
+   is always on. The rest open either for everybody, from 設定, or for one
+   person, from their record — which is how the thirteen IIT members get
+   勤怠 and 旅費精算 while the other ~140 go on seeing 準備中.
+
+   Both are written `=== true`, so a settings row or a record saved before
+   these keys existed reads as closed. The safe direction for something
+   nobody has signed off. */
+const moduleOpen = (cfg, person, id) => id === 'steps'
+  || person?.mypage === true
+  || cfg?.modules?.[id] === true;
+
+/* The order the tabs sit in along the bottom. Somebody with マイページ open
+   lands on their own details and finds 万歩計 beside them, as 健康対策委員会
+   described it: ログイン → マイページ → 個人情報 / 万歩計 / 勤怠 / 旅費精算.
+   Everyone else keeps today's screen exactly, 万歩計 first and マイページ
+   last, because nothing about their month has changed. */
+const navFor = (person) => (person?.mypage
+  ? ['personal', 'steps', 'timesheet', 'expense']
+  : ['steps', 'timesheet', 'expense', 'personal']);
+
+/* The second door. The app is one page served for any path under the base,
+   so /my needs nothing from nginx. It decides which sign-in screen is shown
+   and nothing else: which workspace somebody then gets is decided by their
+   record, so a member who follows an old link is not stranded on the wrong
+   one, and a colleague who finds the new link is not shown a workspace that
+   is not theirs. */
+/* Where signing in puts somebody. 健康対策委員会 described the thirteen as
+   going ログイン → マイページ → 個人情報 / …, so they land on their own
+   details; everybody else lands on the month, as they always have. */
+const landingTab = (u) => (u?.admin ? 'admin' : (u?.mypage ? 'profile' : 'entry'));
+
+const AT_MYPAGE_DOOR = typeof window !== 'undefined'
+  && /(^|\/)my\/?$/.test(window.location.pathname);
 
 /* ============================== i18n ====================================== */
 const LangCtx = createContext('ja');
@@ -88,6 +117,19 @@ const STR = {
   soonBody: ['この機能は今後のリリースで追加されます。', 'This module will be added in a future release.'],
   entry: ['歩数入力', 'Step entry'],
   mypage: ['マイページ', 'My page'],
+  personalInfo: ['個人情報', 'Personal info'],
+  pedometerSettings: ['万歩計の設定', 'Pedometer settings'],
+  affiliation: ['所属・部署', 'Affiliation'],
+  workHours: ['働き方', 'Working hours'],
+  homeAddress: ['自宅住所', 'Home address'],
+  homeStation: ['自宅最寄り駅', 'Nearest station'],
+  workplace: ['勤務先', 'Workplace'],
+  workStation: ['勤務先最寄り駅', "Workplace's station"],
+  commute: ['通勤経路', 'Commute'],
+  commuteNone: ['登録がありません。交通費調査書の提出後に登録されます。',
+    'Not registered yet — it is added once the commute survey is in.'],
+  oneWay: ['片道', 'One way'],
+  pass1m: ['1か月定期', '1-month pass'],
   dashboard: ['集計', 'Summary'],
   bonusTab: ['完歩賞', 'Bonus'],
   people: ['対象者', 'Participants'],
@@ -324,6 +366,11 @@ const STR = {
   company: ['モラブ阪神工業株式会社', 'Morabu Hanshin Kogyo Co., Ltd.'],
   eyebrow: ['健康対策推進活動', 'Health Promotion Activity'],
   mainTitle: ['万歩計実績表', 'Pedometer Record'],
+  /* The second door's sign-in. Same system and the same 社員番号 — only the
+     name over it says which workspace it opens on to. */
+  mypageTitle: ['マイページ', 'My Page'],
+  mypageEyebrow: ['モラブ阪神工業株式会社', 'Morabu Hanshin'],
+  mypageHello: ['こんにちは！\nマイページへようこそ。', 'Hello! Welcome to your page.'],
   thisMonth: ['今月度', 'Current month'],
   subWindow: ['提出期間', 'Submission'],
   profileHead: ['登録情報', 'Your details'],
@@ -856,12 +903,12 @@ function Login({ onLogin, onTrial, lang, setLang, notice }) {
 
         <div className="login-hello">
           <MoraBot pose="hello" title={t('botAlt')} />
-          <p className="bubble">{t('botHello')}</p>
+          <p className="bubble">{t(AT_MYPAGE_DOOR ? 'mypageHello' : 'botHello')}</p>
         </div>
 
         <div className="login-title">
-          <span className="eyebrow">{t('eyebrow')}</span>
-          <h1>{t('mainTitle')}</h1>
+          <span className="eyebrow">{t(AT_MYPAGE_DOOR ? 'mypageEyebrow' : 'eyebrow')}</span>
+          <h1>{t(AT_MYPAGE_DOOR ? 'mypageTitle' : 'mainTitle')}</h1>
         </div>
 
         <label className="fld">
@@ -1322,7 +1369,54 @@ function StepsTab({ user, cfg, holidays, y, m, setPeriod, toast }) {
 }
 
 /* ========================== Employee: my page ============================= */
-function ProfileTab({ user, cfg, roster, setRoster, toast, y, m, onUpdated }) {
+/* 健康対策委員会 asked for the page to be split: 「現在のマイページはほぼ万歩計
+   の内容なので」 the things that are true of a person whatever they are doing
+   belong on 個人情報, and 目標達成状況・万歩計№・所属地域 belong on 万歩計.
+
+   One component still, with one piece of state and one 保存, because every
+   field here saves through the same call — splitting it into two components
+   would mean two half-forms that each send the whole person. `show` picks
+   which half is on screen:
+
+     'all'        today's page, unchanged, for the ~140 who are not in the
+                  new workspace and whose screen must not move under them
+     'personal'   the 個人情報 tab
+     'pedometer'  the block under 万歩計
+
+   The fields an administrator owns — 所属, 働き方, 勤務先, 通勤経路 — are
+   shown here but not editable; updateEmployeeSelf will not accept them, and a
+   box somebody can type into but not save is worse than plain text. */
+/* The 通勤経路 as the 交通費調査書 lays it out, read-only. One row per leg,
+   and a line saying nothing is registered rather than an empty table — a
+   blank grid reads as broken where a sentence reads as "not yet". */
+function CommuteList({ legs }) {
+  const t = useT();
+  const rows = Array.isArray(legs) ? legs : [];
+  const yen = (n) => (n == null ? '—' : `¥${Number(n).toLocaleString('en-US')}`);
+  return (
+    <div className="fld">
+      <span>{t('commute')}</span>
+      {rows.length === 0
+        ? <em className="fld-note">{t('commuteNone')}</em>
+        : (
+          <div className="commute">
+            {rows.map((l, i) => (
+              <div className="commute-row" key={i}>
+                <b>{l.carrier || '—'}</b>
+                <span>{l.from || '—'} → {l.to || '—'}</span>
+                <em>{t('oneWay')} {yen(l.oneWay)} ／ {t('pass1m')} {yen(l.pass)}</em>
+              </div>
+            ))}
+          </div>
+        )}
+    </div>
+  );
+}
+
+function ProfileTab({ user, cfg, roster, setRoster, toast, y, m, onUpdated, show = 'all' }) {
+  const all = show === 'all';
+  const mine = all || show === 'personal';
+  const pedo = all || show === 'pedometer';
   const t = useT(); const lang = useLang();
   const pk = periodKey(y, m);
   const [entry, setEntry] = useState(null);
@@ -1330,6 +1424,7 @@ function ProfileTab({ user, cfg, roster, setRoster, toast, y, m, onUpdated }) {
     region: user.region || '', gender: user.gender || '男',
     pedometer: user.pedometer || '',
     email2: user.email2 || '', email2On: !!user.email2On, consent: !!user.consent,
+    address: user.address || '', homeStation: user.homeStation || '',
   });
   const [needEmail2, setNeedEmail2] = useState(false);
   const email2Ref = React.useRef(null);
@@ -1372,36 +1467,54 @@ function ProfileTab({ user, cfg, roster, setRoster, toast, y, m, onUpdated }) {
   };
   return (
     <div className="tabbody">
-      <div className="sechead"><span>{t('targetStatus')}</span></div>
-      <div className="card">
-        <div className="row3">
-          <Stat label={`${y}年${m}月度`} value={state} tone={met ? 'mark' : ''} />
-          <Stat label={t('daysBelow')} value={below} sub={t('days')} />
-          <Stat label={t('daysBlank')} value={blank} sub={t('days')} />
-        </div>
-      </div>
+      {pedo && (
+        <>
+          <div className="sechead"><span>{t('targetStatus')}</span></div>
+          <div className="card">
+            <div className="row3">
+              <Stat label={`${y}年${m}月度`} value={state} tone={met ? 'mark' : ''} />
+              <Stat label={t('daysBelow')} value={below} sub={t('days')} />
+              <Stat label={t('daysBlank')} value={blank} sub={t('days')} />
+            </div>
+          </div>
+        </>
+      )}
 
-      <div className="sechead"><span>{t('profileHead')}</span></div>
+      <div className="sechead"><span>{t(all ? 'profileHead' : show === 'personal' ? 'personalInfo' : 'pedometerSettings')}</span></div>
       <div className="card">
-        <div className="kv"><span>{t('employeeId')}</span><strong>{user.id}</strong></div>
-        <div className="kv"><span>{t('name')}</span><strong>{user.name}</strong></div>
-        <label className="fld"><span>{t('region')}</span>
-          <select value={f.region} onChange={(e) => setF({ ...f, region: e.target.value })}>
-            {cfg.regions.map((r) => <option key={r}>{r}</option>)}
-          </select>
-        </label>
-        <label className="fld"><span>{t('gender')}</span>
-          <select value={f.gender} onChange={(e) => setF({ ...f, gender: e.target.value })}>
-            <option value="男">{t('male')}</option><option value="女">{t('female')}</option>
-          </select>
-        </label>
-        <label className="fld"><span>{t('pedometerNo')}</span>
-          <input value={f.pedometer} onChange={(e) => setF({ ...f, pedometer: e.target.value })} />
-        </label>
+        {mine && <div className="kv"><span>{t('employeeId')}</span><strong>{user.id}</strong></div>}
+        {mine && <div className="kv"><span>{t('name')}</span><strong>{user.name}</strong></div>}
+        {mine && !all && (
+          <>
+            <div className="kv"><span>{t('affiliation')}</span><strong>{user.affiliation || '—'}</strong></div>
+            <div className="kv"><span>{t('workHours')}</span>
+              <strong>{user.workStart && user.workEnd ? `${user.workStart} – ${user.workEnd}` : '—'}</strong>
+            </div>
+          </>
+        )}
+        {pedo && (
+          <label className="fld"><span>{t('region')}</span>
+            <select value={f.region} onChange={(e) => setF({ ...f, region: e.target.value })}>
+              {cfg.regions.map((r) => <option key={r}>{r}</option>)}
+            </select>
+          </label>
+        )}
+        {pedo && (
+          <label className="fld"><span>{t('gender')}</span>
+            <select value={f.gender} onChange={(e) => setF({ ...f, gender: e.target.value })}>
+              <option value="男">{t('male')}</option><option value="女">{t('female')}</option>
+            </select>
+          </label>
+        )}
+        {pedo && (
+          <label className="fld"><span>{t('pedometerNo')}</span>
+            <input value={f.pedometer} onChange={(e) => setF({ ...f, pedometer: e.target.value })} />
+          </label>
+        )}
         {/* Plain text, not a field: the company address is issued, not chosen,
             and a bordered box invited people to edit something the server
             will not accept anyway. */}
-        <div className="kv"><span>{t('emailWork')}</span><strong>{user.email || '—'}</strong></div>
+        {mine && <div className="kv"><span>{t('emailWork')}</span><strong>{user.email || '—'}</strong></div>}
 
         {/* The tick sits beside the address rather than under it: below, it
             read as a caption and people typed an address expecting mail to
@@ -1419,6 +1532,7 @@ function ProfileTab({ user, cfg, roster, setRoster, toast, y, m, onUpdated }) {
             live, and the pairing is checked once on 保存, against the field
             as it actually reads — which is the moment it matters, and the one
             place that cannot be fooled by how the text arrived. */}
+        {mine && (
         <div className="fld">
           <span>{t('email2')}</span>
           <div className="withchk">
@@ -1442,11 +1556,35 @@ function ProfileTab({ user, cfg, roster, setRoster, toast, y, m, onUpdated }) {
             ? <em className="fld-note warn">{t('email2Need')}</em>
             : <em className="fld-note">{t('email2Note')}</em>}
         </div>
+        )}
 
-        <ConsentPanel
-          checked={f.consent} onChange={(v) => setF({ ...f, consent: v })}
-          title="consentTitleOpt"
-        />
+        {/* 自宅住所 and its station are the person's own to set. 勤務先 and the
+            通勤経路 beside them are not: the route carries the fare that ends
+            up on a claim, which 健康対策委員会 have already ruled must not be
+            self-reported. Shown, so the page is the one place these live —
+            and plainly, because the server would refuse them anyway. */}
+        {mine && !all && (
+          <>
+            <label className="fld"><span>{t('homeAddress')}</span>
+              <input value={f.address} maxLength={120}
+                onChange={(e) => setF({ ...f, address: e.target.value })} />
+            </label>
+            <label className="fld"><span>{t('homeStation')}</span>
+              <input value={f.homeStation} maxLength={40}
+                onChange={(e) => setF({ ...f, homeStation: e.target.value })} />
+            </label>
+            <div className="kv"><span>{t('workplace')}</span><strong>{user.workplace || '—'}</strong></div>
+            <div className="kv"><span>{t('workStation')}</span><strong>{user.workStation || '—'}</strong></div>
+            <CommuteList legs={user.commute} />
+          </>
+        )}
+
+        {pedo && (
+          <ConsentPanel
+            checked={f.consent} onChange={(v) => setF({ ...f, consent: v })}
+            title="consentTitleOpt"
+          />
+        )}
 
         <button className="btn primary big" onClick={save}>{t('saveProfile')}</button>
       </div>
@@ -2406,13 +2544,13 @@ export default function App() {
       const p = rr.find((x) => String(x.id) === id);
       if (!admin && !p) return { error: 'not_found' };
       const u = admin ? { admin: true, id, name: '健康対策委員会' } : { admin: false, ...p };
-      setUser(u); setTab(admin ? 'admin' : 'entry');
+      setUser(u); setTab(landingTab(u));
       return { user: u };
     }
     const r = await apiLogin(id);
     if (r.error) return r;
     setUser(r.user);
-    setTab(r.user.admin ? 'admin' : 'entry');
+    setTab(landingTab(r.user));
     if (r.user.admin) {
       const [full, rr] = await Promise.all([S.get('cfg'), S.get('roster')]);
       if (full) setCfg({ ...DEFAULT_CFG, ...full });
@@ -2467,7 +2605,7 @@ export default function App() {
         setCfg({ ...DEFAULT_CFG, ...(pub || {}) });
         if (who) {
           setUser(who);
-          setTab(who.admin ? 'admin' : 'entry');
+          setTab(landingTab(who));
           if (who.admin) {
             const [full, rr] = await Promise.all([S.get('cfg'), S.get('roster')]);
             if (full) setCfg({ ...DEFAULT_CFG, ...full });
@@ -2560,7 +2698,7 @@ export default function App() {
           <div className="hdr-l">
             <img className="hdr-mark" src={`${import.meta.env.BASE_URL}morabu-mark.png`} alt="" />
             <div className="hdr-txt">
-              <div className="hdr-t">{tt('mainTitle')}</div>
+              <div className="hdr-t">{tt(me.mypage ? 'mypageTitle' : 'mainTitle')}</div>
               <div className="hdr-s">{me.name}{me.region ? `／${me.region}` : ''}{user.admin ? `／${tt('admin')}` : ''}</div>
             </div>
           </div>
@@ -2572,8 +2710,11 @@ export default function App() {
 
         <main className="main">
           {!user.admin && tab === 'profile' ? (
-            <ProfileTab user={me} cfg={cfg} roster={roster} setRoster={setRoster} toast={toast} y={y} m={m} onUpdated={setUser} />
-          ) : mod === 'timesheet' && !user.admin && moduleOpen(cfg, 'timesheet') ? (
+            <ProfileTab
+              user={me} cfg={cfg} roster={roster} setRoster={setRoster} toast={toast}
+              y={y} m={m} onUpdated={setUser} show={me.mypage ? 'personal' : 'all'}
+            />
+          ) : mod === 'timesheet' && !user.admin && moduleOpen(cfg, me, 'timesheet') ? (
             <>
               <PeriodBar y={y} m={m} setPeriod={setPeriod} lang={lang} />
               <KintaiTab
@@ -2582,7 +2723,7 @@ export default function App() {
                 base={import.meta.env.BASE_URL.replace(/\/$/, '')}
               />
             </>
-          ) : mod === 'expense' && !user.admin && moduleOpen(cfg, 'expense') ? (
+          ) : mod === 'expense' && !user.admin && moduleOpen(cfg, me, 'expense') ? (
             <>
               <PeriodBar y={y} m={m} setPeriod={setPeriod} lang={lang} />
               <KoutsuuhiTab
@@ -2602,26 +2743,45 @@ export default function App() {
           ) : user.admin ? (
             <AdminTab cfg={cfg} setCfg={setCfg} roster={roster} setRoster={setRoster} y={y} m={m} setPeriod={setPeriod} toast={toast} holidays={holidays} />
           ) : (
-            <StepsTab user={me} cfg={cfg} holidays={holidays} y={y} m={m} setPeriod={setPeriod} toast={toast} />
+            <>
+              <StepsTab user={me} cfg={cfg} holidays={holidays} y={y} m={m} setPeriod={setPeriod} toast={toast} />
+              {/* The pedometer's own settings followed the month out of
+                  個人情報 and sit under it, where they belong. */}
+              {me.mypage && (
+                <ProfileTab
+                  user={me} cfg={cfg} roster={roster} setRoster={setRoster} toast={toast}
+                  y={y} m={m} onUpdated={setUser} show="pedometer"
+                />
+              )}
+            </>
           )}
         </main>
 
+        {/* One row, in the order this person's workspace puts it. 個人情報 is
+            a tab like the others rather than a button bolted on the end. */}
         <nav className="nav">
-          {MODULES.map((x) => (
-            <button
-              key={x.id}
-              className={(mod === x.id && (user.admin || tab !== 'profile') ? 'on ' : '') + (moduleOpen(cfg, x.id) ? '' : 'dim')}
-              onClick={() => { setMod(x.id); setTab(user.admin ? 'admin' : 'entry'); }}
-            >
-              <span>{lang === 'ja' ? x.ja : x.en}</span>
-              {!moduleOpen(cfg, x.id) && <em className="badge">{tt('soon')}</em>}
-            </button>
-          ))}
-          {!user.admin && (
-            <button className={tab === 'profile' ? 'on' : ''} onClick={() => setTab('profile')}>
-              <span>{tt('mypage')}</span>
-            </button>
-          )}
+          {(user.admin ? MODULES.map((x) => x.id) : navFor(me)).map((id) => {
+            if (id === 'personal') {
+              if (user.admin) return null;
+              return (
+                <button key="personal" className={tab === 'profile' ? 'on' : ''} onClick={() => setTab('profile')}>
+                  <span>{me.mypage ? tt('personalInfo') : tt('mypage')}</span>
+                </button>
+              );
+            }
+            const x = MODULES.find((v) => v.id === id);
+            const open = moduleOpen(cfg, me, id);
+            return (
+              <button
+                key={id}
+                className={(mod === id && (user.admin || tab !== 'profile') ? 'on ' : '') + (open ? '' : 'dim')}
+                onClick={() => { setMod(id); setTab(user.admin ? 'admin' : 'entry'); }}
+              >
+                <span>{lang === 'ja' ? x.ja : x.en}</span>
+                {!open && <em className="badge">{tt('soon')}</em>}
+              </button>
+            );
+          })}
         </nav>
 
         <FeedbackButton user={user.admin ? null : me} toast={toast} />
@@ -3085,6 +3245,12 @@ a.btn{text-decoration:none;text-align:center;display:inline-block}
 .pill.gone{margin-left:7px;border-color:var(--rule-2);color:var(--dim);background:var(--wash);
   font-weight:600;font-size:11px;padding:1px 7px}
 .mini.go{border-color:var(--go);color:var(--go)}
+.commute{border:1px solid var(--hair);border-radius:8px;overflow:hidden}
+.commute-row{padding:9px 11px;background:var(--field)}
+.commute-row+.commute-row{border-top:1px solid var(--hair)}
+.commute-row b{display:block;font-size:13px;color:var(--ink)}
+.commute-row span{display:block;font-size:14.5px;font-weight:600;margin-top:2px}
+.commute-row em{display:block;font-style:normal;font-size:12.5px;color:var(--ink-2);margin-top:3px}
 .pill.trial{margin-left:7px;border-color:var(--brand);color:var(--brand);background:var(--brand-wash);
   font-weight:600;font-size:11px;padding:1px 7px}
 /* Needs the td to out-specify the nowrap on .tbl td — as a bare class it
