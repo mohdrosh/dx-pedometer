@@ -130,6 +130,15 @@ const STR = {
     'Not registered yet — it is added once the commute survey is in.'],
   oneWay: ['片道', 'One way'],
   pass1m: ['1か月定期', '1-month pass'],
+  affiliationNote: ['届・交通費調査書にこのまま印字されます。', 'Printed on the 届 and the commute survey exactly as written.'],
+  workHoursNote: ['始業・終業。時間外の計算に使われます。', 'Start and end. Overtime is worked out from these.'],
+  commuteNote: ['交通費調査書と同じ順番です。空の行は保存されません。', 'The same order as the commute survey. Blank rows are not saved.'],
+  carrier: ['使用交通会社名', 'Operator'],
+  boardAt: ['乗車地', 'From'],
+  alightAt: ['降車地', 'To'],
+  mypageOn: ['マイページを使う', 'Use the new My Page'],
+  mypageOnNote: ['ONにすると、この方は新しいマイページ（個人情報・万歩計・勤怠・旅費精算）になります。',
+    'When on, this person gets the new My Page workspace with Attendance and Expenses.'],
   dashboard: ['集計', 'Summary'],
   bonusTab: ['完歩賞', 'Bonus'],
   people: ['対象者', 'Participants'],
@@ -1389,6 +1398,46 @@ function StepsTab({ user, cfg, holidays, y, m, setPeriod, toast }) {
 /* The 通勤経路 as the 交通費調査書 lays it out, read-only. One row per leg,
    and a line saying nothing is registered rather than an empty table — a
    blank grid reads as broken where a sentence reads as "not yet". */
+/* The 通勤経路, editable, laid out as the rows of the 交通費調査書 so that
+   somebody copying one across is reading the same columns in the same order.
+   A blank row sits at the bottom to be filled; it is dropped on the way to
+   the database rather than saved as an empty leg. */
+function CommuteEditor({ legs, onChange }) {
+  const t = useT();
+  const rows = [...(Array.isArray(legs) ? legs : []), { carrier: '', from: '', to: '', oneWay: '', pass: '' }];
+  const set = (i, k, v) => {
+    const next = rows.map((r, j) => (i === j ? { ...r, [k]: v } : r));
+    /* The trailing blank is scaffolding, not data. */
+    onChange(next.filter((r) => r.carrier || r.from || r.to
+      || (r.oneWay !== '' && r.oneWay != null) || (r.pass !== '' && r.pass != null)));
+  };
+  return (
+    <div className="fld">
+      <span>{t('commute')}</span>
+      <em className="fld-note">{t('commuteNote')}</em>
+      {rows.map((r, i) => (
+        <div className="leg" key={i}>
+          <input placeholder={t('carrier')} maxLength={40} value={r.carrier ?? ''}
+            onChange={(e) => set(i, 'carrier', e.target.value)} />
+          <div className="leg-pair">
+            <input placeholder={t('boardAt')} maxLength={40} value={r.from ?? ''}
+              onChange={(e) => set(i, 'from', e.target.value)} />
+            <i>→</i>
+            <input placeholder={t('alightAt')} maxLength={40} value={r.to ?? ''}
+              onChange={(e) => set(i, 'to', e.target.value)} />
+          </div>
+          <div className="leg-pair">
+            <input placeholder={t('oneWay')} inputMode="numeric" value={r.oneWay ?? ''}
+              onChange={(e) => set(i, 'oneWay', e.target.value)} />
+            <input placeholder={t('pass1m')} inputMode="numeric" value={r.pass ?? ''}
+              onChange={(e) => set(i, 'pass', e.target.value)} />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function CommuteList({ legs }) {
   const t = useT();
   const rows = Array.isArray(legs) ? legs : [];
@@ -1994,6 +2043,10 @@ function PeopleAdmin({ cfg, setCfg, roster, setRoster, toast }) {
         email: f.email || '', email2: f.email2 || '', email2On: !!f.email2On,
         pedometer: f.pedometer || '', consent: !!f.consent, active: true,
         dept: f.dept || '', section: f.section || '', client: f.client || '',
+        affiliation: f.affiliation || '', workStart: f.workStart || '', workEnd: f.workEnd || '',
+        address: f.address || '', homeStation: f.homeStation || '',
+        workplace: f.workplace || '', workStation: f.workStation || '',
+        commute: f.commute || [], mypage: !!f.mypage,
       }]
       : roster.map((p) => {
         if (String(p.id) !== String(f._orig)) return p;
@@ -2187,6 +2240,45 @@ function PeopleAdmin({ cfg, setCfg, roster, setRoster, toast }) {
             <label className="fld"><span>{t('clientCo')}</span>
               <input value={edit.client || ''} maxLength={40} onChange={(e) => setEdit({ ...edit, client: e.target.value })} />
             </label>
+            {/* 所属 as one string, because 健康対策委員会 asked for it to print
+                on the 届 and the 交通費調査書 exactly as they write it, and
+                「開発部 システム開発1課（明海505）」 does not survive being
+                taken apart and put back together. */}
+            <label className="fld"><span>{t('affiliation')}</span>
+              <input value={edit.affiliation || ''} maxLength={80}
+                onChange={(e) => setEdit({ ...edit, affiliation: e.target.value })} />
+              <em className="fld-note">{t('affiliationNote')}</em>
+            </label>
+            {/* 働き方 decides what counts as overtime, which is why it is here
+                and not on the person's own page. */}
+            <div className="fld">
+              <span>{t('workHours')}</span>
+              <div className="pair">
+                <input type="time" value={edit.workStart || ''}
+                  onChange={(e) => setEdit({ ...edit, workStart: e.target.value })} />
+                <i>–</i>
+                <input type="time" value={edit.workEnd || ''}
+                  onChange={(e) => setEdit({ ...edit, workEnd: e.target.value })} />
+              </div>
+              <em className="fld-note">{t('workHoursNote')}</em>
+            </div>
+            <label className="fld"><span>{t('workplace')}</span>
+              <input value={edit.workplace || ''} maxLength={60}
+                onChange={(e) => setEdit({ ...edit, workplace: e.target.value })} />
+            </label>
+            <label className="fld"><span>{t('workStation')}</span>
+              <input value={edit.workStation || ''} maxLength={40}
+                onChange={(e) => setEdit({ ...edit, workStation: e.target.value })} />
+            </label>
+            <CommuteEditor
+              legs={edit.commute} onChange={(c) => setEdit({ ...edit, commute: c })}
+            />
+            <label className="check">
+              <input type="checkbox" checked={!!edit.mypage}
+                onChange={(e) => setEdit({ ...edit, mypage: e.target.checked })} />
+              <span>{t('mypageOn')}</span>
+            </label>
+            <p className="muted sm">{t('mypageOnNote')}</p>
             <label className="fld"><span>{t('pedometerNo')}</span>
               <input value={edit.pedometer || ''} onChange={(e) => setEdit({ ...edit, pedometer: e.target.value })} />
             </label>
@@ -3245,6 +3337,14 @@ a.btn{text-decoration:none;text-align:center;display:inline-block}
 .pill.gone{margin-left:7px;border-color:var(--rule-2);color:var(--dim);background:var(--wash);
   font-weight:600;font-size:11px;padding:1px 7px}
 .mini.go{border-color:var(--go);color:var(--go)}
+.pair{display:flex;align-items:center;gap:8px}
+.pair input{flex:1;min-width:0}
+.pair i{font-style:normal;color:var(--dim)}
+.leg{border:1px solid var(--hair);border-radius:8px;padding:9px;margin-top:7px;background:var(--field)}
+.leg>*+*{margin-top:6px}
+.leg-pair{display:flex;align-items:center;gap:7px}
+.leg-pair input{flex:1;min-width:0}
+.leg-pair i{font-style:normal;color:var(--dim);flex:none}
 .commute{border:1px solid var(--hair);border-radius:8px;overflow:hidden}
 .commute-row{padding:9px 11px;background:var(--field)}
 .commute-row+.commute-row{border-top:1px solid var(--hair)}
