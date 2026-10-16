@@ -183,6 +183,9 @@ const STR = {
   alightAt: ['降車地', 'To'],
   pickPerson: ['左の一覧から選ぶと、ここで編集できます。', 'Pick somebody on the left to edit them here.'],
   eggOn: ['タマゴ配布を使う', 'Use the egg portal'],
+  eggFarmOn: ['丹波で収穫を登録する', 'Registers the harvest in Tamba'],
+  eggFarmNote: ['ONにすると「丹波」タブが出て、1パックごとに登録できます。丹波側の担当の方だけにしてください。',
+    'Adds the Harvest tab, one tap per pack. Only for the people working in Tamba.'],
   eggOnNote: ['ONにすると、この方に「タマゴ」タブが出て、需要調査に回答できます。対象は正社員です。',
     'Switches on the タマゴ tab for this person and lets them answer the demand survey. Full-time employees only.'],
   mypageOn: ['マイページを使う', 'Use the new My Page'],
@@ -2265,6 +2268,7 @@ function PeopleAdmin({ cfg, setCfg, roster, setRoster, toast }) {
         address: f.address || '', homeStation: f.homeStation || '',
         workplace: f.workplace || '', workStation: f.workStation || '',
         commute: f.commute || [], mypage: !!f.mypage, egg: !!f.egg,
+        eggFarm: !!f.eggFarm,
       }]
       : roster.map((p) => {
         if (String(p.id) !== String(f._orig)) return p;
@@ -2533,6 +2537,19 @@ function PeopleAdmin({ cfg, setCfg, roster, setRoster, toast }) {
               <span>{t('eggOn')}</span>
             </label>
             <p className="muted sm">{t('eggOnNote')}</p>
+            {/* 丹波側の登録者. Hidden until the portal itself is on, because
+                registering a harvest for a portal you cannot open is not a
+                setting anybody wants by accident. */}
+            {edit.egg && (
+              <>
+                <label className="check">
+                  <input type="checkbox" checked={!!edit.eggFarm}
+                    onChange={(e) => setEdit({ ...edit, eggFarm: e.target.checked })} />
+                  <span>{t('eggFarmOn')}</span>
+                </label>
+                <p className="muted sm">{t('eggFarmNote')}</p>
+              </>
+            )}
             <label className="fld"><span>{t('pedometerNo')}</span>
               <input value={edit.pedometer || ''} onChange={(e) => setEdit({ ...edit, pedometer: e.target.value })} />
             </label>
