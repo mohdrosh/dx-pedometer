@@ -15,7 +15,7 @@
    ========================================================================= */
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { apiRoot } from './storage';
+import { S, apiRoot } from './storage';
 import { NOT_NOW } from './egg.js';
 
 const L = {
@@ -57,6 +57,7 @@ const L = {
   to: ['締切日', 'Closes'],
   save: ['保存', 'Save'],
   saved: ['保存しました', 'Saved'],
+  saveFailed: ['保存できませんでした', 'Could not save'],
   adminNote: ['期間を空にすると受付は閉じます。期間中は回答の追加・変更ができます。',
     'Leaving the dates empty keeps the survey shut. While it is open, people can answer and change their answer.'],
   adminAnon: ['管理者にも個別の回答は表示されません。集計のみ閲覧できます。',
@@ -138,9 +139,15 @@ export default function EggTab({ user, cfg = {}, setCfg, lang, toast }) {
     } catch { toast?.(t('closed')); } finally { setBusy(false); }
   };
 
+  /* Both halves, or neither. setCfg is React state — on its own the dates
+     live in this administrator's tab and nobody else ever sees them, which
+     is exactly how this shipped: 設定 said the survey was open and every
+     participant was still told there was no window. Everywhere else in the
+     app that changes config writes the store and the state together. */
   const saveWindow = async () => {
     const next = { ...cfg, egg: { ...(cfg.egg || {}), from: win.from, to: win.to } };
-    await setCfg?.(next);
+    if (!await S.set('cfg', next)) { toast?.(t('saveFailed')); return; }
+    setCfg?.(next);
     toast?.(t('saved'));
     load();
   };
