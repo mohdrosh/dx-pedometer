@@ -2796,7 +2796,7 @@ function SettingsAdmin({ cfg, setCfg, toast, onDemo, onWipe }) {
     toast(t('saved'));
   };
   return (
-    <>
+    <div className="ad-set">
       <div className="card">
         <strong>{t('rules')}</strong>
         <label className="fld"><span>{t('threshold')}</span>
@@ -2863,7 +2863,7 @@ function SettingsAdmin({ cfg, setCfg, toast, onDemo, onWipe }) {
         </div>
         <p className="muted sm">{t('demoNote')}</p>
       </div>
-    </>
+    </div>
   );
 }
 
@@ -3780,6 +3780,37 @@ a.btn{text-decoration:none;text-align:center;display:inline-block}
   /* 個人情報 and 万歩計の設定 are a list of short answers — 社員番号, 地区,
      性別 — each of which was taking a whole line of a very wide card. Two
      to a row, with anything that is genuinely wide spanning both. */
+  /* 設定 — three screens of one short field per line down a 1480px page.
+     Two to a row, and the things that are genuinely wide — the section
+     headings, the notes under them, the day-of-week rows, the fare table —
+     span both. Same treatment as 個人情報, so the two read alike. */
+  /* The grid belongs inside each card, not around them: 設定 is four cards
+     and everything that matters is a field within one. 会社情報・就業条件・
+     稼働カレンダー are nested one level further again, inside .cosec. */
+  .ad-set>.card,.ad-set .cosec{display:grid;grid-template-columns:1fr 1fr;
+    column-gap:26px;align-items:start}
+  .ad-set>.card>strong,.ad-set>.card>.navrow,.ad-set>.card>.check,
+  .ad-set>.card>p,.ad-set>.card>.cosec,.ad-set>.card>.ft-new,
+  .ad-set .cosec>.sechead,.ad-set .cosec>p{grid-column:1/-1}
+  /* 稼働カレンダー's seven-day rows and the 休業日 list need the full width;
+     they are the last three .fld in the panel. */
+  .ad-set .cosec>.sechead~.fld:nth-last-child(-n+3){grid-column:1/-1}
+  .ad-set .fld{margin-bottom:10px}
+  .ad-set .fld input,.ad-set .fld select{padding:6px 9px;font-size:13.5px}
+  .ad-set .fld select{padding-right:26px;background-position:right 9px center}
+  .ad-set .fld>span{font-size:11.5px;margin-bottom:3px}
+  .ad-set .fld-note,.ad-set .muted.sm{font-size:11.5px}
+  .ad-set .pair input{padding:6px 9px;font-size:13.5px}
+  .ad-set .card{padding:11px 13px}
+  .ad-set .btn{padding:7px 15px;font-size:13.5px}
+  .ad-set .btn.wide,.ad-set .btn.big{width:auto;min-width:200px}
+  /* .navrow stretches its buttons to fill the row, which is right on a
+     phone and turns 設定を保存 into a 1300px slab here. */
+  .ad-set .navrow{justify-content:flex-start;flex-wrap:wrap}
+  .ad-set .navrow>.btn{flex:0 0 auto;min-width:160px}
+  .ad-set .ft-new .btn{min-width:0}
+  .ad-set .check{margin:4px 0}
+
   /* 対象者: the list on the left, whoever is selected on the right. 156
      people and a form of twenty fields do not belong in a dialog — the
      dialog meant scrolling inside a scrolling page to reach 保存. */
