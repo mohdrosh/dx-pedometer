@@ -47,6 +47,10 @@ export const kintaiKey = (pk, id) => `kt:${pk}:${id}`;
    9/25 on the screen as 10/25, which is why this reads it off the day itself. */
 const md = (iso) => { const [, mm, dd] = iso.split('-'); return `${+mm}/${+dd}`; };
 
+/* A row's two time inputs speak 'HH:MM'; the month speaks hours and minutes
+   as separate numbers, because that is what the form's cells are. */
+const hhmmOf = (h, m) => (h == null ? '' : `${pad2(h)}:${pad2(m || 0)}`);
+
 const L = {
   head: ['勤怠', 'Timesheet'],
   today: ['きょう', 'Today'],
@@ -58,6 +62,7 @@ const L = {
   pickDate: ['日付を選ぶ', 'Pick a date'],
   backToday: ['きょうへ', 'Today'],
   todayEdit: ['修正', 'Edit'],
+  openInCard: ['上のカードで開く（備考・勤怠状況②）', 'Open above for note and second status'],
   todayMore: ['始業・終業・勤怠状況を入力', 'Enter times and status'],
   todayLess: ['閉じる', 'Hide'],
   todayStd: ['標準で入力', 'Standard hours'],
@@ -277,7 +282,6 @@ export default function KintaiTab({ user, cfg = {}, y, m, days, holidays, lang, 
   const key = kintaiKey(pk, user.id);
 
   const [entry, setEntry] = useState(null);
-  const [open, setOpen] = useState(null);     // iso of the day being edited
   const [saveState, setSaveState] = useState('');
   const [busy, setBusy] = useState('');
   const [ask, setAsk] = useState(false);
@@ -376,6 +380,19 @@ export default function KintaiTab({ user, cfg = {}, y, m, days, holidays, lang, 
     const nd = { ...(entry?.days || {}) };
     if (empty) delete nd[iso]; else nd[iso] = next;
     persist({ ...entry, days: nd });
+  };
+
+  /* A row's time input hands back 'HH:MM' or ''. Clearing it clears the day
+     rather than parsing '' into zero, which would read as a midnight start —
+     a blank day and a day beginning at 00:00 are not the same claim. */
+  const setTimeOn = (iso, which, v) => {
+    if (!v) {
+      setDay(iso, which === 'in' ? { inH: null, inM: null } : { outH: null, outM: null });
+      return;
+    }
+    const [h, mm] = v.split(':').map(Number);
+    if (!Number.isFinite(h) || !Number.isFinite(mm)) return;
+    setDay(iso, which === 'in' ? { inH: h, inM: mm } : { outH: h, outM: mm });
   };
 
   /* きょう. The pedometer asks for one number for today and gets out of the
@@ -526,11 +543,6 @@ export default function KintaiTab({ user, cfg = {}, y, m, days, holidays, lang, 
 
   if (!entry) return <div className="pad muted">…</div>;
 
-  const openRow = open && month.rows.find((r) => r.iso === open);
-  const openAt = openRow ? month.rows.findIndex((r) => r.iso === open) : -1;
-  const prevIso = openAt > 0 ? month.rows[openAt - 1].iso : null;
-  const nextIso = openAt >= 0 && openAt < month.rows.length - 1 ? month.rows[openAt + 1].iso : null;
-
   return (
     <div className="tabbody kt-page">
       <div className={'banner ' + (locked ? 'ok' : 'warn')}>
@@ -654,37 +666,57 @@ export default function KintaiTab({ user, cfg = {}, y, m, days, holidays, lang, 
           )}
         </div>
 
+        {/* 佐野と本人:「日付を押すたびにポップアップが出るのが煩わしい」.
+            So the row is the editor. 始業 and 終業 are real time inputs you
+            type into, 勤怠状況 is a select, and the figures beside them move
+            as you type — which is what a timesheet is, and no dialog can be
+            in the way of a thing that is already on screen.
+
+            Not a <button> any more: a row that contains inputs cannot be one
+            without swallowing their clicks. The date is the button, and it
+            loads the day into the card above for 備考 and 勤怠状況②. */}
         <div className="kt-list">
           {month.rows.map((r) => {
             const c = r.calc;
             const cls = r.dow === 0 ? 'sun' : r.dow === 6 ? 'sat' : r.holiday ? 'sun' : '';
             const has = r.inH != null || r.status1;
             return (
-              <button
-                type="button" key={r.iso} className={`kt-row ${cls} ${has ? '' : 'empty'}`}
-                onClick={() => setOpen(r.iso)}
+              <div
+                key={r.iso}
+                className={`kt-row ${cls} ${has ? '' : 'empty'}${r.iso === cardIso ? ' on' : ''}`}
               >
-                <span className="kt-d">{r.dom}<em>{DOW_JA[r.dow]}</em></span>
-                <span className="kt-t">
-                  {/* Clocked in but not yet out is an ordinary state now that
-                      出勤 and 退勤 are separate taps, so the row has to read
-                      as half-done rather than as 'undefined'. */}
-                  {r.inH != null
-                    ? (
-                      <>
-                        {pad2(r.inH)}:{pad2(r.inM || 0)}
-                        {' – '}
-                        {r.outH != null
-                          ? `${pad2(r.outH)}:${pad2(r.outM || 0)}`
-                          : <i className="kt-none">--:--</i>}
-                      </>
-                    )
-                    : <i className="kt-none">{r.status1 || t('blank')}</i>}
-                </span>
+                <button
+                  type="button" className="kt-d" onClick={() => setCardIso(r.iso)}
+                  title={t('openInCard')}
+                >
+                  {r.dom}<em>{DOW_JA[r.dow]}</em>
+                </button>
+
+                <input
+                  type="time" className="kt-in" value={hhmmOf(r.inH, r.inM)} disabled={locked}
+                  aria-label={`${r.dom} ${t('start')}`}
+                  onChange={(e) => setTimeOn(r.iso, 'in', e.target.value)}
+                />
+                <input
+                  type="time" className="kt-in" value={hhmmOf(r.outH, r.outM)} disabled={locked}
+                  aria-label={`${r.dom} ${t('end')}`}
+                  onChange={(e) => setTimeOn(r.iso, 'out', e.target.value)}
+                />
+                <select
+                  className="kt-st" value={r.status1 || ''} disabled={locked}
+                  aria-label={`${r.dom} ${t('status')}`}
+                  onChange={(e) => setDay(r.iso, { status1: e.target.value })}
+                >
+                  <option value="">—</option>
+                  {STATUS_1.map((x) => <option key={x}>{x}</option>)}
+                </select>
+
                 <span className="kt-v">{c.inside ? fmtHM(c.inside) : ''}</span>
                 <span className="kt-v ot">{c.show?.overtime ? fmtHM(c.show.overtime) : ''}</span>
-                {c.notice && <span className={`kt-n ${c.notice === '要' ? 'req' : ''}`}>{c.notice}</span>}
-              </button>
+                {c.notice
+                  ? <span className={`kt-n ${c.notice === '要' ? 'req' : ''}`}>{c.notice}</span>
+                  : <span className="kt-n blank" />}
+              </div>
             );
           })}
         </div>
@@ -788,29 +820,6 @@ export default function KintaiTab({ user, cfg = {}, y, m, days, holidays, lang, 
         </div>
       )}
 
-      {openRow && (
-        /* .ovl is the app's fixed backdrop — without it the panel lands at the
-           bottom of a thirty-row page and has to be scrolled to. */
-        <div className="ovl" onClick={() => setOpen(null)}>
-          <div className="sheet" onClick={(e) => e.stopPropagation()}>
-            <div className="sheet-h kt-sheet-h">
-              {/* Step along the month from inside the sheet: filling a week of
-                  exceptions should not mean closing and reopening seven times. */}
-              <button className="kt-step" disabled={!prevIso} onClick={() => setOpen(prevIso)} aria-label="prev">‹</button>
-              <strong>{md(openRow.iso)}（{DOW_JA[openRow.dow]}）</strong>
-              <button className="kt-step" disabled={!nextIso} onClick={() => setOpen(nextIso)} aria-label="next">›</button>
-              <button className="x" onClick={() => setOpen(null)} aria-label="close">✕</button>
-            </div>
-            <div className="sheet-b">
-              <DayFields
-                row={openRow} rules={rules} locked={locked}
-                setDay={setDay} t={t} lang={lang}
-              />
-              <button className="btn primary big" onClick={() => setOpen(null)}>{t('close')}</button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
@@ -874,22 +883,60 @@ export const KINTAI_CSS = `
 .kt-td-h strong{font-size:14px;color:var(--ink)}
 .kt-td-h span{font-size:12px;color:var(--ink-2);text-align:right}
 .kt-td .fld{margin-bottom:10px}
+/* The month, as a sheet you type into. Every row is the same grid so the
+   columns line up down the page and the eye can run down 始業 alone. */
 .kt-list{border-top:1px solid var(--hair)}
-.kt-row{display:flex;align-items:center;gap:9px;width:100%;padding:9px 14px;background:#fff;
-  border:0;border-bottom:1px solid var(--hair);text-align:left;font:inherit}
+.kt-row{display:grid;grid-template-columns:44px 1fr 1fr 1fr 42px 42px 20px;
+  align-items:center;gap:5px;width:100%;padding:3px 10px;background:#fff;
+  border-bottom:1px solid var(--hair);text-align:left;font:inherit}
 .kt-row.sun{background:var(--warn-wash)} .kt-row.sat{background:var(--sat-wash)}
-.kt-row.empty .kt-t{color:var(--faint)}
-.kt-row .kt-d{width:46px;flex:none;font-size:14.5px;font-weight:600;color:var(--ink)}
-.kt-row .kt-d em{font-style:normal;font-size:12px;color:var(--ink-2);margin-left:4px;font-weight:400}
+.kt-row.on{box-shadow:inset 3px 0 0 var(--brand)}
+.kt-row .kt-d{font-size:13.5px;font-weight:600;color:var(--ink);background:none;
+  border:0;padding:3px 0;text-align:left;font-family:inherit}
+.kt-row .kt-d:hover{color:var(--brand)}
+.kt-row .kt-d em{font-style:normal;font-size:11px;color:var(--ink-2);margin-left:3px;font-weight:400}
 .kt-row.sun .kt-d{color:var(--warn)} .kt-row.sat .kt-d{color:var(--sat)}
-.kt-row .kt-t{flex:1;font-size:13.5px;color:var(--ink);font-variant-numeric:tabular-nums}
-.kt-row .kt-t .kt-none{font-style:normal;font-size:12.5px;color:var(--faint)}
-.kt-row .kt-v{width:46px;flex:none;text-align:right;font-size:13px;
+
+/* Inputs that look like text until you touch them: thirty bordered boxes
+   down a page is a wall, and the figures beside them are what matters. */
+.kt-row .kt-in,.kt-row .kt-st{width:100%;min-width:0;font-size:12.5px;
+  font-family:inherit;color:var(--ink);background:transparent;
+  border:1px solid transparent;border-radius:3px;padding:2px 3px}
+.kt-row .kt-in{font-variant-numeric:tabular-nums}
+.kt-row .kt-in:hover,.kt-row .kt-st:hover{border-color:var(--rule);background:#fff}
+.kt-row .kt-in:focus,.kt-row .kt-st:focus{border-color:var(--brand);background:#fff;outline:0}
+.kt-row .kt-in:disabled,.kt-row .kt-st:disabled{color:var(--dim);border-color:transparent}
+.kt-row .kt-in::-webkit-calendar-picker-indicator{opacity:.3;padding:0;margin:0}
+.kt-row .kt-in:hover::-webkit-calendar-picker-indicator{opacity:.7}
+.kt-row.empty .kt-in,.kt-row.empty .kt-st{color:var(--faint)}
+
+.kt-row .kt-v{text-align:right;font-size:12px;
   color:var(--ink-2);font-variant-numeric:tabular-nums}
 .kt-row .kt-v.ot{color:var(--warn);font-weight:600}
-.kt-row .kt-n{flex:none;margin-left:5px;font-size:10.5px;padding:1px 5px;border-radius:3px;
+.kt-row .kt-n{font-size:10px;padding:1px 4px;border-radius:3px;text-align:center;
   background:var(--brand-wash);color:var(--brand);font-weight:600}
 .kt-row .kt-n.req{background:var(--warn-wash);color:var(--warn)}
+.kt-row .kt-n.blank{background:none}
+
+/* On a phone the same six columns are 60px each, which clips a time input
+   to '07:30' with the PM cut off and squeezes 有給休暇 out of its cell. So
+   below the two-column breakpoint the row takes two lines: the day and its
+   figures on top, the times and the status underneath, both at a width you
+   can actually read and tap. */
+@media(max-width:1023px){
+  .kt-row{grid-template-columns:44px 1fr 1fr 44px 44px 20px;
+    grid-template-areas:'d  in  out  v1 v2 n'
+                        'd  st  st   st st st';
+    row-gap:2px;padding:5px 10px}
+  .kt-row .kt-d{grid-area:d;align-self:start;padding-top:5px}
+  .kt-row .kt-in:nth-of-type(1){grid-area:in}
+  .kt-row .kt-in:nth-of-type(2){grid-area:out}
+  .kt-row .kt-st{grid-area:st}
+  .kt-row .kt-v:nth-of-type(1){grid-area:v1}
+  .kt-row .kt-v:nth-of-type(2){grid-area:v2}
+  .kt-row .kt-n{grid-area:n}
+  .kt-row .kt-in,.kt-row .kt-st{border-color:var(--hair);background:#fff;padding:3px 4px}
+}
 
 .kt-two{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .kt-time input[type=time]{width:100%;font-size:19px;font-weight:600;letter-spacing:.02em;
@@ -930,7 +977,7 @@ export const KINTAI_CSS = `
    order and only the grid moves it.
 ----------------------------------------------------------------------- */
 @media(min-width:1024px){
-  .kt-cols{display:grid;grid-template-columns:332px minmax(0,1fr);
+  .kt-cols{display:grid;grid-template-columns:430px minmax(0,1fr);
     align-items:start}
   .kt-aside{grid-column:1;grid-row:1/span 2;position:sticky;top:64px;
     max-height:calc(100vh - 64px);overflow:auto;
@@ -959,7 +1006,23 @@ export const KINTAI_CSS = `
   .kt-today-b{grid-column:3}
   .kt-today-b .btn.wide{width:auto;min-width:200px}
   .kt-today-pick input[type=date]{flex:0 1 210px}
-  .kt-today-more{padding:7px 0;margin-top:2px}
+  .kt-today-more{padding:5px 0;margin-top:0;font-size:12px}
+
+  /* 「でかいフォントとでかいボタン」. The card is a status line and one
+     action, not a poster: the clock reads at 18px instead of 27, the
+     labels at 11, and 出勤 is a button rather than a banner. */
+  .kt-today-t b{font-size:18px}
+  .kt-today-t i{font-size:14px}
+  .kt-today-b .btn.wide{width:auto;min-width:132px;padding:8px 18px;font-size:14px}
+  .kt-today-f .fld>span,.kt-today-f label>span{font-size:11px}
+  .kt-today-f .navrow{margin-top:2px}
+  .kt-today-f .navrow .btn{padding:6px 13px;font-size:13px}
+  .kt-today-f input,.kt-today-f select{padding:6px 9px;font-size:13.5px}
+  .kt-today-f .kt-time input[type=time]{font-size:15px;padding:6px 8px}
+  .kt-day-sum>div{padding:5px 6px}
+  .kt-day-sum span{font-size:10px}
+  .kt-day-sum b{font-size:13px}
+  .card.pad-less>.btn{padding:7px 14px;font-size:13.5px}
 }
 
 /* 始業・終業・勤怠状況・勤怠状況② on one line — the whole day in a single

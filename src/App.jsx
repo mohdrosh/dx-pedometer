@@ -1018,8 +1018,6 @@ function StepsTab({ user, cfg, holidays, y, m, setPeriod, toast }) {
   const pk = periodKey(y, m);
   const [entry, setEntry] = useState(null);
   const [view, setView] = useState('cal');
-  const [editIso, setEditIso] = useState(null);
-  const [draft, setDraft] = useState('');
   const [askSubmit, setAskSubmit] = useState(false);
   const [hit, setHit] = useState(false);
   /* Null until the saved record has loaded, so a month that was already
@@ -1142,23 +1140,6 @@ function StepsTab({ user, cfg, holidays, y, m, setPeriod, toast }) {
      blank. ISO dates compare correctly as plain strings. */
   const todayIso = isoOf(new Date());
   const isFuture = (iso) => iso > todayIso;
-
-  const openDay = (iso) => {
-    if (locked || isFuture(iso)) return;
-    setEditIso(iso); setDraft(steps[iso] != null ? String(steps[iso]) : '');
-  };
-  /* 保存 means saved. Nothing about this one is worth batching. */
-  const commit = async () => {
-    if (!await saveDay(editIso, draft === '' ? '' : Number(draft), true)) return;
-    setEditIso(null);
-  };
-  const step = async (dir) => {
-    if (!await saveDay(editIso, draft === '' ? '' : Number(draft), true)) return;
-    const i = days.findIndex((d) => d.iso === editIso) + dir;
-    if (i < 0 || i >= days.length) { setEditIso(null); return; }
-    const nx = days[i].iso;
-    setEditIso(nx); setDraft(steps[nx] != null ? String(steps[nx]) : '');
-  };
 
   const doSubmit = async () => {
     const base = latest.current || entry;
@@ -1313,16 +1294,26 @@ function StepsTab({ user, cfg, holidays, y, m, setPeriod, toast }) {
             const v = steps[d.iso];
             const has = v != null && v !== '';
             return (
-              <button
+              /* The number goes straight in the square. A dialog for one
+                 number was a dialog too many — the リスト view has always
+                 typed inline, and there was never a reason the calendar
+                 could not. */
+              <div
                 key={d.iso}
-                type="button"
-                disabled={isFuture(d.iso)}
                 className={`cell ${dayClass(d)} ${has ? (Number(v) >= cfg.threshold ? 'go' : 'short') : 'blank'} ${locked ? 'lock' : ''} ${isFuture(d.iso) ? 'ahead' : ''}`}
-                onClick={() => openDay(d.iso)}
               >
                 <span className="dnum">{d.dom}</span>
-                <span className="dval">{has ? nf(v) : '–'}</span>
-              </button>
+                <input
+                  className="dval" inputMode="numeric" placeholder="–"
+                  disabled={locked || isFuture(d.iso)}
+                  value={v == null ? '' : v}
+                  aria-label={`${d.mon}/${d.dom}`}
+                  onChange={(e) => {
+                    const raw = e.target.value.replace(/[^\d]/g, '');
+                    saveDay(d.iso, raw === '' ? '' : Number(raw));
+                  }}
+                />
+              </div>
             );
           })}
         </div>
@@ -1370,22 +1361,6 @@ function StepsTab({ user, cfg, holidays, y, m, setPeriod, toast }) {
           </button>
         </div>
       )}
-
-      <Modal open={!!editIso} onClose={() => setEditIso(null)} title={editIso ? editIso.replace(/^\d+-/, '').replace('-', '/') : ''}>
-        <div className="numpad">
-          <input
-            autoFocus inputMode="numeric" className="bignum" value={draft}
-            onChange={(e) => setDraft(e.target.value.replace(/[^\d]/g, ''))}
-            onKeyDown={(e) => e.key === 'Enter' && commit()}
-          />
-          <div className="navrow">
-            <button className="btn" onClick={() => step(-1)}>‹ {t('prevDay')}</button>
-            <button className="btn ghost" onClick={() => { setDraft(''); }}>{t('clear')}</button>
-            <button className="btn" onClick={() => step(1)}>{t('nextDay')} ›</button>
-          </div>
-          <button className="btn primary big" onClick={commit}>{t('save')}</button>
-        </div>
-      </Modal>
 
       <Modal open={hit} onClose={() => setHit(false)} title={t('bonusWon')}>
         {hit && (
@@ -1578,7 +1553,9 @@ function ProfileTab({ user, cfg, roster, setRoster, toast, y, m, onUpdated, show
       )}
 
       <div className="sechead"><span>{t(all ? 'profileHead' : show === 'personal' ? 'personalInfo' : 'pedometerSettings')}</span></div>
-      <div className="card">
+      {/* pf-card: on a wide screen these pair up two to a row instead of
+          running one per line down a 1000px column. */}
+      <div className="card pf-card">
         {mine && <div className="kv"><span>{t('employeeId')}</span><strong>{user.id}</strong></div>}
         {mine && <div className="kv"><span>{t('name')}</span><strong>{user.name}</strong></div>}
         {mine && !all && (
@@ -3313,15 +3290,15 @@ function Styles() {
 
 .row2,.row3,.row4{display:flex;border-bottom:1px solid var(--hair)}
 .row4{flex-wrap:wrap}
-.stat{flex:1 1 0;min-width:0;padding:11px 13px;border-left:1px solid var(--hair)}
+.stat{flex:1 1 0;min-width:0;padding:7px 13px;border-left:1px solid var(--hair)}
 .row4 .stat{flex:1 1 50%;border-top:1px solid var(--hair)}
 @media(min-width:620px){.row4 .stat{flex:1 1 0;border-top:0}}
 .stat:first-child{border-left:0}
 .stat.mark{background:var(--go);color:#fff;border-left-color:var(--go)}
-.stat-l{font-size:12px;color:var(--ink-2);font-weight:500;white-space:nowrap;
+.stat-l{font-size:11.5px;color:var(--ink-2);font-weight:500;white-space:nowrap;
   overflow:hidden;text-overflow:ellipsis}
 .stat.mark .stat-l{color:rgba(255,255,255,.78)}
-.stat-v{font-size:24px;font-weight:600;line-height:1.4;letter-spacing:-.015em}
+.stat-v{font-size:19px;font-weight:600;line-height:1.3;letter-spacing:-.015em}
 .stat-v em{font-style:normal;font-size:12.5px;font-weight:400;color:var(--ink-2);margin-left:5px;letter-spacing:0}
 .stat.mark .stat-v em{color:rgba(255,255,255,.78)}
 
@@ -3431,13 +3408,23 @@ a.btn{text-decoration:none;text-align:center;display:inline-block}
 .cal-h{text-align:center;font-size:12px;color:var(--ink-2);font-weight:600;padding:7px 0;
   border-right:1px solid var(--rule);border-bottom:1px solid var(--rule-2);background:var(--wash)}
 .cal-h.sun{color:var(--warn)} .cal-h.sat{color:var(--sat)}
-.cell{aspect-ratio:1/1;border:0;border-right:1px solid var(--rule);
+/* 「カレンダーのでかい四角はなぜ？」 — because the cell was a 1:1 square,
+   which on a wide screen means seven columns of 140px and a month that
+   needs its own screen. A day holds a date and a five-digit number; this
+   is the height that holds those. */
+.cell{border:0;border-right:1px solid var(--rule);
   border-bottom:1px solid var(--rule);background:#fff;border-radius:0;
-  display:flex;flex-direction:column;justify-content:space-between;
-  padding:4px 5px 7px;text-align:left;position:relative}
+  display:flex;align-items:center;justify-content:space-between;gap:4px;
+  padding:3px 6px;text-align:left;position:relative;min-height:38px}
 .cell.empty{background:var(--wash)}
-.cell .dnum{font-size:12px;color:var(--ink-2)}
-.cell .dval{font-size:14px;font-weight:600;text-align:right;letter-spacing:-.03em}
+.cell .dnum{font-size:11.5px;color:var(--ink-2);flex:none}
+.cell .dval{font-size:13.5px;font-weight:600;text-align:right;letter-spacing:-.03em;
+  min-width:0;width:100%;border:1px solid transparent;border-radius:3px;
+  background:transparent;padding:2px 3px;font-family:inherit;
+  font-variant-numeric:tabular-nums}
+.cell .dval:hover:not(:disabled){border-color:var(--rule);background:#fff}
+.cell .dval:focus{border-color:var(--brand);background:#fff;outline:0}
+.cell .dval::placeholder{color:var(--faint)}
 .cell.sun{background:var(--warn-wash)}
 .cell.sun .dnum{color:var(--warn)}
 .cell.sat{background:var(--sat-wash)}
@@ -3624,11 +3611,11 @@ a.btn{text-decoration:none;text-align:center;display:inline-block}
 
   /* The shell becomes two columns: everything, and the rail. A fixed header
      height is what lets the rail stick to exactly the right offset. */
-  .app{display:grid;grid-template-columns:minmax(0,1fr) 196px;
+  .app{display:grid;grid-template-columns:164px minmax(0,1fr);
     grid-template-rows:auto 1fr;align-content:start}
   .hdr{grid-column:1/-1;height:64px;padding-top:0;padding-bottom:0}
 
-  .main{grid-column:1;grid-row:2;max-width:none;margin:0;
+  .main{grid-column:2;grid-row:2;max-width:none;margin:0;
     padding-bottom:28px;border-left:0;border-right:0}
 
   /* Content still needs a readable measure — a 1400px line of Japanese is
@@ -3641,24 +3628,34 @@ a.btn{text-decoration:none;text-align:center;display:inline-block}
   /* 「タブ切り替えの下のやつ、押しにくい」 — the row along the bottom
      becomes a rail down the side, where the pointer already is and where a
      label has room to be a label rather than a cramped word. */
-  .nav{position:sticky;top:64px;grid-column:2;grid-row:2;
+  .nav{position:sticky;top:64px;grid-column:1;grid-row:2;
     align-self:start;left:auto;right:auto;bottom:auto;
     flex-direction:column;z-index:10;
-    border-top:0;border-left:1px solid var(--rule-2);
+    border-top:0;border-right:1px solid var(--rule-2);
     max-height:calc(100vh - 64px);overflow:auto}
-  .nav button{flex:none;text-align:left;padding:13px 17px;font-size:14px;
+  .nav button{flex:none;text-align:left;padding:9px 14px;font-size:13.5px;
     border-right:0;border-bottom:1px solid var(--hair)}
   .nav button:last-child{border-bottom:0}
   .nav button.on{box-shadow:inset 3px 0 0 var(--brand)}
-  .badge{position:static;margin-left:7px}
+  .badge{position:static;margin-left:6px}
 
   /* These three were all positioned to clear the bottom bar, which on a
      wide screen is not at the bottom any more — it is the rail. Left as
      they were, the submit bar floated 62px up the page and sat across the
      万歩計 calendar. */
-  .fab{bottom:20px;right:214px}
+  .fab{bottom:20px;right:18px}
   .toast{bottom:24px}
   .submitbar{bottom:0}
+
+  /* 個人情報 and 万歩計の設定 are a list of short answers — 社員番号, 地区,
+     性別 — each of which was taking a whole line of a very wide card. Two
+     to a row, with anything that is genuinely wide spanning both. */
+  .pf-card{display:grid;grid-template-columns:1fr 1fr;column-gap:26px;align-items:start}
+  .pf-card>.fld{margin-bottom:9px}
+  .pf-card>.kv{border-bottom:1px solid var(--hair)}
+  .pf-card>.check,.pf-card>.btn,.pf-card>p,.pf-card>.cm-wrap,
+  .pf-card>.consent,.pf-card>.fld.wide{grid-column:1/-1}
+  .pf-card>.btn{justify-self:start;margin-top:6px}
 
   /* A field is as wide as what goes in it. 自宅最寄り駅 in a box a
      thousand pixels across is the same wasted space as the empty margins,
@@ -3678,7 +3675,7 @@ a.btn{text-decoration:none;text-align:center;display:inline-block}
      phone, where it should; here it means comfortably large. */
   .btn{padding:9px 16px}
   .btn.wide{width:auto;min-width:168px}
-  .btn.big{padding:12px 22px}
+  .btn.big{width:auto;min-width:240px;padding:11px 22px;font-size:14.5px}
 
   /* Stacked full-width buttons become a row. The note that follows them
      keeps its own line. */
