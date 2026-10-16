@@ -3185,6 +3185,9 @@ function Styles() {
   --go:#2E7D6B; --go-wash:#E9F4F1;
   --warn:#B15A44; --warn-wash:#FBF1EE;
   --sat:#41678F; --sat-wash:#EDF2F8;
+  /* A control's edge has to clear 3:1 against what is behind it, and the
+     old #C1CDCA managed 1.63. */
+  --btn-line:#7C8A86; --btn-face:#F1F5F4;
 }
 
 *{box-sizing:border-box}
@@ -3586,19 +3589,39 @@ a.btn{text-decoration:none;text-align:center;display:inline-block}
 .note{font-size:13px;color:var(--ink-2);margin-bottom:10px;line-height:1.7}
 
 /* ---- controls ---------------------------------------------------------- */
-.btn{padding:12px 17px;border:1px solid var(--rule-2);background:#fff;color:var(--ink);
-  font-weight:600;font-size:14.5px;border-radius:4px}
-.btn:hover{background:var(--wash)}
-.btn.primary{background:var(--brand);color:#fff;border-color:var(--brand)}
+/* 「ボタンに見えない、ただの文字みたい」. It was a white face on a white
+   card behind a #C1CDCA line — which measures 1.63:1 against the card, so
+   the only thing marking the edge was a border nobody could see. WCAG
+   wants 3:1 for the boundary of a control and that is the test used here:
+   --btn-line is #7C8A86, 3.6:1, and the face is a shade off the card so
+   the button is a surface rather than an outline. A hairline of lift
+   underneath, pressed in on :active, does the rest. */
+.btn{padding:12px 17px;border:1px solid var(--btn-line);background:var(--btn-face);
+  color:var(--ink);font-weight:600;font-size:14.5px;border-radius:5px;
+  box-shadow:0 1px 1.5px rgba(35,48,56,.07)}
+.btn:hover{background:#fff;border-color:var(--ink-2);
+  box-shadow:0 1px 3px rgba(35,48,56,.12)}
+.btn:active{box-shadow:inset 0 1px 2px rgba(35,48,56,.13);transform:translateY(.5px)}
+.btn:disabled{box-shadow:none;transform:none}
+.btn.primary{background:var(--brand);color:#fff;border-color:var(--brand-dk);
+  box-shadow:0 1px 2px rgba(12,104,179,.25)}
 .btn.primary:hover{background:var(--brand-dk);border-color:var(--brand-dk)}
 .btn.primary:disabled{background:var(--faint);border-color:var(--faint);cursor:not-allowed;filter:none}
-.btn.ghost{border-color:var(--rule)}
+/* ghost is the quieter of two buttons side by side — 消去 next to 標準,
+   キャンセル next to 保存. It used to say so with a paler border, which
+   put it back under 3:1 and made it the thing that did not look like a
+   button at all. It says so with a white face instead; the edge is the
+   same edge. */
+.btn.ghost{background:#fff;border-color:var(--btn-line)}
+.btn.ghost:hover{background:var(--wash)}
 .btn.danger{color:var(--warn);border-color:var(--warn);opacity:.85}
 .btn.danger:hover{background:var(--warn-wash);opacity:1}
 .btn.big{width:100%;padding:16px;font-size:16px}
-.mini{padding:6px 11px;font-size:13px;border:1px solid var(--rule);background:#fff;
-  color:var(--ink-2);border-radius:4px}
-.mini:hover{background:var(--wash)}
+.mini{padding:6px 11px;font-size:13px;border:1px solid var(--btn-line);
+  background:var(--btn-face);color:var(--ink);border-radius:4px;
+  box-shadow:0 1px 1px rgba(35,48,56,.06)}
+.mini:hover{background:#fff;border-color:var(--ink-2)}
+.mini:active{box-shadow:inset 0 1px 2px rgba(35,48,56,.12)}
 .mini.danger{color:var(--warn);border-color:var(--rule)}
 
 
