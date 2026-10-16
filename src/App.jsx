@@ -1621,13 +1621,23 @@ function ProfileTab({ user, cfg, roster, setRoster, toast, y, m, onUpdated, show
                 an input is a replaced element and grows no pseudo-elements
                 — so on a Mac the bigger area was simply not there.
 
-                This is the pattern that holds everywhere: the label is the
-                only thing a pointer can touch, because the box itself is
-                pointer-events:none. One click, one toggle, no cancelling,
-                nothing that depends on how a browser feels about input
-                pseudo-elements. The keyboard is unaffected — the box still
-                takes focus and the space bar still works. */}
-            <label className="tickhit" htmlFor="email2On">
+                The third attempt was this file's own: a label that both
+                wrapped the box and carried htmlFor pointing at it. That is
+                the one construction the two cannot both be — a label's
+                activation fires a click at its control, and when the
+                control is also a descendant, WebKit fires it again on the
+                way back up. Two toggles, nothing changes. Chromium special
+                cases it, which is why every test here passed while the Mac
+                it was reported from did not.
+
+                So: no htmlFor, because wrapping already associates them,
+                and no pointer-events either. A label around its own box is
+                the plainest pattern on the web and the spec makes it one
+                click — activation is skipped when the event came from the
+                control itself. Nothing here now depends on a browser being
+                generous. Space bar still works, because the box is a real
+                focusable checkbox. */}
+            <label className="tickhit">
               <input
                 id="email2On"
                 type="checkbox" checked={!!f.email2On}
@@ -3383,12 +3393,11 @@ function Styles() {
 
 /* an address field with its own tick beside it, not under it */
 .withchk{display:flex;gap:2px;align-items:center}
-/* 21px drawn, 44px to hit. The label is the target; the box inside it never
-   sees a pointer event, so a click can only ever be counted once. */
+/* 21px drawn, 44px to hit — a label wrapped round its own checkbox, which
+   is the plainest thing there is and counts one click as one toggle. */
 .tickhit{flex:0 0 auto;display:flex;align-items:center;justify-content:center;
   width:44px;height:44px;margin:0;cursor:pointer;border-radius:9px}
 .tickhit:hover{background:var(--brand-wash)}
-.tickhit input[type=checkbox]{pointer-events:none}
 .withchk input[type=checkbox]{width:21px;height:21px;margin:0;flex:0 0 auto;
   accent-color:var(--brand);cursor:pointer}
 .withchk input[type=checkbox]:disabled{opacity:.4}
