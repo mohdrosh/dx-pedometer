@@ -109,8 +109,15 @@ export function cleanVote(v, offices = EGG_OFFICES) {
   const rule = String(v?.rule ?? '').trim();
   const okOffice = office === NOT_NOW || offices.includes(office);
   const okRule = EGG_RULE_IDS.includes(rule);
-  return okOffice && okRule ? { office, rule } : null;
+  if (!okOffice || !okRule) return null;
+  /* 佐野:「投票するときに、意見があれば一緒に書いてもらってください」. Optional,
+     capped, and newlines collapsed so one person cannot push the rest of the
+     list off the screen. Empty means no comment rather than an empty one. */
+  const comment = String(v?.comment ?? '').replace(/\s+/g, ' ').trim().slice(0, COMMENT_MAX);
+  return { office, rule, ...(comment ? { comment } : {}) };
 }
+
+export const COMMENT_MAX = 200;
 
 /* ------------------------------- the window ------------------------------ */
 
@@ -167,17 +174,23 @@ export function tally(rows, offices = EGG_OFFICES) {
   const byRule = new Map(EGG_RULE_IDS.map((r) => [r, 0]));
 
   let answers = 0;
+  const comments = [];
   for (const row of rows || []) {
     const v = cleanVote(row, offices);
     if (!v) continue;                       /* a row written before an office was renamed */
     answers += 1;
     byOffice.set(v.office, (byOffice.get(v.office) || 0) + 1);
     byRule.set(v.rule, (byRule.get(v.rule) || 0) + 1);
+    /* The comment travels with no office and no rule beside it. Published
+       together they would narrow a comment down to whoever picked that
+       pair, which on a list of eight offices is often one person. */
+    if (v.comment) comments.push(v.comment);
   }
 
   const offs = [...byOffice].map(([office, count]) => ({ office, count }));
   return {
     answers,
+    comments,
     /* 「今は不要」 is counted but is not a destination, so it is kept out of
        the ranking and handed back on its own. Sorting it among the offices
        would put it top in a company that mostly does not want eggs, which

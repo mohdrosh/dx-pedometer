@@ -26,6 +26,12 @@ const L = {
   q1: ['問1　どこで受け取りたいですか', 'Q1  Where would you like to collect?'],
   q2: ['問2　卵が足りないときの配り方は', 'Q2  How should eggs be shared when there are not enough?'],
   notNow: ['今は不要', 'Not just now'],
+  comment: ['ご意見（任意）', 'Anything you would like to add (optional)'],
+  commentPh: ['例：2パック欲しい日があります／受取時間を遅めにしてほしい',
+    'e.g. some weeks I would want two packs / a later pickup time would help'],
+  commentNote: ['こちらも匿名です。名前が分かる内容は書かないでください。',
+    'Also anonymous. Please do not write anything that identifies you.'],
+  commentsHead: ['みんなのご意見', 'What people added'],
   send: ['回答する', 'Send'],
   change: ['回答を変更する', 'Change my answer'],
   sending: ['送信中…', 'Sending…'],
@@ -105,6 +111,7 @@ export default function EggTab({ user, cfg = {}, setCfg, lang, toast }) {
   const [d, setD] = useState(null);
   const [office, setOffice] = useState('');
   const [rule, setRule] = useState('');
+  const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState(false);
   const [win, setWin] = useState({ from: '', to: '' });
@@ -115,7 +122,7 @@ export default function EggTab({ user, cfg = {}, setCfg, lang, toast }) {
       if (!res.ok) return;
       const j = await res.json();
       setD(j);
-      if (j.mine) { setOffice(j.mine.office); setRule(j.mine.rule); }
+      if (j.mine) { setOffice(j.mine.office); setRule(j.mine.rule); setNote(j.mine.comment || ''); }
       setWin({ from: j.window?.from || '', to: j.window?.to || '' });
     } catch { /* a failed read leaves the screen as it was */ }
   }, []);
@@ -129,7 +136,7 @@ export default function EggTab({ user, cfg = {}, setCfg, lang, toast }) {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'same-origin',
-        body: JSON.stringify({ office, rule }),
+        body: JSON.stringify({ office, rule, comment: note }),
       });
       if (!res.ok) { toast?.(t('closed')); return; }
       const j = await res.json();
@@ -245,6 +252,18 @@ export default function EggTab({ user, cfg = {}, setCfg, lang, toast }) {
                   ))}
                 </div>
 
+                {/* 佐野:「投票するときに、意見があれば一緒に書いてもらって
+                    ください」. Optional, and published without the office or
+                    the rule beside it — the three together would often
+                    narrow a comment down to one person. */}
+                <label className="fld eg-note"><span>{t('comment')}</span>
+                  <textarea
+                    rows={2} maxLength={200} value={note} placeholder={t('commentPh')}
+                    onChange={(e) => setNote(e.target.value)}
+                  />
+                </label>
+                <p className="muted sm eg-note-why">{t('commentNote')}</p>
+
                 <button
                   className="btn primary big" disabled={!office || !rule || busy}
                   onClick={send}
@@ -267,6 +286,7 @@ export default function EggTab({ user, cfg = {}, setCfg, lang, toast }) {
                 {d.open && (
                   <button className="btn" onClick={() => setEditing(true)}>{t('change')}</button>
                 )}
+                {d.mine.comment && <p className="eg-mine-note">{d.mine.comment}</p>}
               </div>
               {/* Once answered the left of the screen had nothing in it but
                   a one-line card, which reads as a page that failed to load
@@ -334,6 +354,15 @@ export default function EggTab({ user, cfg = {}, setCfg, lang, toast }) {
                       <b>{(d.rules.find((r) => r.id === d.results.topRule) || {})[lang === 'ja' ? 'ja' : 'en']}</b>
                     </p>
                   )}
+
+                  {!!d.results.comments?.length && (
+                    <>
+                      <h3 className="eg-ch">{t('commentsHead')}</h3>
+                      <ul className="eg-notes">
+                        {d.results.comments.map((c, i) => <li key={i}>{c}</li>)}
+                      </ul>
+                    </>
+                  )}
                 </>
               )}
           </div>
@@ -380,6 +409,17 @@ export const EGG_CSS = `
 .eg-mine-v i{font-style:normal;color:var(--faint)}
 .pill.ok{border:1px solid var(--go);color:var(--go);background:var(--go-wash);
   font-size:11px;font-weight:600;padding:2px 8px;border-radius:999px}
+
+.eg-note textarea{width:100%;padding:9px 11px;border:1px solid var(--rule);
+  background:var(--field);border-radius:4px;font:inherit;font-size:13.5px;
+  line-height:1.6;resize:vertical;outline:none}
+.eg-note textarea:focus{border-color:var(--brand);background:#fff}
+.eg-note-why{margin:-6px 0 14px}
+.eg-mine-note{flex:1 1 100%;margin:6px 0 0;font-size:13px;color:var(--ink-2);
+  padding-left:11px;border-left:3px solid var(--hair)}
+.eg-notes{list-style:none;margin:0 0 14px;padding:0;display:grid;gap:7px}
+.eg-notes li{font-size:12.5px;line-height:1.65;color:var(--ink);
+  background:var(--wash);border-left:3px solid var(--rule-2);padding:7px 11px}
 
 .eg-thanks{display:flex;gap:15px;align-items:center}
 .eg-thanks img{width:92px;height:92px;flex:none}

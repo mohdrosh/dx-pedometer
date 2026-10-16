@@ -110,10 +110,54 @@ is('rules are counted and keep their order',
 
 is('the rule with the most votes wins', t.topRule, 'lottery');
 
+/* ------------------------------ comments -------------------------------- */
+/* 佐野:「投票するときに、意見があれば一緒に書いてもらってください」 */
+
+is('a comment rides along with the answer',
+  cleanVote({ office: '大阪', rule: 'fcfs', comment: '2パック欲しい日があります' }),
+  { office: '大阪', rule: 'fcfs', comment: '2パック欲しい日があります' });
+
+is('no comment means no comment, not an empty one',
+  cleanVote({ office: '大阪', rule: 'fcfs' }), { office: '大阪', rule: 'fcfs' });
+is('whitespace alone is no comment',
+  cleanVote({ office: '大阪', rule: 'fcfs', comment: '   \n  ' }), { office: '大阪', rule: 'fcfs' });
+
+is('newlines are collapsed so one comment cannot be a wall',
+  cleanVote({ office: '大阪', rule: 'fcfs', comment: 'あ\n\nい   う' }).comment, 'あ い う');
+
+is('a very long comment is cut rather than refused',
+  cleanVote({ office: '大阪', rule: 'fcfs', comment: 'あ'.repeat(500) }).comment.length, 200);
+
+is('a comment cannot rescue an invalid answer',
+  cleanVote({ office: '札幌', rule: 'fcfs', comment: 'お願いします' }), null);
+
+const withNotes = tally([
+  { employeeId: 'a', office: '大阪', rule: 'fcfs', comment: '2パック欲しい' },
+  { employeeId: 'b', office: '姫路', rule: 'lottery' },
+  { employeeId: 'c', office: '本社', rule: 'fcfs', comment: '受取時間を遅めに' },
+]);
+is('comments are collected', withNotes.comments, ['2パック欲しい', '受取時間を遅めに']);
+is('and answers without one are not counted as blank comments',
+  withNotes.comments.length, 2);
+
+/* The comment must not travel beside the office and the rule that were
+   chosen with it: on eight offices that trio is often a single person. */
+is('a comment carries no office or rule with it',
+  withNotes.comments.every((c) => typeof c === 'string'), true);
+
 /* ------------------------- anonymity, as a test ------------------------- */
 
 /* The rows going in carry an employee id. If one ever comes out the other
    side, this fails — which is the point of writing it down. */
+/* The system attaches nothing to a comment. What somebody chooses to type
+   into one is their own business — the screen asks them not to identify
+   themselves, and no amount of code can stop them if they insist. */
+const rowsWithNotes = rows.map((r, i) => ({ ...r, comment: `ご意見${i + 1}` }));
+const printedNotes = JSON.stringify(tally(rowsWithNotes));
+is('comments come through', tally(rowsWithNotes).comments.length, 5);
+is('and carry no employee id with them',
+  rows.some((r) => printedNotes.includes(r.employeeId)), false);
+
 const printed = JSON.stringify(tally(rows));
 is('no employee id survives the count',
   rows.some((r) => printed.includes(r.employeeId)), false);
