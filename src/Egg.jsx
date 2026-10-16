@@ -337,7 +337,6 @@ export default function EggTab({ user, cfg = {}, setCfg, lang, toast }) {
                 </>
               )}
           </div>
-          <div className="eg-basket"><img src={img('basket')} alt="" /></div>
         </div>
       </div>
     </div>
@@ -409,9 +408,6 @@ export const EGG_CSS = `
 .eg-bn{font-size:13px;font-variant-numeric:tabular-nums;color:var(--ink)}
 .eg-nn{font-size:12.5px;color:var(--ink-2);margin:0 0 14px}
 .eg-nn b{color:var(--ink);margin-left:4px}
-
-.eg-basket{text-align:center;padding:14px 0 4px}
-.eg-basket img{width:92px;height:92px;opacity:.9}
 
 .eg-admin .fld{margin-bottom:10px}
 
