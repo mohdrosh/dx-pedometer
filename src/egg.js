@@ -92,6 +92,39 @@ export const EGG_RULES = [
 
 export const EGG_RULE_IDS = EGG_RULES.map((r) => r.id);
 
+/* 問3 サイト名の投票. 佐野:「『タマゴ配布』は少し地味なので、社員に決めて
+   もらいましょう。いちばん票の多い名前をサイト名にします」 — and until the
+   vote closes the site stays タマゴ配布, so the name only changes once,
+   when it has been decided.
+
+   Optional in the data, because answers given before this question
+   existed are still perfectly good answers; the form asks for it. */
+export const EGG_NAMES = [
+  {
+    id: 'moratama',
+    ja: 'モラたま',
+    en: 'Moratama',
+    noteJa: 'モラブ＋たまご。短くて呼びやすい',
+    noteEn: '"Morabu" + "tamago". Short and easy to say',
+  },
+  {
+    id: 'moraeggbin',
+    ja: 'モラエッグ便',
+    en: 'Moraegg Bin',
+    noteJa: 'キャラクターの名前で、毎週届く「便」',
+    noteEn: "The character's name, plus 便 — the weekly delivery",
+  },
+  {
+    id: 'tambatayori',
+    ja: '丹波たまご便り',
+    en: 'Tamba Tamago Tayori',
+    noteJa: '卵のお届けと、料理写真の「便り」',
+    noteEn: '便り is both a delivery and a letter — the eggs and the dish photos',
+  },
+];
+
+export const EGG_NAME_IDS = EGG_NAMES.map((n) => n.id);
+
 /* ------------------------------- the answer ------------------------------ */
 
 /**
@@ -110,11 +143,13 @@ export function cleanVote(v, offices = EGG_OFFICES) {
   const okOffice = office === NOT_NOW || offices.includes(office);
   const okRule = EGG_RULE_IDS.includes(rule);
   if (!okOffice || !okRule) return null;
+  const name = String(v?.name ?? '').trim();
+  const okName = EGG_NAME_IDS.includes(name);
   /* 佐野:「投票するときに、意見があれば一緒に書いてもらってください」. Optional,
      capped, and newlines collapsed so one person cannot push the rest of the
      list off the screen. Empty means no comment rather than an empty one. */
   const comment = String(v?.comment ?? '').replace(/\s+/g, ' ').trim().slice(0, COMMENT_MAX);
-  return { office, rule, ...(comment ? { comment } : {}) };
+  return { office, rule, ...(okName ? { name } : {}), ...(comment ? { comment } : {}) };
 }
 
 export const COMMENT_MAX = 200;
@@ -172,6 +207,7 @@ export function eggOffices(cfg) {
 export function tally(rows, offices = EGG_OFFICES) {
   const byOffice = new Map([...offices, NOT_NOW].map((o) => [o, 0]));
   const byRule = new Map(EGG_RULE_IDS.map((r) => [r, 0]));
+  const byName = new Map(EGG_NAME_IDS.map((n) => [n, 0]));
 
   let answers = 0;
   const comments = [];
@@ -181,6 +217,7 @@ export function tally(rows, offices = EGG_OFFICES) {
     answers += 1;
     byOffice.set(v.office, (byOffice.get(v.office) || 0) + 1);
     byRule.set(v.rule, (byRule.get(v.rule) || 0) + 1);
+    if (v.name) byName.set(v.name, (byName.get(v.name) || 0) + 1);
     /* The comment travels with no office and no rule beside it. Published
        together they would narrow a comment down to whoever picked that
        pair, which on a list of eight offices is often one person. */
@@ -200,6 +237,14 @@ export function tally(rows, offices = EGG_OFFICES) {
       .sort((a, b) => b.count - a.count || offices.indexOf(a.office) - offices.indexOf(b.office)),
     notNow: offs.find((o) => o.office === NOT_NOW)?.count || 0,
     rules: EGG_RULES.map((r) => ({ ...r, count: byRule.get(r.id) || 0 })),
+    names: EGG_NAMES.map((n) => ({ ...n, count: byName.get(n.id) || 0 })),
+    /* The one that becomes the site's name. A tie decides nothing, the
+       same as the allocation rule — somebody has to pick. */
+    topName: (() => {
+      const best = Math.max(0, ...EGG_NAME_IDS.map((n) => byName.get(n) || 0));
+      const won = EGG_NAME_IDS.filter((n) => (byName.get(n) || 0) === best);
+      return best > 0 && won.length === 1 ? won[0] : null;
+    })(),
     /* 5.3:「最も票の多い方式を採用する」. A tie has no winner until somebody
        chooses one, so this says so rather than picking the first. */
     topRule: (() => {

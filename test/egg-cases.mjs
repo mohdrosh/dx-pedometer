@@ -4,7 +4,7 @@
    the result. */
 
 import {
-  EGG_OFFICES, EGG_RULES, NOT_NOW,
+  EGG_OFFICES, EGG_RULES, EGG_NAMES, NOT_NOW,
   cleanVote, eggWindow, eggOpen, eggOffices, tally,
 } from '../src/egg.js';
 
@@ -109,6 +109,42 @@ is('rules are counted and keep their order',
   ['fcfs:1', 'onEach:1', 'lottery:3', 'missedFirst:0']);
 
 is('the rule with the most votes wins', t.topRule, 'lottery');
+
+/* --------------------------- 問3 サイト名 -------------------------------- */
+/* 佐野:「いちばん票の多い名前をサイト名にします」 */
+
+is('a name rides along with the answer',
+  cleanVote({ office: '大阪', rule: 'fcfs', name: 'moratama' }),
+  { office: '大阪', rule: 'fcfs', name: 'moratama' });
+
+is('a name nobody offered is dropped, not accepted',
+  cleanVote({ office: '大阪', rule: 'fcfs', name: 'eggsellent' }),
+  { office: '大阪', rule: 'fcfs' });
+
+/* Answers given before this question existed are still good answers. */
+is('an answer with no name is still valid',
+  cleanVote({ office: '大阪', rule: 'fcfs' }), { office: '大阪', rule: 'fcfs' });
+
+const named = tally([
+  { employeeId: 'a', office: '大阪', rule: 'fcfs', name: 'moratama' },
+  { employeeId: 'b', office: '本社', rule: 'fcfs', name: 'moratama' },
+  { employeeId: 'c', office: '東京', rule: 'lottery', name: 'moraeggbin' },
+  { employeeId: 'd', office: '京都', rule: 'lottery' },
+]);
+is('the three names are counted and keep their order',
+  named.names.map((n) => `${n.id}:${n.count}`),
+  ['moratama:2', 'moraeggbin:1', 'tambatayori:0']);
+is('the most voted name wins', named.topName, 'moratama');
+is('an answer without a name counts for the other questions', named.answers, 4);
+
+is('no votes, no name', tally([]).topName, null);
+is('a tie decides nothing', tally([
+  { employeeId: 'a', office: '大阪', rule: 'fcfs', name: 'moratama' },
+  { employeeId: 'b', office: '大阪', rule: 'fcfs', name: 'moraeggbin' },
+]).topName, null);
+is('all three are always in the chart', tally([]).names.length, 3);
+is('every name on the screen can be voted for',
+  EGG_NAMES.every((n) => cleanVote({ office: '大阪', rule: 'fcfs', name: n.id }).name === n.id), true);
 
 /* ------------------------------ comments -------------------------------- */
 /* 佐野:「投票するときに、意見があれば一緒に書いてもらってください」 */

@@ -26,6 +26,11 @@ const L = {
   q1: ['問1　どこで受け取りたいですか', 'Q1  Where would you like to collect?'],
   q2: ['問2　卵が足りないときの配り方は', 'Q2  How should eggs be shared when there are not enough?'],
   notNow: ['今は不要', 'Not just now'],
+  q3: ['問3　このサイトの名前はどれがいい？', 'Q3  What should this site be called?'],
+  q3note: ['いちばん票の多い名前が、受付終了後にこのサイトの名前になります。',
+    'The name with the most votes becomes the site title once the survey closes.'],
+  byName: ['サイト名の投票', 'Site name'],
+  nameWins: ['このサイトの名前に決まりました', 'Chosen as the name of this site'],
   comment: ['ご意見（任意）', 'Anything you would like to add (optional)'],
   commentPh: ['例：2パック欲しい日があります／受取時間を遅めにしてほしい',
     'e.g. some weeks I would want two packs / a later pickup time would help'],
@@ -112,6 +117,7 @@ export default function EggTab({ user, cfg = {}, setCfg, lang, toast }) {
   const [office, setOffice] = useState('');
   const [rule, setRule] = useState('');
   const [note, setNote] = useState('');
+  const [sname, setSname] = useState('');
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState(false);
   const [win, setWin] = useState({ from: '', to: '' });
@@ -122,7 +128,7 @@ export default function EggTab({ user, cfg = {}, setCfg, lang, toast }) {
       if (!res.ok) return;
       const j = await res.json();
       setD(j);
-      if (j.mine) { setOffice(j.mine.office); setRule(j.mine.rule); setNote(j.mine.comment || ''); }
+      if (j.mine) { setOffice(j.mine.office); setRule(j.mine.rule); setNote(j.mine.comment || ''); setSname(j.mine.name || ''); }
       setWin({ from: j.window?.from || '', to: j.window?.to || '' });
     } catch { /* a failed read leaves the screen as it was */ }
   }, []);
@@ -136,7 +142,7 @@ export default function EggTab({ user, cfg = {}, setCfg, lang, toast }) {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'same-origin',
-        body: JSON.stringify({ office, rule, comment: note }),
+        body: JSON.stringify({ office, rule, name: sname, comment: note }),
       });
       if (!res.ok) { toast?.(t('closed')); return; }
       const j = await res.json();
@@ -163,6 +169,8 @@ export default function EggTab({ user, cfg = {}, setCfg, lang, toast }) {
     .map((o) => ({ key: o.office, label: o.office, count: o.count })), [d]);
   const ruleRows = useMemo(() => (d?.results?.rules || [])
     .map((r) => ({ key: r.id, label: lang === 'ja' ? r.ja : r.en, count: r.count })), [d, lang]);
+  const nameRows = useMemo(() => (d?.results?.names || [])
+    .map((n) => ({ key: n.id, label: lang === 'ja' ? n.ja : n.en, count: n.count })), [d, lang]);
 
   if (!d) return <div className="tabbody"><div className="pad muted">…</div></div>;
 
@@ -170,6 +178,9 @@ export default function EggTab({ user, cfg = {}, setCfg, lang, toast }) {
   const showForm = d.canAnswer && d.open && (!answered || editing);
   const total = d.results?.answers || 0;
   const leadOffice = officeRows.find((r) => r.count > 0)?.key;
+  const won = !d.open && d.results?.topName
+    && (d.names || []).find((n) => n.id === d.results.topName);
+  const siteName = won ? (lang === 'ja' ? won.ja : won.en) : t('head');
   const img = (name) => `${import.meta.env.BASE_URL}moraegg/${name}.webp`;
 
   return (
@@ -178,7 +189,10 @@ export default function EggTab({ user, cfg = {}, setCfg, lang, toast }) {
       <div className="eg-hero">
         <img src={img(answered ? 'hatch' : 'hug')} alt="" className="eg-mascot" />
         <div>
-          <h2>{t('head')}</h2>
+          {/* 佐野:「受付終了までは『タマゴ配布』のままで」 — so the name the
+              vote chose only appears once the vote is over, and the site is
+              never renamed halfway through deciding. */}
+          <h2>{siteName}</h2>
           <p className="muted sm">{t('lede')}</p>
           {d.window && (
             <p className="eg-win">
@@ -252,6 +266,21 @@ export default function EggTab({ user, cfg = {}, setCfg, lang, toast }) {
                   ))}
                 </div>
 
+                <div className="eg-q">{t('q3')}</div>
+                <p className="muted sm eg-q3why">{t('q3note')}</p>
+                <div className="eg-rules eg-names">
+                  {(d.names || []).map((n) => (
+                    <button
+                      key={n.id} type="button"
+                      className={`eg-rule${sname === n.id ? ' on' : ''}`}
+                      onClick={() => setSname(n.id)}
+                    >
+                      <strong>{lang === 'ja' ? n.ja : n.en}</strong>
+                      <span>{lang === 'ja' ? n.noteJa : n.noteEn}</span>
+                    </button>
+                  ))}
+                </div>
+
                 {/* 佐野:「投票するときに、意見があれば一緒に書いてもらって
                     ください」. Optional, and published without the office or
                     the rule beside it — the three together would often
@@ -265,7 +294,7 @@ export default function EggTab({ user, cfg = {}, setCfg, lang, toast }) {
                 <p className="muted sm eg-note-why">{t('commentNote')}</p>
 
                 <button
-                  className="btn primary big" disabled={!office || !rule || busy}
+                  className="btn primary big" disabled={!office || !rule || !sname || busy}
                   onClick={send}
                 >{busy ? t('sending') : t('send')}</button>
                 <p className="muted sm mt8">{t('canChange')}</p>
@@ -355,6 +384,15 @@ export default function EggTab({ user, cfg = {}, setCfg, lang, toast }) {
                     </p>
                   )}
 
+                  <h3 className="eg-ch">{t('byName')}</h3>
+                  <Bars rows={nameRows} total={total} lead={d.results.topName} t={t} />
+                  {d.results.topName && (
+                    <p className="eg-nn">
+                      {d.open ? `${t('winning')}：` : `${t('nameWins')}：`}
+                      <b>{(d.names.find((n) => n.id === d.results.topName) || {})[lang === 'ja' ? 'ja' : 'en']}</b>
+                    </p>
+                  )}
+
                   {!!d.results.comments?.length && (
                     <>
                       <h3 className="eg-ch">{t('commentsHead')}</h3>
@@ -391,6 +429,8 @@ export const EGG_CSS = `
 .eg-opt.none{color:var(--dim)}
 .eg-opt.none.on{background:var(--ink-2);border-color:var(--ink-2);color:#fff}
 
+.eg-q3why{margin:-4px 0 9px}
+.eg-names .eg-rule{gap:2px}
 .eg-rules{display:grid;gap:8px}
 .eg-rule{display:grid;gap:1px;text-align:left;padding:11px 13px;
   border:1px solid var(--rule-2);background:#fff}

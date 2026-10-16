@@ -39,7 +39,7 @@ import { DEFAULT_CFG, ROSTER_SEED, orderRegions } from './src/defaults.js';
 import { inSubmissionWindow } from './src/submission-window.js';
 import { rulesForPerson, closureMap } from './src/company.js';
 import { xlsxToPdf, pdfReady } from './src/topdf.js';
-import { cleanVote, eggOpen, eggWindow, eggOffices, tally, EGG_RULES } from './src/egg.js';
+import { cleanVote, eggOpen, eggWindow, eggOffices, tally, EGG_RULES, EGG_NAMES } from './src/egg.js';
 
 if (!process.env.DATABASE_URL) {
   console.error('\n  DATABASE_URL is not set.');
@@ -520,6 +520,7 @@ const server = http.createServer(async (req, res) => {
         window: eggWindow(cfg),
         offices: eggOffices(cfg),
         rules: EGG_RULES,
+        names: EGG_NAMES,
         mine,
         audience: await eggAudience(),
         results: tally(await eggRows(), eggOffices(cfg)),

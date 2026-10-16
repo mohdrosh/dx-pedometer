@@ -195,6 +195,8 @@ export async function initSchema() {
     );
     /* 佐野:「投票するときに、意見があれば一緒に書いてもらってください」 */
     ALTER TABLE egg_votes ADD COLUMN IF NOT EXISTS comment TEXT;
+    /* 問3 サイト名の投票 */
+    ALTER TABLE egg_votes ADD COLUMN IF NOT EXISTS name TEXT;
   `);
 
   /* The consent used to be a checkbox on the sign-in screen, and signing in
@@ -640,14 +642,14 @@ export async function allEntriesForPeriod(period) {
  * first instead of being counted again, and 「1人1回のみ」 is a property of
  * the table rather than a check somebody has to remember to write.
  */
-export async function eggVote(employeeId, { office, rule, comment }) {
+export async function eggVote(employeeId, { office, rule, name, comment }) {
   await pool.query(
-    `INSERT INTO egg_votes (employee_id, office, rule, comment, updated_at)
-     VALUES ($1, $2, $3, $4, NOW())
+    `INSERT INTO egg_votes (employee_id, office, rule, name, comment, updated_at)
+     VALUES ($1, $2, $3, $4, $5, NOW())
      ON CONFLICT (employee_id) DO UPDATE
-       SET office = EXCLUDED.office, rule = EXCLUDED.rule,
+       SET office = EXCLUDED.office, rule = EXCLUDED.rule, name = EXCLUDED.name,
            comment = EXCLUDED.comment, updated_at = NOW()`,
-    [String(employeeId), office, rule, comment || null],
+    [String(employeeId), office, rule, name || null, comment || null],
   );
   return true;
 }
@@ -659,7 +661,7 @@ export async function eggVote(employeeId, { office, rule, comment }) {
  */
 export async function eggMyVote(employeeId) {
   const { rows } = await pool.query(
-    'SELECT office, rule, comment FROM egg_votes WHERE employee_id = $1',
+    'SELECT office, rule, name, comment FROM egg_votes WHERE employee_id = $1',
     [String(employeeId)],
   );
   return rows[0] || null;
@@ -671,7 +673,7 @@ export async function eggMyVote(employeeId) {
  * drop it. tally() in src/egg.js turns these into counts.
  */
 export async function eggRows() {
-  const { rows } = await pool.query('SELECT office, rule, comment FROM egg_votes');
+  const { rows } = await pool.query('SELECT office, rule, name, comment FROM egg_votes');
   return rows;
 }
 
