@@ -3575,6 +3575,96 @@ a.btn{text-decoration:none;text-align:center;display:inline-block}
   .toast{animation:rise .16s ease-out}
   @keyframes rise{from{opacity:0;transform:translate(-50%,6px)}to{opacity:1;transform:translate(-50%,0)}}
 }
+/* ---- wide screens ------------------------------------------------------
+   Everything above this line is the phone layout, and it is the one most
+   of the 171 use: a single column, one control under the next, and the
+   four workspaces along the bottom where a thumb reaches them.
+
+   On a desktop that same layout wasted most of the window. The column
+   stopped at 840px, so on a 1680px screen two fifths of the glass sat
+   empty while the content it could have held was three screens down. Every
+   button was full width because full width is right on a phone, which on a
+   monitor turned 出勤 into a 900px slab. The month list ran under the day
+   you were editing, so choosing a day meant scrolling past thirty rows and
+   scrolling back.
+
+   So this block is not a restyle — it is the same markup given a second
+   layout once there is room for one. Nothing below changes what anything
+   does, and the breakpoint is wide enough (1024px) that tablets in portrait
+   keep the phone layout, which suits them better.
+------------------------------------------------------------------------- */
+@media(min-width:1024px){
+
+  /* The shell becomes two columns: everything, and the rail. A fixed header
+     height is what lets the rail stick to exactly the right offset. */
+  .app{display:grid;grid-template-columns:minmax(0,1fr) 196px;
+    grid-template-rows:auto 1fr;align-content:start}
+  .hdr{grid-column:1/-1;height:64px;padding-top:0;padding-bottom:0}
+
+  .main{grid-column:1;grid-row:2;max-width:none;margin:0;
+    padding-bottom:28px;border-left:0;border-right:0}
+
+  /* Content still needs a readable measure — a 1400px line of Japanese is
+     no easier to read than an empty screen is to look at. The tabs cap
+     themselves and centre; 勤怠 asks for more because it has two columns
+     to fit. */
+  .tabbody{max-width:1020px;margin:0 auto;width:100%}
+  .tabbody.kt-page{max-width:1320px}
+
+  /* 「タブ切り替えの下のやつ、押しにくい」 — the row along the bottom
+     becomes a rail down the side, where the pointer already is and where a
+     label has room to be a label rather than a cramped word. */
+  .nav{position:sticky;top:64px;grid-column:2;grid-row:2;
+    align-self:start;left:auto;right:auto;bottom:auto;
+    flex-direction:column;z-index:10;
+    border-top:0;border-left:1px solid var(--rule-2);
+    max-height:calc(100vh - 64px);overflow:auto}
+  .nav button{flex:none;text-align:left;padding:13px 17px;font-size:14px;
+    border-right:0;border-bottom:1px solid var(--hair)}
+  .nav button:last-child{border-bottom:0}
+  .nav button.on{box-shadow:inset 3px 0 0 var(--brand)}
+  .badge{position:static;margin-left:7px}
+
+  /* These three were all positioned to clear the bottom bar, which on a
+     wide screen is not at the bottom any more — it is the rail. Left as
+     they were, the submit bar floated 62px up the page and sat across the
+     万歩計 calendar. */
+  .fab{bottom:20px;right:214px}
+  .toast{bottom:24px}
+  .submitbar{bottom:0}
+
+  /* A field is as wide as what goes in it. 自宅最寄り駅 in a box a
+     thousand pixels across is the same wasted space as the empty margins,
+     just inside a border. Only fields that sit straight on a card: the
+     ones inside a grid still fill their own column. */
+  .tabbody>.card>.fld>input,.tabbody>.card>.fld>select{max-width:560px}
+
+  /* ---- density ----------------------------------------------------------
+     The phone spacing is generous on purpose; on a monitor it reads as
+     padding for its own sake. These are the same components, closer up. */
+  .card{padding:13px 16px}
+  .fld{margin-bottom:12px}
+  .sechead{padding-top:11px;padding-bottom:11px}
+
+  /* A button is as wide as its label unless it is the one thing on the
+     screen you are meant to press. The wide class means full width on a
+     phone, where it should; here it means comfortably large. */
+  .btn{padding:9px 16px}
+  .btn.wide{width:auto;min-width:168px}
+  .btn.big{padding:12px 22px}
+
+  /* Stacked full-width buttons become a row. The note that follows them
+     keeps its own line. */
+  .card.pad-less{display:flex;flex-wrap:wrap;gap:9px;align-items:flex-start}
+  .card.pad-less>.btn{margin-top:0}
+  .card.pad-less>p,.card.pad-less>.kt-td{flex:1 1 100%;margin-top:0}
+  .card.pad-less>p.mt8{margin-top:2px}
+
+  /* The submit button is the exception: it stays the width of its card,
+     because it is the end of the task and should look like it. */
+  .kt-submit{display:block}
+  .kt-submit .btn.wide{width:100%}
+}
 :focus-visible{outline:2px solid var(--brand);outline-offset:1px}
 `}</style>
   );

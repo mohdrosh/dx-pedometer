@@ -532,223 +532,239 @@ export default function KintaiTab({ user, cfg = {}, y, m, days, holidays, lang, 
   const nextIso = openAt >= 0 && openAt < month.rows.length - 1 ? month.rows[openAt + 1].iso : null;
 
   return (
-    <div className="tabbody">
+    <div className="tabbody kt-page">
       <div className={'banner ' + (locked ? 'ok' : 'warn')}>
         <span className="dot" />
         {locked ? t('submitted') : t('notSubmitted')}
       </div>
 
-      {/* きょう — one tap in, one tap out. She asked for it to work like the
-          pedometer, which asks for today and nothing else; the month list
-          below is still there for the days you fill in afterwards. */}
-      {cardRow && !locked && (
-        <div className="card kt-today">
-          <div className="kt-today-h">
-            <span className="clabel">
-              {isToday && `${t('today')} `}{md(cardRow.iso)}（{DOW_JA[cardRow.dow]}）
-            </span>
-            {cardRow.calc.entered && <span className="kt-today-ok">{t('todayDone')}</span>}
-          </div>
+      {/* On a phone these three run one under the next, exactly as they
+          always have. On a desktop the month goes down the left and stays
+          there, so picking a day no longer means scrolling past thirty
+          rows and scrolling back. The order here is the phone order; the
+          grid does the moving. */}
+      <div className="kt-cols">
+      <div className="kt-top">
 
-          {/* The calendar she asked for. A native date field opens the phone's
-              own picker, which is the calendar people already know, and min/max
-              keep it inside the period on screen. */}
-          <div className="kt-today-pick">
-            <input
-              type="date" value={cardRow.iso} min={firstIso} max={lastIso}
-              aria-label={t('pickDate')}
-              onChange={(e) => setCardIso(e.target.value || null)}
-            />
-            {!isToday && todayRow && (
-              <button className="kt-today-back" onClick={() => setCardIso(null)}>
-                {t('backToday')}
-              </button>
-            )}
-          </div>
-
-          <div className="kt-today-t">
-            {cardRow.inH != null
-              ? (
-                <>
-                  <b>{pad2(cardRow.inH)}:{pad2(cardRow.inM || 0)}</b>
-                  <i>–</i>
-                  {cardRow.outH != null
-                    ? <b>{pad2(cardRow.outH)}:{pad2(cardRow.outM || 0)}</b>
-                    : <b className="kt-wait">--:--</b>}
-                  {cardRow.calc.inside > 0 && (
-                    <span className="kt-today-w">
-                      {t('worked')} {fmtHM(cardRow.calc.inside + cardRow.calc.show.overtime)}
-                    </span>
-                  )}
-                </>
-              )
-              : <span className="kt-today-none">{cardRow.status1 || t('todayNone')}</span>}
-          </div>
-
-          {/* The one tap, for the ordinary day. 出勤 and 退勤 stamp the clock
-              as it reads now, so they belong to today alone; on any other day
-              the fields below are the way in. */}
-          {isToday && (
-            <div className="kt-today-b">
-              {cardRow.inH == null
-                ? <button className="btn primary wide" onClick={clockIn}>{t('clockIn')}</button>
-                : cardRow.outH == null
-                  ? <button className="btn primary wide" onClick={clockOut}>{t('clockOut')}</button>
-                  : null}
-            </div>
-          )}
-
-          {/* and everything else about the day, open, not behind a dialog */}
-          {isToday && (
-            <button
-              className="kt-today-more" onClick={() => setMore((v) => !v)}
-              aria-expanded={more}
-            >
-              {more ? t('todayLess') : t('todayMore')}<i>{more ? '▲' : '▼'}</i>
-            </button>
-          )}
-          {(more || !isToday) && (
-            <div className="kt-today-f">
-              <DayFields
-                row={cardRow} rules={rules} locked={locked}
-                setDay={setDay} t={t} lang={lang}
-              />
-            </div>
-          )}
-        </div>
-      )}
-
-      <div className="sechead">
-        <span>{t('entryHead')}</span>
-        {saveState && (
-          <span className={'savestate ' + saveState}>
-            {saveState === 'saving' ? t('saving') : saveState === 'saved' ? t('saved') : t('saveFail')}
-          </span>
-        )}
-      </div>
-
-      <div className="card pad-less">
-        {!locked && <button className="btn wide" onClick={fillWeekdays}>{t('fillAll')}</button>}
-        <button className={`btn wide${locked ? ' primary' : ''}${locked ? '' : ' mt8'}`} disabled={!!busy} onClick={() => download()}>
-          {busy || t('download')}
-        </button>
-        {/* Only where the server can convert. A button that answers 503 is
-            worse than one that is not there. */}
-        {canPdf && (
-          <button className="btn wide mt8" disabled={!!busy} onClick={() => download('pdf')}>
-            {t('downloadPdf')}
-          </button>
-        )}
-        <p className="muted sm mt8">{t('downloadNote')}</p>
-        {locked && <p className="muted sm">{t('lockedNote')}</p>}
-      </div>
-
-      <div className="kt-list">
-        {month.rows.map((r) => {
-          const c = r.calc;
-          const cls = r.dow === 0 ? 'sun' : r.dow === 6 ? 'sat' : r.holiday ? 'sun' : '';
-          const has = r.inH != null || r.status1;
-          return (
-            <button
-              type="button" key={r.iso} className={`kt-row ${cls} ${has ? '' : 'empty'}`}
-              onClick={() => setOpen(r.iso)}
-            >
-              <span className="kt-d">{r.dom}<em>{DOW_JA[r.dow]}</em></span>
-              <span className="kt-t">
-                {/* Clocked in but not yet out is an ordinary state now that
-                    出勤 and 退勤 are separate taps, so the row has to read
-                    as half-done rather than as 'undefined'. */}
-                {r.inH != null
-                  ? (
-                    <>
-                      {pad2(r.inH)}:{pad2(r.inM || 0)}
-                      {' – '}
-                      {r.outH != null
-                        ? `${pad2(r.outH)}:${pad2(r.outM || 0)}`
-                        : <i className="kt-none">--:--</i>}
-                    </>
-                  )
-                  : <i className="kt-none">{r.status1 || t('blank')}</i>}
+        {/* きょう — one tap in, one tap out. She asked for it to work like the
+            pedometer, which asks for today and nothing else; the month list
+            below is still there for the days you fill in afterwards. */}
+        {cardRow && !locked && (
+          <div className="card kt-today">
+            <div className="kt-today-h">
+              <span className="clabel">
+                {isToday && `${t('today')} `}{md(cardRow.iso)}（{DOW_JA[cardRow.dow]}）
               </span>
-              <span className="kt-v">{c.inside ? fmtHM(c.inside) : ''}</span>
-              <span className="kt-v ot">{c.show?.overtime ? fmtHM(c.show.overtime) : ''}</span>
-              {c.notice && <span className={`kt-n ${c.notice === '要' ? 'req' : ''}`}>{c.notice}</span>}
-            </button>
-          );
-        })}
-      </div>
+              {cardRow.calc.entered && <span className="kt-today-ok">{t('todayDone')}</span>}
+            </div>
 
-      <div className="sechead"><span>{t('todokeHead')}</span></div>
-      <div className="card pad-less">
-        <p className="muted sm">{t('todokeNote')}</p>
-        {!notices.length && <p className="muted sm mt8">{t('todokeNone')}</p>}
-        {notices.map((n) => {
-          const k = n.from.iso + n.kind;
-          const span = n.days > 1
-            ? `${n.from.dom}日（${DOW_JA[n.from.dow]}）〜 ${n.to.dom}日（${DOW_JA[n.to.dow]}）`
-            : `${n.from.dom}日（${DOW_JA[n.from.dow]}）`;
-          return (
-            <div className="kt-td" key={k}>
-              <div className="kt-td-h">
-                <strong>{n.kind}</strong>
-                <span>{span}{n.days > 1 ? ` · ${n.days}${t('days_')}` : ''}</span>
-              </div>
-              <label className="fld">
-                <span>{t('todokeReason')}</span>
-                <input
-                  value={reasons[k] || ''} maxLength={60} placeholder={t('todokeReasonPh')}
-                  onChange={(e) => setReasons((r) => ({ ...r, [k]: e.target.value }))}
-                />
-              </label>
-              {canPdf && (
-                <button className="btn wide mt8" disabled={!!busy} onClick={() => makeTodoke(n, 'pdf')}>
-                  {t('downloadPdf')}
+            {/* The calendar she asked for. A native date field opens the phone's
+                own picker, which is the calendar people already know, and min/max
+                keep it inside the period on screen. */}
+            <div className="kt-today-pick">
+              <input
+                type="date" value={cardRow.iso} min={firstIso} max={lastIso}
+                aria-label={t('pickDate')}
+                onChange={(e) => setCardIso(e.target.value || null)}
+              />
+              {!isToday && todayRow && (
+                <button className="kt-today-back" onClick={() => setCardIso(null)}>
+                  {t('backToday')}
                 </button>
               )}
-              <button className="btn wide" disabled={!!busy} onClick={() => makeTodoke(n)}>
-                {busy || t('todokeMake')}
-              </button>
             </div>
-          );
-        })}
-      </div>
 
-      <div className="sechead"><span>{t('totals')}</span></div>
-      <div className="card kt-tot">
-        <div className="kt-tot-g">
-          <div><span>{t('tInside')}</span><HM hours={month.inside} t={t} /></div>
-          <div><span>{t('tDeduct')}</span><HM hours={month.deduct} t={t} /></div>
-          <div><span>{t('tOtDay')}</span><HM hours={month.otWeekday} t={t} /></div>
-          <div><span>{t('tOtNight')}</span><HM hours={month.otWeekdayNight} t={t} /></div>
-          <div><span>{t('tOtHol')}</span><HM hours={month.otHoliday} t={t} /></div>
-          <div><span>{t('tOtHolNight')}</span><HM hours={month.otHolidayNight} t={t} /></div>
-        </div>
-        {alert60 > 0 && (
-          <p className="kt-warn">{t('over60').replace('{n}', fmtHM(alert60 + 60))}</p>
+            <div className="kt-today-t">
+              {cardRow.inH != null
+                ? (
+                  <>
+                    <b>{pad2(cardRow.inH)}:{pad2(cardRow.inM || 0)}</b>
+                    <i>–</i>
+                    {cardRow.outH != null
+                      ? <b>{pad2(cardRow.outH)}:{pad2(cardRow.outM || 0)}</b>
+                      : <b className="kt-wait">--:--</b>}
+                    {cardRow.calc.inside > 0 && (
+                      <span className="kt-today-w">
+                        {t('worked')} {fmtHM(cardRow.calc.inside + cardRow.calc.show.overtime)}
+                      </span>
+                    )}
+                  </>
+                )
+                : <span className="kt-today-none">{cardRow.status1 || t('todayNone')}</span>}
+            </div>
+
+            {/* The one tap, for the ordinary day. 出勤 and 退勤 stamp the clock
+                as it reads now, so they belong to today alone; on any other day
+                the fields below are the way in. */}
+            {isToday && (
+              <div className="kt-today-b">
+                {cardRow.inH == null
+                  ? <button className="btn primary wide" onClick={clockIn}>{t('clockIn')}</button>
+                  : cardRow.outH == null
+                    ? <button className="btn primary wide" onClick={clockOut}>{t('clockOut')}</button>
+                    : null}
+              </div>
+            )}
+
+            {/* and everything else about the day, open, not behind a dialog */}
+            {isToday && (
+              <button
+                className="kt-today-more" onClick={() => setMore((v) => !v)}
+                aria-expanded={more}
+              >
+                {more ? t('todayLess') : t('todayMore')}<i>{more ? '▲' : '▼'}</i>
+              </button>
+            )}
+            {(more || !isToday) && (
+              <div className="kt-today-f">
+                <DayFields
+                  row={cardRow} rules={rules} locked={locked}
+                  setDay={setDay} t={t} lang={lang}
+                />
+              </div>
+            )}
+          </div>
         )}
-        <div className="kt-cnt">
-          {[
-            ['cShotei', month.counts.shotei], ['cWorked', month.counts.worked],
-            ['cPaid', month.counts.paidLeave], ['cAbsent', month.counts.absent],
-            ['cSpecial', month.counts.special], ['cHolSat', month.counts.holidaySat],
-            ['cHolSun', month.counts.holidaySun], ['cFurikae', month.counts.furikae],
-          ].map(([k, v]) => (
-            <div key={k}><span>{t(k)}</span><b>{v}<em>{t('day')}</em></b></div>
-          ))}
+
+        <div className="card pad-less">
+          {!locked && <button className="btn wide" onClick={fillWeekdays}>{t('fillAll')}</button>}
+          <button className={`btn wide${locked ? ' primary' : ''}${locked ? '' : ' mt8'}`} disabled={!!busy} onClick={() => download()}>
+            {busy || t('download')}
+          </button>
+          {/* Only where the server can convert. A button that answers 503 is
+              worse than one that is not there. */}
+          {canPdf && (
+            <button className="btn wide mt8" disabled={!!busy} onClick={() => download('pdf')}>
+              {t('downloadPdf')}
+            </button>
+          )}
+          <p className="muted sm mt8">{t('downloadNote')}</p>
+          {locked && <p className="muted sm">{t('lockedNote')}</p>}
         </div>
+
       </div>
 
-      {!locked && (
-        <div className="card pad-less kt-submit">
-          <button
-            className="btn primary big wide" disabled={blanks > 0}
-            onClick={() => setAsk(true)}
-          >
-            {blanks > 0 ? t('submitBlank').replace('{n}', blanks) : t('submit')}
-          </button>
-          {blanks > 0 && <p className="muted sm mt8">{t('blankDays')}</p>}
+      <aside className="kt-aside">
+        <div className="sechead">
+          <span>{t('entryHead')}</span>
+          {saveState && (
+            <span className={'savestate ' + saveState}>
+              {saveState === 'saving' ? t('saving') : saveState === 'saved' ? t('saved') : t('saveFail')}
+            </span>
+          )}
         </div>
-      )}
+
+        <div className="kt-list">
+          {month.rows.map((r) => {
+            const c = r.calc;
+            const cls = r.dow === 0 ? 'sun' : r.dow === 6 ? 'sat' : r.holiday ? 'sun' : '';
+            const has = r.inH != null || r.status1;
+            return (
+              <button
+                type="button" key={r.iso} className={`kt-row ${cls} ${has ? '' : 'empty'}`}
+                onClick={() => setOpen(r.iso)}
+              >
+                <span className="kt-d">{r.dom}<em>{DOW_JA[r.dow]}</em></span>
+                <span className="kt-t">
+                  {/* Clocked in but not yet out is an ordinary state now that
+                      出勤 and 退勤 are separate taps, so the row has to read
+                      as half-done rather than as 'undefined'. */}
+                  {r.inH != null
+                    ? (
+                      <>
+                        {pad2(r.inH)}:{pad2(r.inM || 0)}
+                        {' – '}
+                        {r.outH != null
+                          ? `${pad2(r.outH)}:${pad2(r.outM || 0)}`
+                          : <i className="kt-none">--:--</i>}
+                      </>
+                    )
+                    : <i className="kt-none">{r.status1 || t('blank')}</i>}
+                </span>
+                <span className="kt-v">{c.inside ? fmtHM(c.inside) : ''}</span>
+                <span className="kt-v ot">{c.show?.overtime ? fmtHM(c.show.overtime) : ''}</span>
+                {c.notice && <span className={`kt-n ${c.notice === '要' ? 'req' : ''}`}>{c.notice}</span>}
+              </button>
+            );
+          })}
+        </div>
+      </aside>
+
+      <div className="kt-rest">
+
+        <div className="sechead"><span>{t('todokeHead')}</span></div>
+        <div className="card pad-less">
+          <p className="muted sm">{t('todokeNote')}</p>
+          {!notices.length && <p className="muted sm mt8">{t('todokeNone')}</p>}
+          {notices.map((n) => {
+            const k = n.from.iso + n.kind;
+            const span = n.days > 1
+              ? `${n.from.dom}日（${DOW_JA[n.from.dow]}）〜 ${n.to.dom}日（${DOW_JA[n.to.dow]}）`
+              : `${n.from.dom}日（${DOW_JA[n.from.dow]}）`;
+            return (
+              <div className="kt-td" key={k}>
+                <div className="kt-td-h">
+                  <strong>{n.kind}</strong>
+                  <span>{span}{n.days > 1 ? ` · ${n.days}${t('days_')}` : ''}</span>
+                </div>
+                <label className="fld">
+                  <span>{t('todokeReason')}</span>
+                  <input
+                    value={reasons[k] || ''} maxLength={60} placeholder={t('todokeReasonPh')}
+                    onChange={(e) => setReasons((r) => ({ ...r, [k]: e.target.value }))}
+                  />
+                </label>
+                {canPdf && (
+                  <button className="btn wide mt8" disabled={!!busy} onClick={() => makeTodoke(n, 'pdf')}>
+                    {t('downloadPdf')}
+                  </button>
+                )}
+                <button className="btn wide" disabled={!!busy} onClick={() => makeTodoke(n)}>
+                  {busy || t('todokeMake')}
+                </button>
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="sechead"><span>{t('totals')}</span></div>
+        <div className="card kt-tot">
+          <div className="kt-tot-g">
+            <div><span>{t('tInside')}</span><HM hours={month.inside} t={t} /></div>
+            <div><span>{t('tDeduct')}</span><HM hours={month.deduct} t={t} /></div>
+            <div><span>{t('tOtDay')}</span><HM hours={month.otWeekday} t={t} /></div>
+            <div><span>{t('tOtNight')}</span><HM hours={month.otWeekdayNight} t={t} /></div>
+            <div><span>{t('tOtHol')}</span><HM hours={month.otHoliday} t={t} /></div>
+            <div><span>{t('tOtHolNight')}</span><HM hours={month.otHolidayNight} t={t} /></div>
+          </div>
+          {alert60 > 0 && (
+            <p className="kt-warn">{t('over60').replace('{n}', fmtHM(alert60 + 60))}</p>
+          )}
+          <div className="kt-cnt">
+            {[
+              ['cShotei', month.counts.shotei], ['cWorked', month.counts.worked],
+              ['cPaid', month.counts.paidLeave], ['cAbsent', month.counts.absent],
+              ['cSpecial', month.counts.special], ['cHolSat', month.counts.holidaySat],
+              ['cHolSun', month.counts.holidaySun], ['cFurikae', month.counts.furikae],
+            ].map(([k, v]) => (
+              <div key={k}><span>{t(k)}</span><b>{v}<em>{t('day')}</em></b></div>
+            ))}
+          </div>
+        </div>
+
+        {!locked && (
+          <div className="card pad-less kt-submit">
+            <button
+              className="btn primary big wide" disabled={blanks > 0}
+              onClick={() => setAsk(true)}
+            >
+              {blanks > 0 ? t('submitBlank').replace('{n}', blanks) : t('submit')}
+            </button>
+            {blanks > 0 && <p className="muted sm mt8">{t('blankDays')}</p>}
+          </div>
+        )}
+      </div>
+      </div>
 
       {ask && (
         <div className="ovl" onClick={() => setAsk(false)}>
@@ -897,4 +913,66 @@ export const KINTAI_CSS = `
 .btn.wide{width:100%}
 .mt8{margin-top:9px}
 .card.pad-less{padding:12px 14px}
+
+/* ---- 勤怠 on a wide screen --------------------------------------------
+   Three things were wrong with one column here, and they were the same
+   thing: the month list is thirty rows, so everything after it was off
+   the bottom of the screen. Choosing the 9th meant scrolling down to find
+   it, clicking, and scrolling back up to type.
+
+   The list moves to a column of its own and stays put while the page
+   scrolls, so the day you are editing and the day you are choosing are
+   visible at the same time. The fields that were stacked two-high become
+   one row of four, which is the whole day on one line.
+
+   The breakpoint matches the shell's. Below it nothing here applies and
+   the phone layout stands, which is why the markup is still in phone
+   order and only the grid moves it.
+----------------------------------------------------------------------- */
+@media(min-width:1024px){
+  .kt-cols{display:grid;grid-template-columns:332px minmax(0,1fr);
+    align-items:start}
+  .kt-aside{grid-column:1;grid-row:1/span 2;position:sticky;top:64px;
+    max-height:calc(100vh - 64px);overflow:auto;
+    border-right:1px solid var(--rule);background:#fff}
+  .kt-top{grid-column:2;grid-row:1;min-width:0}
+  .kt-rest{grid-column:2;grid-row:2;min-width:0}
+
+  /* The list is now a column rather than a page, so it can lose the
+     breathing room it needed when it was the full width of a phone. */
+  .kt-aside .kt-row{padding-top:6px;padding-bottom:6px}
+
+  .kt-today-f>.navrow{margin-top:4px}
+  .kt-today-f>.navrow .btn{flex:0 1 auto}
+
+  /* 出勤 is the one tap most days need, so it stays prominent — but a
+     button the width of the window is not prominence, it is just a wall.
+
+     The day being edited, how it currently stands and the tap that changes
+     it are one thought, so on a wide screen they are one line instead of
+     three stacked bands with nothing to their right. */
+  .card.kt-today{display:grid;grid-template-columns:auto minmax(0,1fr) auto;
+    align-items:center;column-gap:18px}
+  .kt-today-h,.kt-today-more,.kt-today-f{grid-column:1/-1}
+  .kt-today-pick{grid-column:1;margin:6px 0}
+  .kt-today-t{grid-column:2;margin:6px 0}
+  .kt-today-b{grid-column:3}
+  .kt-today-b .btn.wide{width:auto;min-width:200px}
+  .kt-today-pick input[type=date]{flex:0 1 210px}
+  .kt-today-more{padding:7px 0;margin-top:2px}
+}
+
+/* 始業・終業・勤怠状況・勤怠状況② on one line — the whole day in a single
+   row. It needs more than the two-column layout alone does: with the month
+   list taking 332px, four fields do not have room until the window is this
+   wide, and below it the existing pairs stack two-and-two as they always
+   have. display:contents is what lets those pairs hand their children
+   straight to this grid, so the markup never has to change for either. */
+@media(min-width:1280px){
+  .kt-today-f{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));
+    column-gap:14px}
+  .kt-today-f>.kt-two{display:contents}
+  .kt-today-f>.navrow,.kt-today-f>.fld,.kt-today-f>.kt-day-sum,
+  .kt-today-f>.kt-why,.kt-today-f>.kt-warn,.kt-today-f>.kt-note{grid-column:1/-1}
+}
 `;
