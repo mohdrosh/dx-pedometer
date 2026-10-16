@@ -1165,5 +1165,11 @@
   .kx-rest{grid-column:2;grid-row:2;min-width:0}
   .tr-row{padding-top:6px;padding-bottom:6px}
   .tr-edit-b .fld{margin-bottom:10px}
+
+  /* 通勤経路's three buttons sit on one line here, and .tr-acts carries an
+     11px top margin for the stacked phone layout — which left the two on
+     the right hanging below the one on the left. */
+  .card.pad-less{align-items:center}
+  .card.pad-less>.tr-acts{margin-top:0;display:flex;gap:8px}
 }
 `;
