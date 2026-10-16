@@ -1066,8 +1066,15 @@ function StepsTab({ user, cfg, holidays, y, m, setPeriod, toast }) {
      the mouse. It also goes backwards — Shift+Enter, or the arrow keys —
      because a pedometer that lists yesterday first is filled bottom to top,
      and getting stuck at a typo with no way back up is maddening. */
+  /* 「数字を入れて Enter で次の日へ」 — a month filled in one sitting at the
+     end of it should be thirty numbers and thirty Enters, not thirty
+     numbers and thirty clicks. Both views: the boxes are found from
+     whichever one the caret is in, and in the calendar document order is
+     reading order, so Enter runs along the week and drops to the next.
+     Shift+Enter and the arrow keys go back. */
   const focusStep = (el, dir) => {
-    const boxes = [...(listRef.current?.querySelectorAll('input:not([disabled])') || [])];
+    const box = el.closest('.cal, .listv');
+    const boxes = [...(box?.querySelectorAll('input:not([disabled])') || [])];
     const nx = boxes[boxes.indexOf(el) + dir];
     if (nx) { nx.focus(); nx.select(); } else if (dir > 0) el.blur();
   };
@@ -1323,6 +1330,7 @@ function StepsTab({ user, cfg, holidays, y, m, setPeriod, toast }) {
                       const raw = e.target.value.replace(/[^\d]/g, '');
                       saveDay(d.iso, raw === '' ? '' : Number(raw));
                     }}
+                    onKeyDown={listKey}
                   />
                 </div>
               );
@@ -3481,8 +3489,8 @@ a.btn{text-decoration:none;text-align:center;display:inline-block}
    is the height that holds those. */
 .cell{border:0;border-right:1px solid var(--rule);
   border-bottom:1px solid var(--rule);background:#fff;border-radius:0;
-  display:flex;align-items:center;justify-content:space-between;gap:3px;
-  padding:2px 5px;text-align:left;position:relative;min-height:36px}
+  display:flex;align-items:center;justify-content:space-between;gap:4px;
+  padding:4px 7px;text-align:left;position:relative;min-height:44px}
 
 /* Seven columns across a phone is 55px each, and 55px does not hold a date
    and 75,079 side by side — the last digit was simply cut off. So on a
@@ -3494,8 +3502,8 @@ a.btn{text-decoration:none;text-align:center;display:inline-block}
   .cell .dval{font-size:12px;padding:0 2px}
 }
 .cell.empty{background:var(--wash)}
-.cell .dnum{font-size:11px;color:var(--ink-2);flex:none}
-.cell .dval{font-size:12.5px;font-weight:600;text-align:right;letter-spacing:-.03em;
+.cell .dnum{font-size:11.5px;color:var(--ink-2);flex:none}
+.cell .dval{font-size:13.5px;font-weight:600;text-align:right;letter-spacing:-.03em;
   min-width:0;width:100%;border:1px solid transparent;border-radius:3px;
   background:transparent;padding:2px 3px;font-family:inherit;
   font-variant-numeric:tabular-nums}
@@ -3734,7 +3742,7 @@ a.btn{text-decoration:none;text-align:center;display:inline-block}
      is a fixed width because its contents decide it — seven days of a
      five-figure count — while the chart beside it takes what is left. */
   .tabbody.st-page{max-width:1280px}
-  .st-cols{display:grid;grid-template-columns:minmax(0,1fr) 600px;align-items:start}
+  .st-cols{display:grid;grid-template-columns:minmax(0,1fr) 640px;align-items:start}
   .st-hero{grid-column:1;min-width:0}
   .st-cal{grid-column:2;min-width:0;position:sticky;top:64px;
     border-left:1px solid var(--rule);background:#fff}

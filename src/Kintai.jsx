@@ -1015,8 +1015,21 @@ export const KINTAI_CSS = `
   .kt-today-f .fld>span,.kt-today-f label>span{font-size:11px}
   .kt-today-f .navrow{margin-top:2px}
   .kt-today-f .navrow .btn{padding:6px 13px;font-size:13px}
-  .kt-today-f input,.kt-today-f select{padding:6px 9px;font-size:13.5px}
-  .kt-today-f .kt-time input[type=time]{font-size:15px;padding:6px 8px}
+  /* .kt-today-f input is one class and one type, which is exactly what
+     .fld input is — and the app's sheet is concatenated after this one, so
+     the tie went to the base rule and these were never actually smaller.
+     Going through .fld wins it on specificity rather than on order. */
+  .kt-today-f .fld input,.kt-today-f .fld select,
+  .kt-today-f .fld textarea{padding:5px 9px;font-size:13.5px;line-height:1.6}
+  .kt-today-f .fld select{padding-right:26px;background-position:right 9px center}
+  .kt-today-f .fld{margin-bottom:8px}
+
+  /* The four figures underneath were a 58px band for four short numbers. */
+  .kt-today-f .kt-day-sum{margin-top:2px}
+  .kt-today-f .kt-day-sum>div{padding:3px 6px;line-height:1.45}
+  .kt-today-f .kt-day-sum span{font-size:9.5px;line-height:1.4}
+  .kt-today-f .kt-day-sum b{font-size:12.5px;line-height:1.4}
+  .kt-today-f .kt-time input[type=time]{font-size:13.5px;padding:5px 8px;line-height:1.6}
   .kt-day-sum>div{padding:5px 6px}
   .kt-day-sum span{font-size:10px}
   .kt-day-sum b{font-size:13px}
