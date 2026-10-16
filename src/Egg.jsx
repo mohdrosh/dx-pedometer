@@ -284,14 +284,23 @@ export default function EggTab({ user, cfg = {}, setCfg, lang, toast, people = [
         </>
       )}
 
-      <div className="eg-cols">
-        <div className="eg-form">
-          {showForm && (
-            <>
-              <div className="sechead"><span>{t('survey')}</span></div>
-              <div className="card">
-                <p className="eg-anon">{t('anon')}</p>
+      {/* ---------------------------------------------------------------
+          The survey, laid out across the width rather than down a column.
 
+          It used to be form-left / results-right, which is the right shape
+          for the 配布 screen and the wrong one here: three questions stacked
+          in half a screen ran to two screenfuls of scrolling while the
+          results pane beside them sat empty. The questions are wide things —
+          eight offices, four rules, three names — so each one gets a row and
+          spends it sideways, and the charts go underneath, three across.
+          ------------------------------------------------------------- */}
+      <div className="eg-sv">
+        {showForm && (
+          <>
+            <div className="card eg-sv-form">
+              <p className="eg-anon">{t('anon')}</p>
+
+              <div className="eg-fq">
                 <div className="eg-q">{t('q1')}</div>
                 <div className="eg-opts">
                   {(d.offices || []).map((o) => (
@@ -307,12 +316,14 @@ export default function EggTab({ user, cfg = {}, setCfg, lang, toast, people = [
                     onClick={() => setOffice(NOT_NOW)}
                   >{t('notNow')}</button>
                 </div>
+              </div>
 
+              <div className="eg-fq">
                 <div className="eg-q">{t('q2')}</div>
                 {/* Nobody can vote on 前回落選者優先 without being told what
                     it means, so each rule carries its own one-line summary
                     and the trade-off the spec records for it. */}
-                <div className="eg-rules">
+                <div className="eg-rules eg-r4">
                   {(d.rules || []).map((r) => (
                     <button
                       key={r.id} type="button"
@@ -326,121 +337,117 @@ export default function EggTab({ user, cfg = {}, setCfg, lang, toast, people = [
                     </button>
                   ))}
                 </div>
+              </div>
 
-                <div className="eg-q">{t('q3')}</div>
-                <p className="muted sm eg-q3why">{t('q3note')}</p>
-                <div className="eg-rules eg-names">
-                  {(d.names || []).map((n) => (
-                    <button
-                      key={n.id} type="button"
-                      className={`eg-rule${sname === n.id ? ' on' : ''}`}
-                      onClick={() => setSname(n.id)}
-                    >
-                      <strong>{lang === 'ja' ? n.ja : n.en}</strong>
-                      <span>{lang === 'ja' ? n.noteJa : n.noteEn}</span>
-                    </button>
-                  ))}
+              {/* 問3 is three short cards and the comment box is one field,
+                  so they share a row instead of each taking one. */}
+              <div className="eg-fq-row">
+                <div className="eg-fq">
+                  <div className="eg-q">{t('q3')}</div>
+                  <p className="muted sm eg-q3why">{t('q3note')}</p>
+                  <div className="eg-rules eg-names eg-r3">
+                    {(d.names || []).map((n) => (
+                      <button
+                        key={n.id} type="button"
+                        className={`eg-rule${sname === n.id ? ' on' : ''}`}
+                        onClick={() => setSname(n.id)}
+                      >
+                        <strong>{lang === 'ja' ? n.ja : n.en}</strong>
+                        <span>{lang === 'ja' ? n.noteJa : n.noteEn}</span>
+                      </button>
+                    ))}
+                  </div>
                 </div>
 
                 {/* 佐野:「投票するときに、意見があれば一緒に書いてもらって
                     ください」. Optional, and published without the office or
                     the rule beside it — the three together would often
                     narrow a comment down to one person. */}
-                <label className="fld eg-note"><span>{t('comment')}</span>
-                  <textarea
-                    rows={2} maxLength={200} value={note} placeholder={t('commentPh')}
-                    onChange={(e) => setNote(e.target.value)}
-                  />
-                </label>
-                <p className="muted sm eg-note-why">{t('commentNote')}</p>
+                <div className="eg-fq eg-send">
+                  <label className="fld eg-note"><span>{t('comment')}</span>
+                    <textarea
+                      rows={3} maxLength={200} value={note} placeholder={t('commentPh')}
+                      onChange={(e) => setNote(e.target.value)}
+                    />
+                  </label>
+                  <p className="muted sm eg-note-why">{t('commentNote')}</p>
+                </div>
+              </div>
 
+              {/* The button belongs to the whole form, not to the column it
+                  happened to sit in — put it in one and the other column
+                  ends in a hole as deep as the button is tall. */}
+              <div className="eg-sv-go">
+                <p className="muted sm">{t('canChange')}</p>
                 <button
                   className="btn primary big" disabled={!office || !rule || !sname || busy}
                   onClick={send}
                 >{busy ? t('sending') : t('send')}</button>
-                <p className="muted sm mt8">{t('canChange')}</p>
               </div>
-            </>
-          )}
+            </div>
+          </>
+        )}
 
-          {answered && !editing && (
-            <>
-              <div className="sechead"><span>{t('yours')}</span></div>
-              <div className="card eg-mine">
-                <span className="pill ok">{t('answered')}</span>
-                <div className="eg-mine-v">
-                  <b>{d.mine.office === NOT_NOW ? t('notNow') : d.mine.office}</b>
-                  <i>/</i>
-                  <b>{(d.rules.find((r) => r.id === d.mine.rule) || {})[lang === 'ja' ? 'ja' : 'en']}</b>
-                </div>
-                {d.open && (
-                  <button className="btn" onClick={() => setEditing(true)}>{t('change')}</button>
+        {answered && !editing && (
+          <>
+            <div className="sechead"><span>{t('yours')}</span></div>
+            <div className="card eg-mine">
+              <span className="pill ok">{t('answered')}</span>
+              <div className="eg-mine-v">
+                <b>{d.mine.office === NOT_NOW ? t('notNow') : d.mine.office}</b>
+                <i>/</i>
+                <b>{(d.rules.find((r) => r.id === d.mine.rule) || {})[lang === 'ja' ? 'ja' : 'en']}</b>
+                {d.mine.name && (
+                  <>
+                    <i>/</i>
+                    <b>{(d.names.find((n) => n.id === d.mine.name) || {})[lang === 'ja' ? 'ja' : 'en']}</b>
+                  </>
                 )}
-                {d.mine.comment && <p className="eg-mine-note">{d.mine.comment}</p>}
               </div>
-              {/* Once answered the left of the screen had nothing in it but
-                  a one-line card, which reads as a page that failed to load
-                  rather than a job that is done. */}
-              <div className="card eg-thanks">
-                <img src={img('hatch')} alt="" />
-                <div>
-                  <strong>{t('done')}</strong>
-                  <p className="muted sm">{t('anon')}</p>
-                  {d.open && <p className="muted sm">{t('canChange')}</p>}
-                </div>
-              </div>
-            </>
-          )}
+              {d.open && (
+                <button className="btn" onClick={() => setEditing(true)}>{t('change')}</button>
+              )}
+              {d.mine.comment && <p className="eg-mine-note">{d.mine.comment}</p>}
+            </div>
+          </>
+        )}
 
-          {/* みんなのご意見 lives on this side: the charts fill the right
-              column on their own, and once you have answered this one is
-              a card and a mascot in half a screen of nothing. */}
-          {!!d.results?.comments?.length && (
-            <>
-              <div className="sechead"><span>{t('commentsHead')}</span></div>
-              <div className="card">
-                <ul className="eg-notes">
-                  {d.results.comments.map((c, i) => <li key={i}>{c}</li>)}
-                </ul>
-              </div>
-            </>
-          )}
+        {!d.canAnswer && (
+          <>
+            <div className="sechead"><span>{t('survey')}</span></div>
+            <div className="card"><p className="muted sm">{t('notYours')}</p></div>
+          </>
+        )}
 
-          {!d.canAnswer && (
-            <>
-              <div className="sechead"><span>{t('survey')}</span></div>
-              <div className="card"><p className="muted sm">{t('notYours')}</p></div>
-            </>
-          )}
+        {d.canAnswer && !d.open && !answered && (
+          <>
+            <div className="sechead"><span>{t('survey')}</span></div>
+            <div className="card eg-shut">
+              <img src={img('empty')} alt="" />
+              <p className="muted sm">{d.window ? t('closed') : t('notYet')}</p>
+            </div>
+          </>
+        )}
 
-          {d.canAnswer && !d.open && !answered && (
-            <>
-              <div className="sechead"><span>{t('survey')}</span></div>
-              <div className="card eg-shut">
-                <img src={img('empty')} alt="" />
-                <p className="muted sm">{d.window ? t('closed') : t('notYet')}</p>
-              </div>
-            </>
-          )}
+        <div className="sechead">
+          <span>{t('results')}</span>
+          <span className="muted sm">{total} {t('answers')}</span>
         </div>
-
-        <div className="eg-res">
-          <div className="sechead">
-            <span>{t('results')}</span>
-            <span className="muted sm">{total} {t('answers')}</span>
-          </div>
-          <div className="card">
-            {total === 0
-              ? (
-                <div className="eg-shut">
-                  <img src={img('empty')} alt="" />
-                  <p className="muted sm">{t('noneYet')}</p>
-                </div>
-              )
-              : (
-                <>
-                  {/* A single measure — how many people — so the heading
-                      names the series and there is no legend to read. */}
+        <div className="card">
+          {total === 0
+            ? (
+              /* A quarter of a screen of white under a big mascot is not a
+                 better way of saying "nobody yet" than one line is. */
+              <div className="eg-none">
+                <img src={img('empty')} alt="" />
+                <p className="muted sm">{t('noneYet')}</p>
+              </div>
+            )
+            : (
+              /* Three charts of one measure, so each names its own series
+                 and there is no legend anywhere. */
+              <div className="eg-three">
+                <div>
                   <h3 className="eg-ch">{t('byOffice')}</h3>
                   <Bars rows={officeRows} total={total} lead={leadOffice} t={t} />
                   {/* 今は不要 is an answer but not a destination, so it is
@@ -449,38 +456,41 @@ export default function EggTab({ user, cfg = {}, setCfg, lang, toast, people = [
                   {d.results.notNow > 0 && (
                     <p className="eg-nn">{t('notNowCount')} <b>{d.results.notNow}</b></p>
                   )}
-
-                  {/* 受取希望場所 has eight rows and wants the width; the
-                      other two have four and three, so they sit beside each
-                      other rather than putting the whole column off the
-                      bottom of a shorter screen. */}
-                  <div className="eg-two">
-                    <div>
-                      <h3 className="eg-ch">{t('byRule')}</h3>
-                      <Bars rows={ruleRows} total={total} lead={d.results.topRule} t={t} />
-                      {d.results.topRule && (
-                        <p className="eg-nn">
-                          {t('winning')}：
-                          <b>{(d.rules.find((r) => r.id === d.results.topRule) || {})[lang === 'ja' ? 'ja' : 'en']}</b>
-                        </p>
-                      )}
-                    </div>
-                    <div>
-                      <h3 className="eg-ch">{t('byName')}</h3>
-                      <Bars rows={nameRows} total={total} lead={d.results.topName} t={t} />
-                      {d.results.topName && (
-                        <p className="eg-nn">
-                          {d.open ? `${t('winning')}：` : `${t('nameWins')}：`}
-                          <b>{(d.names.find((n) => n.id === d.results.topName) || {})[lang === 'ja' ? 'ja' : 'en']}</b>
-                        </p>
-                      )}
-                    </div>
-                  </div>
-
-                </>
-              )}
-          </div>
+                </div>
+                <div>
+                  <h3 className="eg-ch">{t('byRule')}</h3>
+                  <Bars rows={ruleRows} total={total} lead={d.results.topRule} t={t} />
+                  {d.results.topRule && (
+                    <p className="eg-nn">
+                      {t('winning')}：
+                      <b>{(d.rules.find((r) => r.id === d.results.topRule) || {})[lang === 'ja' ? 'ja' : 'en']}</b>
+                    </p>
+                  )}
+                </div>
+                <div>
+                  <h3 className="eg-ch">{t('byName')}</h3>
+                  <Bars rows={nameRows} total={total} lead={d.results.topName} t={t} />
+                  {d.results.topName && (
+                    <p className="eg-nn">
+                      {d.open ? `${t('winning')}：` : `${t('nameWins')}：`}
+                      <b>{(d.names.find((n) => n.id === d.results.topName) || {})[lang === 'ja' ? 'ja' : 'en']}</b>
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
         </div>
+
+        {!!d.results?.comments?.length && (
+          <>
+            <div className="sechead"><span>{t('commentsHead')}</span></div>
+            <div className="card">
+              <ul className="eg-notes">
+                {d.results.comments.map((c, i) => <li key={i}>{c}</li>)}
+              </ul>
+            </div>
+          </>
+        )}
       </div>
        </>
       )}
@@ -496,8 +506,9 @@ export const EGG_CSS = `
 .eg-win{font-size:12.5px;color:var(--brand);font-weight:600;margin:5px 0 0}
 
 .eg-anon{font-size:12.5px;color:var(--ink-2);background:var(--brand-wash);
-  border-left:3px solid var(--brand);padding:8px 11px;margin:0 0 14px}
+  border-left:3px solid var(--brand);padding:7px 11px;margin:0 0 13px}
 .eg-q{font-size:14px;font-weight:600;margin:14px 0 9px}
+.eg-fq .eg-q{margin-top:0}
 
 .eg-opts{display:flex;flex-wrap:wrap;gap:7px}
 .eg-opt{padding:9px 15px;border:1px solid var(--rule-2);background:#fff;
@@ -506,6 +517,22 @@ export const EGG_CSS = `
 .eg-opt.on{background:var(--brand);border-color:var(--brand);color:#fff;font-weight:600}
 .eg-opt.none{color:var(--dim)}
 .eg-opt.none.on{background:var(--ink-2);border-color:var(--ink-2);color:#fff}
+
+/* Each question is a band of its own, so the rhythm down the form is the
+   same whichever question you are on. */
+.eg-fq{margin-bottom:14px}
+.eg-fq:last-child{margin-bottom:0}
+.eg-fq-row{display:grid;gap:14px}
+.eg-send{display:flex;flex-direction:column;align-items:flex-start}
+.eg-send .fld{width:100%}
+.eg-send .btn.big{margin-top:2px}
+.eg-three{display:grid;gap:4px}
+.eg-sv-go{display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+  padding-top:13px;margin-top:3px;border-top:1px solid var(--hair)}
+.eg-sv-go p{margin:0;order:2}
+.eg-none{display:flex;align-items:center;gap:12px}
+.eg-none img{width:52px;height:52px;opacity:.85;flex:none}
+.eg-none p{margin:0}
 
 .eg-q3why{margin:-4px 0 9px}
 .eg-names .eg-rule{gap:2px}
@@ -723,15 +750,27 @@ export const EGG_CSS = `
 .eg-p2-r{order:-1}
 .eg-off,.eg-adm{display:grid}
 
+@media(min-width:900px){
+  /* The survey spends the width instead of the height: the offices wrap
+     along one row, the four rules sit in one, and 問3 shares a row with the
+     comment box. Specific enough to beat the plain .eg-rules below. */
+  .eg-sv .eg-rules.eg-r4{grid-template-columns:repeat(4,minmax(0,1fr))}
+  .eg-sv .eg-rules.eg-r3{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .eg-fq-row{grid-template-columns:minmax(0,1.55fr) minmax(0,1fr);
+    column-gap:22px;align-items:start}
+  .eg-three{grid-template-columns:repeat(3,minmax(0,1fr));column-gap:22px;
+    align-items:start}
+  /* 尼崎技術研修所, 前回落選者優先 and 丹波たまご便り are all seven
+     characters; anything narrower cuts the only three labels that matter. */
+  .eg-three .eg-bars li{grid-template-columns:7.2em minmax(0,1fr) 1.9em}
+}
+
 @media(min-width:1024px){
   .eg-page{max-width:1240px}
-  .eg-cols{display:grid;grid-template-columns:minmax(0,1fr) 580px;
-    align-items:start;column-gap:0}
   .eg-two{display:grid;grid-template-columns:1fr 1fr;column-gap:20px;align-items:start}
   .eg-two .eg-bars li{grid-template-columns:6.2em minmax(0,1fr) 1.9em}
-  .eg-res{border-left:1px solid var(--rule);position:sticky;top:64px}
-  .eg-hero{padding:13px 18px}
-  .eg-mascot{width:76px;height:76px}
+  .eg-hero{padding:11px 18px;gap:13px}
+  .eg-mascot{width:62px;height:62px}
   .eg-hero h2{font-size:17px}
   .eg-rules{grid-template-columns:1fr 1fr}
   .eg-admin{display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap}
