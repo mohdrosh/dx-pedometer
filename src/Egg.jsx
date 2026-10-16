@@ -331,6 +331,20 @@ export default function EggTab({ user, cfg = {}, setCfg, lang, toast }) {
             </>
           )}
 
+          {/* みんなのご意見 lives on this side: the charts fill the right
+              column on their own, and once you have answered this one is
+              a card and a mascot in half a screen of nothing. */}
+          {!!d.results?.comments?.length && (
+            <>
+              <div className="sechead"><span>{t('commentsHead')}</span></div>
+              <div className="card">
+                <ul className="eg-notes">
+                  {d.results.comments.map((c, i) => <li key={i}>{c}</li>)}
+                </ul>
+              </div>
+            </>
+          )}
+
           {!d.canAnswer && (
             <>
               <div className="sechead"><span>{t('survey')}</span></div>
@@ -375,32 +389,33 @@ export default function EggTab({ user, cfg = {}, setCfg, lang, toast }) {
                     <p className="eg-nn">{t('notNowCount')} <b>{d.results.notNow}</b></p>
                   )}
 
-                  <h3 className="eg-ch">{t('byRule')}</h3>
-                  <Bars rows={ruleRows} total={total} lead={d.results.topRule} t={t} />
-                  {d.results.topRule && (
-                    <p className="eg-nn">
-                      {t('winning')}：
-                      <b>{(d.rules.find((r) => r.id === d.results.topRule) || {})[lang === 'ja' ? 'ja' : 'en']}</b>
-                    </p>
-                  )}
+                  {/* 受取希望場所 has eight rows and wants the width; the
+                      other two have four and three, so they sit beside each
+                      other rather than putting the whole column off the
+                      bottom of a shorter screen. */}
+                  <div className="eg-two">
+                    <div>
+                      <h3 className="eg-ch">{t('byRule')}</h3>
+                      <Bars rows={ruleRows} total={total} lead={d.results.topRule} t={t} />
+                      {d.results.topRule && (
+                        <p className="eg-nn">
+                          {t('winning')}：
+                          <b>{(d.rules.find((r) => r.id === d.results.topRule) || {})[lang === 'ja' ? 'ja' : 'en']}</b>
+                        </p>
+                      )}
+                    </div>
+                    <div>
+                      <h3 className="eg-ch">{t('byName')}</h3>
+                      <Bars rows={nameRows} total={total} lead={d.results.topName} t={t} />
+                      {d.results.topName && (
+                        <p className="eg-nn">
+                          {d.open ? `${t('winning')}：` : `${t('nameWins')}：`}
+                          <b>{(d.names.find((n) => n.id === d.results.topName) || {})[lang === 'ja' ? 'ja' : 'en']}</b>
+                        </p>
+                      )}
+                    </div>
+                  </div>
 
-                  <h3 className="eg-ch">{t('byName')}</h3>
-                  <Bars rows={nameRows} total={total} lead={d.results.topName} t={t} />
-                  {d.results.topName && (
-                    <p className="eg-nn">
-                      {d.open ? `${t('winning')}：` : `${t('nameWins')}：`}
-                      <b>{(d.names.find((n) => n.id === d.results.topName) || {})[lang === 'ja' ? 'ja' : 'en']}</b>
-                    </p>
-                  )}
-
-                  {!!d.results.comments?.length && (
-                    <>
-                      <h3 className="eg-ch">{t('commentsHead')}</h3>
-                      <ul className="eg-notes">
-                        {d.results.comments.map((c, i) => <li key={i}>{c}</li>)}
-                      </ul>
-                    </>
-                  )}
                 </>
               )}
           </div>
@@ -457,7 +472,7 @@ export const EGG_CSS = `
 .eg-note-why{margin:-6px 0 14px}
 .eg-mine-note{flex:1 1 100%;margin:6px 0 0;font-size:13px;color:var(--ink-2);
   padding-left:11px;border-left:3px solid var(--hair)}
-.eg-notes{list-style:none;margin:0 0 14px;padding:0;display:grid;gap:7px}
+.eg-notes{list-style:none;margin:0;padding:0;display:grid;gap:7px}
 .eg-notes li{font-size:12.5px;line-height:1.65;color:var(--ink);
   background:var(--wash);border-left:3px solid var(--rule-2);padding:7px 11px}
 
@@ -474,14 +489,14 @@ export const EGG_CSS = `
    on every row so nothing depends on telling the two blues apart, and a
    2px gap between bars so adjacent rows never merge into one block.
 ----------------------------------------------------------------------- */
-.eg-ch{font-size:12.5px;font-weight:600;color:var(--ink-2);margin:4px 0 9px}
-.eg-ch + .eg-bars{margin-bottom:16px}
+.eg-ch{font-size:12px;font-weight:600;color:var(--ink-2);margin:2px 0 7px}
+.eg-ch + .eg-bars{margin-bottom:13px}
 .eg-bars{list-style:none;margin:0;padding:0;display:grid;gap:2px}
-.eg-bars li{display:grid;grid-template-columns:7.5em minmax(0,1fr) 2.4em;
-  align-items:center;gap:9px}
+.eg-bars li{display:grid;grid-template-columns:7.2em minmax(0,1fr) 2.2em;
+  align-items:center;gap:8px}
 .eg-bl{font-size:12.5px;color:var(--ink-2);text-align:right;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.eg-bt{display:block;height:17px;background:var(--hair)}
+.eg-bt{display:block;height:15px;background:var(--hair)}
 .eg-bt i{display:block;height:100%;background:#5B8FC4;
   border-radius:0 4px 4px 0;transition:width .3s ease}
 .eg-bars li.lead .eg-bt i{background:var(--brand)}
@@ -495,11 +510,14 @@ export const EGG_CSS = `
 
 @media(min-width:1024px){
   .eg-page{max-width:1240px}
-  .eg-cols{display:grid;grid-template-columns:minmax(0,1fr) 420px;
+  .eg-cols{display:grid;grid-template-columns:minmax(0,1fr) 580px;
     align-items:start;column-gap:0}
+  .eg-two{display:grid;grid-template-columns:1fr 1fr;column-gap:20px;align-items:start}
+  .eg-two .eg-bars li{grid-template-columns:6.2em minmax(0,1fr) 1.9em}
   .eg-res{border-left:1px solid var(--rule);position:sticky;top:64px}
-  .eg-hero{padding:18px}
-  .eg-mascot{width:96px;height:96px}
+  .eg-hero{padding:13px 18px}
+  .eg-mascot{width:76px;height:76px}
+  .eg-hero h2{font-size:17px}
   .eg-rules{grid-template-columns:1fr 1fr}
   .eg-admin{display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap}
   .eg-admin .fld{margin-bottom:0}
