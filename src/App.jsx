@@ -3184,6 +3184,39 @@ function Styles() {
 .login-foot{margin-top:auto;padding-top:36px;display:flex;flex-direction:column;gap:2px;
   font-size:12.5px;color:var(--dim)}
 
+/* ---- the sign-in card on anything bigger than a phone ------------------
+   Everything above is sized for a thumb, which is right on the device most
+   of the 171 use it on — a 16px field so iOS does not zoom when it is
+   focused, and targets you can hit while walking. On a laptop the same
+   card reads as though it were printed large: a 30px heading and a 21px
+   employee number over one short field.
+
+   So from 700px up it is the same card, smaller. The phone keeps every
+   figure it had.
+------------------------------------------------------------------------ */
+@media(min-width:700px){
+  .login-inner{max-width:396px;padding-top:44px}
+  .login-top{margin-bottom:24px}
+  .login-hello{margin:2px 0 0}
+  .login-hello .mbot{width:74px;height:84px}
+  .login-hello .bubble{margin-bottom:16px;padding:9px 12px;font-size:12.5px}
+  .login-title{margin-bottom:20px}
+  .login-title h1{font-size:23px}
+  .eyebrow{font-size:12px}
+  .login-inner .fld{margin-bottom:14px}
+  .login-inner .fld input{padding:10px 12px}
+  .login-inner .fld input[inputmode=numeric]{font-size:17px}
+  .login-inner .btn{padding:10px 16px;font-size:14px}
+  .login-foot{padding-top:28px}
+}
+
+/* The desktop rules further down shrink .btn.big to its label, which is
+   right in a form of many fields and wrong here: ログイン is the only
+   thing on this card to press, so it keeps the card's width. */
+@media(min-width:1024px){
+  .login-inner .btn.big{width:100%;min-width:0}
+}
+
 /* ---- chrome ------------------------------------------------------------ */
 .hdr{display:flex;justify-content:space-between;align-items:center;gap:12px;
   padding:9px 14px;background:#fff;color:var(--ink);border-bottom:2px solid var(--brand);
