@@ -146,6 +146,11 @@ export async function initSchema() {
        whatsoever. */
     ALTER TABLE employees ADD COLUMN IF NOT EXISTS mypage BOOLEAN NOT NULL DEFAULT FALSE;
 
+    /* モラエッグ. A flag of its own rather than riding on mypage, which by
+       now opens every module for fourteen people — the egg portal starts
+       with 佐野 alone while the committee works out who 内勤 covers. */
+    ALTER TABLE employees ADD COLUMN IF NOT EXISTS egg BOOLEAN NOT NULL DEFAULT FALSE;
+
     /* 添付 — the files a claim carries. Today that is the 遅延証明書 a train
        company issues when a commute is late; the kind column is there so the
        next sort of attachment does not need a second table.
@@ -169,6 +174,25 @@ export async function initSchema() {
       created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
     CREATE INDEX IF NOT EXISTS uploads_owner_idx ON uploads(employee_id, period);
+
+    /* 需要調査の回答 — one row per person, and the employee id is the key.
+
+       佐野 asked for two things that pull against each other: nobody, not
+       even an administrator, may see who chose what; and a person may change
+       their answer while the survey is open. The second needs the link, so
+       the link exists — as the primary key, which also makes voting twice
+       impossible rather than merely discouraged.
+
+       It never leaves this file. The only reader below is eggTally, which
+       returns counts. There is no function here that takes an employee and
+       gives back their office, and none that lists the rows with their ids;
+       adding one would undo the promise rather than extend the feature. */
+    CREATE TABLE IF NOT EXISTS egg_votes (
+      employee_id TEXT PRIMARY KEY REFERENCES employees(id) ON DELETE CASCADE,
+      office      TEXT NOT NULL,
+      rule        TEXT NOT NULL,
+      updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
   `);
 
   /* The consent used to be a checkbox on the sign-in screen, and signing in
@@ -248,6 +272,7 @@ const toEmployee = (r) => ({
   workStation: r.work_station || '',
   commute: Array.isArray(r.commute) ? r.commute : [],
   ...(r.mypage ? { mypage: true } : {}),
+  ...(r.egg ? { egg: true } : {}),
   email: r.email || '',
   email2: r.email2 || '',
   email2On: !!r.email2_on,
@@ -277,9 +302,9 @@ async function setRoster(list) {
                                 consent, consent_asked, consent_at, sort_order, trial, dob,
                                 email2, email2_on, dept, section, client,
                                 affiliation, work_start, work_end, address, home_station,
-                                workplace, work_station, commute, mypage)
+                                workplace, work_station, commute, mypage, egg)
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,
-                 $19,$20,$21,$22,$23,$24,$25,$26,$27)
+                 $19,$20,$21,$22,$23,$24,$25,$26,$27,$28)
          ON CONFLICT (id) DO UPDATE SET
            name = EXCLUDED.name, region = EXCLUDED.region, gender = EXCLUDED.gender,
            email = EXCLUDED.email, pedometer = EXCLUDED.pedometer, active = EXCLUDED.active,
@@ -292,7 +317,7 @@ async function setRoster(list) {
            work_start = EXCLUDED.work_start, work_end = EXCLUDED.work_end,
            address = EXCLUDED.address, home_station = EXCLUDED.home_station,
            workplace = EXCLUDED.workplace, work_station = EXCLUDED.work_station,
-           commute = EXCLUDED.commute, mypage = EXCLUDED.mypage`,
+           commute = EXCLUDED.commute, mypage = EXCLUDED.mypage, egg = EXCLUDED.egg`,
         [
           String(p.id), p.name, p.region || null, p.gender || null, p.email || null,
           p.pedometer || null, p.active !== false, !!p.consent, !!p.consentAsked,
@@ -302,7 +327,7 @@ async function setRoster(list) {
           p.affiliation || null, p.workStart || null, p.workEnd || null,
           p.address || null, p.homeStation || null,
           p.workplace || null, p.workStation || null,
-          JSON.stringify(cleanCommute(p.commute)), !!p.mypage,
+          JSON.stringify(cleanCommute(p.commute)), !!p.mypage, !!p.egg,
         ],
       );
     }
@@ -596,4 +621,61 @@ export async function allEntriesForPeriod(period) {
   const map = {};
   rows.forEach((r) => { map[r.employee_id] = { submitted: r.submitted }; });
   return map;
+}
+
+/* ----------------------------- 需要調査 ---------------------------------
+   モラエッグ Phase 0. Three functions, and between them they are the whole
+   promise: you may record your own answer, read back your own answer, and
+   read everybody's as counts. Nothing offers one person's answer to another
+   person, an administrator included.
+   ---------------------------------------------------------------------- */
+
+/**
+ * Record or change this person's answer.
+ *
+ * The employee id comes from the session at the call site, never from a
+ * request body, and it is the primary key — so a second answer replaces the
+ * first instead of being counted again, and 「1人1回のみ」 is a property of
+ * the table rather than a check somebody has to remember to write.
+ */
+export async function eggVote(employeeId, { office, rule }) {
+  await pool.query(
+    `INSERT INTO egg_votes (employee_id, office, rule, updated_at)
+     VALUES ($1, $2, $3, NOW())
+     ON CONFLICT (employee_id) DO UPDATE
+       SET office = EXCLUDED.office, rule = EXCLUDED.rule, updated_at = NOW()`,
+    [String(employeeId), office, rule],
+  );
+  return true;
+}
+
+/**
+ * This person's own answer, so the form can open on what they chose last
+ * time. Their own and nobody else's: the id in the WHERE clause is the
+ * caller's, and there is no argument that would widen it.
+ */
+export async function eggMyVote(employeeId) {
+  const { rows } = await pool.query(
+    'SELECT office, rule FROM egg_votes WHERE employee_id = $1',
+    [String(employeeId)],
+  );
+  return rows[0] || null;
+}
+
+/**
+ * Everybody's answers, as rows of office and rule — with no employee id
+ * selected, so the anonymity does not rest on the caller remembering to
+ * drop it. tally() in src/egg.js turns these into counts.
+ */
+export async function eggRows() {
+  const { rows } = await pool.query('SELECT office, rule FROM egg_votes');
+  return rows;
+}
+
+/** How many people could answer: 正社員 with the portal open to them. */
+export async function eggAudience() {
+  const { rows } = await pool.query(
+    'SELECT COUNT(*)::int AS n FROM employees WHERE egg = TRUE AND active IS NOT FALSE',
+  );
+  return rows[0]?.n || 0;
 }

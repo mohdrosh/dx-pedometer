@@ -39,6 +39,7 @@ import { DEFAULT_CFG, ROSTER_SEED, orderRegions } from './src/defaults.js';
 import { inSubmissionWindow } from './src/submission-window.js';
 import { rulesForPerson, closureMap } from './src/company.js';
 import { xlsxToPdf, pdfReady } from './src/topdf.js';
+import { cleanVote, eggOpen, eggWindow, eggOffices, tally, EGG_RULES } from './src/egg.js';
 
 if (!process.env.DATABASE_URL) {
   console.error('\n  DATABASE_URL is not set.');
@@ -52,6 +53,7 @@ const {
   createSession, getSession, deleteSession, purgeSessions,
   getEmployee, updateEmployeeSelf, setConsent,
   addUpload, listUploads, getUpload, deleteUpload, uploadBytes,
+  eggVote, eggMyVote, eggRows, eggAudience,
 } = await import('./src/db.js');
 
 const DIR = path.dirname(fileURLToPath(import.meta.url));
@@ -491,6 +493,67 @@ const server = http.createServer(async (req, res) => {
       const updated = await setConsent(sess.employeeId, b.agree);
       if (!updated) return deny(res, 403);
       return sendJson(res, 200, { user: { admin: false, ...updated } });
+    }
+
+    /* ------------------------- モラエッグ Phase 0 -----------------------
+       需要調査. Two questions, answered once by each person, counted for
+       everybody and attributable to nobody.
+
+       The anonymity is not a promise made in the interface — it is made
+       here, by what these routes can return. The only read that touches
+       other people's answers is a tally, and the only read that touches one
+       person's answer takes the id from the session. There is deliberately
+       no route that lists the votes, and none that an administrator can
+       call to see more than anybody else: 佐野 wrote 「管理者を含め」 and
+       an admin screen that quietly saw the rows would break it while
+       looking like it worked.
+       ------------------------------------------------------------------ */
+    if (url.pathname === '/api/egg/survey' && req.method === 'GET') {
+      if (!sess) return deny(res);
+      const cfg = { ...DEFAULT_CFG, ...((await getKey('cfg')) || {}) };
+      const person = sess.isAdmin ? null : await getEmployee(sess.employeeId);
+      /* An administrator may look at the results and set the window, but is
+         not a 正社員 answering a survey, so has no answer of their own. */
+      const mine = sess.isAdmin ? null : await eggMyVote(sess.employeeId);
+      return sendJson(res, 200, {
+        open: eggOpen(cfg, tokyoNow().stamp),
+        window: eggWindow(cfg),
+        offices: eggOffices(cfg),
+        rules: EGG_RULES,
+        mine,
+        audience: await eggAudience(),
+        results: tally(await eggRows(), eggOffices(cfg)),
+        /* 4.1:「全社員が閲覧可能とし、盛り上げに使う」 — the results are open
+           to everyone who can reach the portal, not held back for admins. */
+        canAnswer: !!person?.egg,
+      });
+    }
+
+    if (url.pathname === '/api/egg/survey' && req.method === 'PUT') {
+      if (!sess) return deny(res);
+      if (sess.isAdmin) return deny(res, 403);
+      if (rateLimited(`egg:${sess.sid}`, 30, 60_000)) return sendJson(res, 429, { error: 'too_many' });
+
+      const person = await getEmployee(sess.employeeId);
+      if (!person?.egg) return deny(res, 403);
+
+      const cfg = { ...DEFAULT_CFG, ...((await getKey('cfg')) || {}) };
+      /* 「受付期間内であれば変更できる」 — and outside it, neither a first
+         answer nor a change. Checked here and not only on the screen,
+         because the screen is not a guard. */
+      if (!eggOpen(cfg, tokyoNow().stamp)) return sendJson(res, 409, { error: 'closed' });
+
+      const b = await readBody(req).catch(() => null);
+      const vote = cleanVote(b, eggOffices(cfg));
+      if (!vote) return sendJson(res, 400, { error: 'bad_answer' });
+
+      await eggVote(sess.employeeId, vote);
+      /* What comes back is their own answer and the new totals — never a
+         row belonging to anybody else. */
+      return sendJson(res, 200, {
+        mine: vote,
+        results: tally(await eggRows(), eggOffices(cfg)),
+      });
     }
 
     /* 業務報告書 as the form itself, filled from the month on screen. Built

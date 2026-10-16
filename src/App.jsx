@@ -3,6 +3,7 @@ import * as XLSX from 'xlsx';
 import MoraBot, { MORABOT_CSS } from './MoraBot';
 import KintaiTab, { KINTAI_CSS } from './Kintai';
 import KoutsuuhiTab, { KOUTSUUHI_CSS } from './Koutsuuhi';
+import EggTab, { EGG_CSS } from './Egg';
 import { inSubmissionWindow } from './submission-window.js';
 import { matches as fareMatches, parsePaste, mergeRows, cleanRow } from './fare-table';
 import { DEFAULT_RULES } from './kintai.js';
@@ -57,6 +58,7 @@ const MODULES = [
   { id: 'steps', ja: '万歩計', en: 'Pedometer' },
   { id: 'timesheet', ja: '勤怠', en: 'Timesheet' },
   { id: 'expense', ja: '旅費精算', en: 'Expenses' },
+  { id: 'egg', ja: 'タマゴ', en: 'Eggs' },
 ];
 
 /* Whether a module is open to this person. 万歩計 is the system itself and
@@ -69,18 +71,28 @@ const MODULES = [
    nobody has signed off. */
 const DOW_JA_SHORT = ['日', '月', '火', '水', '木', '金', '土'];
 
-const moduleOpen = (cfg, person, id) => id === 'steps'
-  || person?.mypage === true
-  || cfg?.modules?.[id] === true;
+const moduleOpen = (cfg, person, id) => {
+  /* タマゴ配布 does not ride on マイページ. That flag now opens every module
+     for fourteen people, and the egg portal is for 正社員・内勤 — a list
+     nobody has drawn up yet, so it starts with 佐野 alone and widens from
+     a record or from 設定 once the committee says who is included. */
+  if (id === 'egg') return person?.egg === true || cfg?.modules?.egg === true;
+  return id === 'steps' || person?.mypage === true || cfg?.modules?.[id] === true;
+};
 
 /* The order the tabs sit in along the bottom. Somebody with マイページ open
    lands on their own details and finds 万歩計 beside them, as 健康対策委員会
    described it: ログイン → マイページ → 個人情報 / 万歩計 / 勤怠 / 旅費精算.
    Everyone else keeps today's screen exactly, 万歩計 first and マイページ
    last, because nothing about their month has changed. */
-const navFor = (person) => (person?.mypage
-  ? ['personal', 'steps', 'timesheet', 'expense']
-  : ['steps', 'timesheet', 'expense', 'personal']);
+const navFor = (person) => {
+  const base = person?.mypage
+    ? ['personal', 'steps', 'timesheet', 'expense']
+    : ['steps', 'timesheet', 'expense', 'personal'];
+  /* Only where it is open: an egg tab reading 準備中 for 170 people is an
+     advertisement for something they cannot have. */
+  return person?.egg ? [...base, 'egg'] : base;
+};
 
 /* The second door. The app is one page served for any path under the base,
    so /my needs nothing from nginx. It decides which sign-in screen is shown
@@ -169,6 +181,9 @@ const STR = {
   carrier: ['使用交通会社名', 'Operator'],
   boardAt: ['乗車地', 'From'],
   alightAt: ['降車地', 'To'],
+  eggOn: ['タマゴ配布を使う', 'Use the egg portal'],
+  eggOnNote: ['ONにすると、この方に「タマゴ」タブが出て、需要調査に回答できます。対象は正社員です。',
+    'Switches on the タマゴ tab for this person and lets them answer the demand survey. Full-time employees only.'],
   mypageOn: ['マイページを使う', 'Use the new My Page'],
   mypageOnNote: ['ONにすると、この方は新しいマイページ（個人情報・万歩計・勤怠・旅費精算）になります。',
     'When on, this person gets the new My Page workspace with Attendance and Expenses.'],
@@ -2238,7 +2253,7 @@ function PeopleAdmin({ cfg, setCfg, roster, setRoster, toast }) {
         affiliation: f.affiliation || '', workStart: f.workStart || '', workEnd: f.workEnd || '',
         address: f.address || '', homeStation: f.homeStation || '',
         workplace: f.workplace || '', workStation: f.workStation || '',
-        commute: f.commute || [], mypage: !!f.mypage,
+        commute: f.commute || [], mypage: !!f.mypage, egg: !!f.egg,
       }]
       : roster.map((p) => {
         if (String(p.id) !== String(f._orig)) return p;
@@ -2471,6 +2486,12 @@ function PeopleAdmin({ cfg, setCfg, roster, setRoster, toast }) {
               <span>{t('mypageOn')}</span>
             </label>
             <p className="muted sm">{t('mypageOnNote')}</p>
+            <label className="check">
+              <input type="checkbox" checked={!!edit.egg}
+                onChange={(e) => setEdit({ ...edit, egg: e.target.checked })} />
+              <span>{t('eggOn')}</span>
+            </label>
+            <p className="muted sm">{t('eggOnNote')}</p>
             <label className="fld"><span>{t('pedometerNo')}</span>
               <input value={edit.pedometer || ''} onChange={(e) => setEdit({ ...edit, pedometer: e.target.value })} />
             </label>
@@ -3019,6 +3040,12 @@ export default function App() {
                 base={import.meta.env.BASE_URL.replace(/\/$/, '')}
               />
             </>
+          ) : mod === 'egg' && (user.admin || moduleOpen(cfg, me, 'egg')) ? (
+            /* No PeriodBar: the survey is not a month, it is a window with
+               two dates, and it says so itself. An administrator reaches
+               this to set that window and to watch the chart — the same
+               chart everybody else sees, because there is no other one. */
+            <EggTab user={user} cfg={cfg} setCfg={setCfg} lang={lang} toast={toast} />
           ) : mod !== 'steps' ? (
             <div className="pad center">
               <div className="soonbox">
@@ -3081,7 +3108,7 @@ export default function App() {
 /* ================================ Styles ================================== */
 function Styles() {
   return (
-    <style>{MORABOT_CSS + KINTAI_CSS + KOUTSUUHI_CSS + `
+    <style>{MORABOT_CSS + KINTAI_CSS + KOUTSUUHI_CSS + EGG_CSS + `
 .ft-new{display:grid;grid-template-columns:1fr 1fr 1fr 90px auto;gap:8px;margin-top:10px}
 .ft-new input{min-width:0}
 .ft-q{max-width:180px}
