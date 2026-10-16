@@ -39,7 +39,15 @@ import { DEFAULT_CFG, ROSTER_SEED, orderRegions } from './src/defaults.js';
 import { inSubmissionWindow } from './src/submission-window.js';
 import { rulesForPerson, closureMap } from './src/company.js';
 import { xlsxToPdf, pdfReady } from './src/topdf.js';
-import { cleanVote, eggOpen, eggWindow, eggOffices, tally, EGG_RULES, EGG_NAMES } from './src/egg.js';
+import {
+  cleanVote, eggOpen, eggWindow, eggOffices, tally, EGG_RULES, EGG_NAMES,
+  cleanRequest, eggMaxPacks, eggTerms, consentOk, requestTotals,
+  EGG_PURPOSES,
+} from './src/egg.js';
+import {
+  mondayOf, nextShipMonday, requestDeadline, requestsOpen, pickupDeadline,
+  allocate, missedFrom, shiftDay,
+} from './src/egg-week.js';
 
 if (!process.env.DATABASE_URL) {
   console.error('\n  DATABASE_URL is not set.');
@@ -54,6 +62,11 @@ const {
   getEmployee, updateEmployeeSelf, setConsent,
   addUpload, listUploads, getUpload, deleteUpload, uploadBytes,
   eggVote, eggMyVote, eggRows, eggAudience,
+  eggOfficeRows, eggOfficeSave, eggOfficeDelete, eggContactFor,
+  eggHarvest, eggHarvestBump, eggHarvestSet,
+  eggRequestSave, eggRequestDrop, eggMyRequest, eggMyRequests,
+  eggWeekRequests, eggMissed, eggWeek, eggDrawSave, eggWeekOffices,
+  eggArrived, eggPickup, eggConsent, eggConsentSave, eggRequestById,
 } = await import('./src/db.js');
 
 const DIR = path.dirname(fileURLToPath(import.meta.url));
@@ -554,6 +567,352 @@ const server = http.createServer(async (req, res) => {
       return sendJson(res, 200, {
         mine: vote,
         results: tally(await eggRows(), eggOffices(cfg)),
+      });
+    }
+
+    /* ==================== モラエッグ Phase 1：配布の運用 ===================
+
+       The survey above is anonymous by construction. This is not, and
+       cannot be — a pack is handed to a named person at a named desk — so
+       the discipline here is a different one: every route decides what the
+       caller may see from the session, never from the request.
+
+       Four roles, and none of them is a field in a request body:
+         一般          egg on their record; may consent, request, collect
+         丹波登録者    egg_farm; may add to the harvest
+         事務所担当者  named as the contact on an office row; sees that
+                       office's list and nobody else's
+         管理者        runs the draw, opens offices, edits the terms
+       ------------------------------------------------------------------ */
+
+    /** Who the caller is, worked out from the session alone. */
+    const eggWho = async () => {
+      if (sess.isAdmin) return { admin: true, egg: true, farm: true, contactFor: [], person: null };
+      const person = await getEmployee(sess.employeeId);
+      return {
+        admin: false,
+        egg: !!person?.egg,
+        farm: !!person?.eggFarm,
+        contactFor: await eggContactFor(sess.employeeId),
+        person,
+      };
+    };
+
+    /* The pickup deadline moves to Thursday when the Friday is a company
+       休業日, so the closure list from 設定 is what decides it — the same
+       list the timesheet draws its grey days from. */
+    const eggCfgNow = async () => {
+      const cfg = { ...DEFAULT_CFG, ...((await getKey('cfg')) || {}) };
+      return { cfg, holidays: closureMap(cfg, null) };
+    };
+
+    if (url.pathname === '/api/egg/portal' && req.method === 'GET') {
+      if (!sess) return deny(res);
+      const who = await eggWho();
+      if (!who.egg && !who.admin) return deny(res, 403);
+
+      const { cfg, holidays } = await eggCfgNow();
+      const now = tokyoNow();
+      const ship = nextShipMonday(now.stamp);
+      const thisMonday = mondayOf(now.stamp);
+
+      const offices = await eggOfficeRows(true);
+      const requests = await eggWeekRequests(ship);
+      const consent = who.admin ? null : await eggConsent(sess.employeeId);
+
+      /* 「今週の収穫累計」 — Monday to Sunday of the week being laid now,
+         which ships on the Monday people are requesting for. */
+      const harvest = await eggHarvest(thisMonday, shiftDay(thisMonday, 6));
+
+      return sendJson(res, 200, {
+        today: now.stamp,
+        week: {
+          ship,
+          deadline: requestDeadline(ship, cfg),
+          pickup: pickupDeadline(ship, holidays),
+        },
+        open: requestsOpen(ship, now.stamp, now.h, cfg),
+        offices: offices.map((o) => ({
+          name: o.name, address: o.address || '', contactName: o.contactName || '',
+          note: o.note || '',
+        })),
+        purposes: EGG_PURPOSES,
+        maxPacks: eggMaxPacks(cfg),
+        terms: eggTerms(cfg),
+        consented: consentOk(consent, cfg),
+        consentAt: consent?.agreedAt || null,
+        /* 「自分の申請状況が確認できる」 — their own row, taken by session id. */
+        mine: who.admin ? null : await eggMyRequest(sess.employeeId, ship),
+        history: who.admin ? [] : await eggMyRequests(sess.employeeId, 8),
+        /* 「申請の合計数は目的別の内訳も含めて確認できる」 — counts, open to
+           everyone, and no names in them. */
+        totals: requestTotals(requests, offices.map((o) => o.name)),
+        harvest,
+        harvestPacks: harvest.reduce((a, d) => a + d.packs, 0),
+        week0: thisMonday,
+        drawn: await eggWeek(ship),
+        role: { admin: who.admin, farm: who.farm, contactFor: who.contactFor },
+      });
+    }
+
+    /* ------------------------------ 同意 --------------------------------- */
+
+    if (url.pathname === '/api/egg/consent' && req.method === 'POST') {
+      if (!sess) return deny(res);
+      if (sess.isAdmin) return deny(res, 403);
+      if (rateLimited(`egg:${sess.sid}`, 30, 60_000)) return sendJson(res, 429, { error: 'too_many' });
+      const who = await eggWho();
+      if (!who.egg) return deny(res, 403);
+
+      const { cfg } = await eggCfgNow();
+      const b = await readBody(req).catch(() => null);
+      /* The version comes from the request so that agreeing to a screen
+         that has since been revised does not silently record agreement to
+         the new wording — it is compared against the live text and refused
+         if it no longer matches. */
+      const live = eggTerms(cfg);
+      if (String(b?.version || '') !== live.version) return sendJson(res, 409, { error: 'stale_terms' });
+      if (b?.agree !== true) return sendJson(res, 400, { error: 'bad_answer' });
+
+      await eggConsentSave(sess.employeeId, live.version);
+      return sendJson(res, 200, { consented: true });
+    }
+
+    /* ------------------------------ 申請 --------------------------------- */
+
+    if (url.pathname === '/api/egg/request' && (req.method === 'PUT' || req.method === 'DELETE')) {
+      if (!sess) return deny(res);
+      if (sess.isAdmin) return deny(res, 403);
+      if (rateLimited(`egg:${sess.sid}`, 30, 60_000)) return sendJson(res, 429, { error: 'too_many' });
+      const who = await eggWho();
+      if (!who.egg) return deny(res, 403);
+
+      const { cfg } = await eggCfgNow();
+      const now = tokyoNow();
+      const ship = nextShipMonday(now.stamp);
+      /* 「申請の変更・取り消しは締切まで可能」 — and after it, neither.
+         Checked here because the screen is not a guard, and because the
+         draw has already run on what the table said at 17:00. */
+      if (!requestsOpen(ship, now.stamp, now.h, cfg)) return sendJson(res, 409, { error: 'closed' });
+
+      if (req.method === 'DELETE') {
+        await eggRequestDrop(sess.employeeId, ship);
+        return sendJson(res, 200, { mine: null });
+      }
+
+      /* 「同意した社員だけが申請できる」. The gate is here, not only on the
+         screen that hides the button. */
+      if (!consentOk(await eggConsent(sess.employeeId), cfg)) {
+        return sendJson(res, 403, { error: 'no_consent' });
+      }
+
+      const open = (await eggOfficeRows(true)).map((o) => o.name);
+      if (!open.length) return sendJson(res, 409, { error: 'no_office' });
+
+      const b = await readBody(req).catch(() => null);
+      const parsed = cleanRequest(b, open, cfg);
+      if (!parsed.ok) return sendJson(res, 400, { error: `bad_${parsed.error}` });
+
+      await eggRequestSave(sess.employeeId, ship, parsed.value);
+      return sendJson(res, 200, { mine: await eggMyRequest(sess.employeeId, ship) });
+    }
+
+    /* ------------------------------ 収穫 --------------------------------- */
+
+    if (url.pathname === '/api/egg/harvest' && req.method === 'POST') {
+      if (!sess) return deny(res);
+      if (rateLimited(`egg:${sess.sid}`, 60, 60_000)) return sendJson(res, 429, { error: 'too_many' });
+      const who = await eggWho();
+      /* 5.1 は丹波側の登録者だけ。An ordinary participant adding packs would
+         be adding to the number their own request is drawn out of. */
+      if (!who.farm) return deny(res, 403);
+
+      const b = await readBody(req).catch(() => null);
+      const now = tokyoNow();
+      const day = /^\d{4}-\d{2}-\d{2}$/.test(String(b?.day || '')) ? String(b.day) : now.stamp;
+      /* 「同日中であれば取り消し・修正ができる」 — a correction to a day that
+         has passed is an administrator's job, not a tap in the shed. */
+      if (day !== now.stamp && !who.admin) return sendJson(res, 409, { error: 'not_today' });
+
+      let packs;
+      if (b?.delta !== undefined) {
+        const d = Math.trunc(Number(b.delta));
+        if (!Number.isFinite(d) || Math.abs(d) > 50) return sendJson(res, 400, { error: 'bad_delta' });
+        packs = await eggHarvestBump(day, d, sess.employeeId);
+      } else {
+        const n = Math.floor(Number(b?.packs));
+        if (!Number.isFinite(n) || n < 0 || n > 999) return sendJson(res, 400, { error: 'bad_packs' });
+        packs = await eggHarvestSet(day, n, sess.employeeId);
+      }
+
+      const monday = mondayOf(now.stamp);
+      const harvest = await eggHarvest(monday, shiftDay(monday, 6));
+      return sendJson(res, 200, {
+        day, packs, harvest, harvestPacks: harvest.reduce((a, d) => a + d.packs, 0),
+      });
+    }
+
+    /* --------------------------- 事務所の受け取り ------------------------- */
+
+    /* An office contact's week: the packs expected, whether they arrived,
+       and who is coming to collect. Narrowed to their own office by the
+       session — an office name in the query string only chooses among the
+       ones they are already the contact for. */
+    if (url.pathname === '/api/egg/office' && req.method === 'GET') {
+      if (!sess) return deny(res);
+      const who = await eggWho();
+      const mine = who.admin
+        ? (await eggOfficeRows(true)).map((o) => o.name)
+        : who.contactFor;
+      if (!mine.length) return deny(res, 403);
+
+      const { cfg, holidays } = await eggCfgNow();
+      const now = tokyoNow();
+      const asked = String(url.searchParams.get('office') || '');
+      const office = mine.includes(asked) ? asked : mine[0];
+      /* Opens on the packs actually on their desk — this week's Monday —
+         but next week's is a tap away, because on a Friday afternoon the
+         useful question is how many are coming on Monday. Only a Monday is
+         accepted, so the key always names a real shipment. */
+      const wanted = String(url.searchParams.get('ship') || '');
+      const ship = /^\d{4}-\d{2}-\d{2}$/.test(wanted) && mondayOf(wanted) === wanted
+        ? wanted : mondayOf(now.stamp);
+
+      const rows = await eggWeekRequests(ship, office);
+      return sendJson(res, 200, {
+        offices: mine,
+        office,
+        ship,
+        weeks: [mondayOf(now.stamp), nextShipMonday(now.stamp)],
+        pickup: pickupDeadline(ship, holidays),
+        deadline: requestDeadline(ship, cfg),
+        arrival: (await eggWeekOffices(ship)).find((o) => o.office === office) || null,
+        /* Only the people who actually won packs are on the list to hand to;
+           a 落選 has nothing to collect and does not need their name read
+           out at the front desk. */
+        rows: rows.filter((r) => r.got > 0).map((r) => ({
+          id: r.id, name: r.name, packs: r.got, purpose: r.purpose,
+          pickedUpAt: r.pickedUpAt,
+        })),
+      });
+    }
+
+    if (url.pathname === '/api/egg/arrived' && req.method === 'POST') {
+      if (!sess) return deny(res);
+      if (rateLimited(`egg:${sess.sid}`, 30, 60_000)) return sendJson(res, 429, { error: 'too_many' });
+      const who = await eggWho();
+      const b = await readBody(req).catch(() => null);
+      const office = String(b?.office || '');
+      if (!who.admin && !who.contactFor.includes(office)) return deny(res, 403);
+
+      await eggArrived(mondayOf(tokyoNow().stamp), office, sess.employeeId);
+      return sendJson(res, 200, { ok: true });
+    }
+
+    /* 「受け取りは、社員本人が押すか、事務所担当者がチェックする」 */
+    if (url.pathname === '/api/egg/pickup' && req.method === 'POST') {
+      if (!sess) return deny(res);
+      if (sess.isAdmin) return deny(res, 403);
+      if (rateLimited(`egg:${sess.sid}`, 30, 60_000)) return sendJson(res, 429, { error: 'too_many' });
+      const who = await eggWho();
+      const b = await readBody(req).catch(() => null);
+      const id = String(b?.id || '');
+
+      /* Looked up by its own id rather than searched for in the week it is
+         assumed to be in: somebody collecting on the Monday after would
+         otherwise be told their pack does not exist. */
+      const row = await eggRequestById(id);
+      if (!row) return deny(res, 404);
+      const ownIt = row.employeeId === sess.employeeId;
+      const contact = who.contactFor.includes(row.office);
+      if (!ownIt && !contact) return deny(res, 403);
+      /* Undoing somebody else's collection is the contact's to do; undoing
+         your own is only sensible if you pressed it by mistake. */
+      const done = await eggPickup(id, sess.employeeId, b?.undo === true);
+      return done ? sendJson(res, 200, { ok: true }) : sendJson(res, 409, { error: 'nothing_to_collect' });
+    }
+
+    /* ------------------------- 管理者：事務所と抽選 ------------------------ */
+
+    if (url.pathname === '/api/egg/offices' && req.method === 'GET') {
+      if (!sess?.isAdmin) return deny(res, 403);
+      return sendJson(res, 200, { offices: await eggOfficeRows(false) });
+    }
+
+    if (url.pathname === '/api/egg/offices' && req.method === 'PUT') {
+      if (!sess?.isAdmin) return deny(res, 403);
+      if (rateLimited(`egg:${sess.sid}`, 30, 60_000)) return sendJson(res, 429, { error: 'too_many' });
+      const b = await readBody(req).catch(() => null);
+      const name = String(b?.name || '').trim();
+      if (!name || name.length > 60) return sendJson(res, 400, { error: 'bad_name' });
+      await eggOfficeSave({
+        name,
+        address: String(b?.address || '').slice(0, 200),
+        contactId: b?.contactId ? String(b.contactId) : null,
+        note: String(b?.note || '').slice(0, 200),
+        active: b?.active !== false,
+      });
+      return sendJson(res, 200, { offices: await eggOfficeRows(false) });
+    }
+
+    if (url.pathname === '/api/egg/offices' && req.method === 'DELETE') {
+      if (!sess?.isAdmin) return deny(res, 403);
+      const name = String(url.searchParams.get('name') || '');
+      const what = await eggOfficeDelete(name);
+      return sendJson(res, 200, { result: what, offices: await eggOfficeRows(false) });
+    }
+
+    /**
+     * 5.3 抽選を実行する。
+     *
+     * The packs come from the week's harvest, the rule from 設定, and the
+     * seed from the shipping date — so the same week always draws the same
+     * way and 「抽選」 is something somebody can check rather than take on
+     * trust. Re-running it is allowed while nothing has been collected yet:
+     * a correction to the harvest after a bad count should be able to put
+     * the right answer in, and the seed makes the redraw deterministic too.
+     */
+    if (url.pathname === '/api/egg/draw' && req.method === 'POST') {
+      if (!sess?.isAdmin) return deny(res, 403);
+      if (rateLimited(`egg:${sess.sid}`, 30, 60_000)) return sendJson(res, 429, { error: 'too_many' });
+
+      const { cfg } = await eggCfgNow();
+      const b = await readBody(req).catch(() => null);
+      const now = tokyoNow();
+      const ship = /^\d{4}-\d{2}-\d{2}$/.test(String(b?.ship || ''))
+        ? String(b.ship) : nextShipMonday(now.stamp);
+
+      const already = await eggWeekRequests(ship);
+      if (already.some((r) => r.pickedUpAt)) return sendJson(res, 409, { error: 'already_collected' });
+
+      /* The harvest that ships on this Monday is the week before it. */
+      const from = shiftDay(ship, -7);
+      const harvested = (await eggHarvest(from, shiftDay(ship, -1)))
+        .reduce((a, d) => a + d.packs, 0);
+      const packs = Number.isInteger(b?.packs) && b.packs >= 0 ? b.packs : harvested;
+
+      const rule = String(b?.rule || cfg?.egg?.rule || 'fcfs');
+      const allocated = allocate({
+        requests: already.map((r) => ({ id: r.id, employeeId: r.employeeId, want: r.packs, at: r.at })),
+        packs,
+        rule,
+        missedLastWeek: await eggMissed(shiftDay(ship, -7)),
+        seed: ship,
+      });
+      /* allocate drops zero-pack rows, so anybody whose request it filtered
+         out still needs a nought written against them — otherwise their
+         status would sit at 受付済 for a week that has already been decided. */
+      const byId = new Map(allocated.map((r) => [r.id, r.got]));
+      const full = already.map((r) => ({ id: r.id, office: r.office, got: byId.get(r.id) ?? 0 }));
+
+      await eggDrawSave(ship, { packs, rule, seed: ship, by: sess.employeeId }, full);
+      return sendJson(res, 200, {
+        ship,
+        packs,
+        rule,
+        harvested,
+        missed: missedFrom(full.map((r, i) => ({ ...r, employeeId: already[i].employeeId }))).length,
+        offices: await eggWeekOffices(ship),
       });
     }
 

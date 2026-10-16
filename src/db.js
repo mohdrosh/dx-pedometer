@@ -197,6 +197,104 @@ export async function initSchema() {
     ALTER TABLE egg_votes ADD COLUMN IF NOT EXISTS comment TEXT;
     /* 問3 サイト名の投票 */
     ALTER TABLE egg_votes ADD COLUMN IF NOT EXISTS name TEXT;
+
+    /* ==================== モラエッグ Phase 1：配布の運用 =================== */
+
+    /* 丹波で収穫を登録する人。事務所担当者とは別の役割で、人数はごく少ない。
+       The egg flag above says a person may use the portal at all; this one
+       says they may add to the week's harvest, which is the number every
+       allocation is divided out of. */
+    ALTER TABLE employees ADD COLUMN IF NOT EXISTS egg_farm BOOLEAN NOT NULL DEFAULT FALSE;
+
+    /* 9.2 事務所. The survey asks about all eight; this table holds the ones
+       actually opened, with the address people walk to and the contact who
+       confirms the packs arrived. 「初期は1〜2事務所から」 — a row appears here
+       when an office starts receiving, not before, so the active flag is
+       what a request may be addressed to, while the survey keeps asking
+       about the rest. The name is the key because it is what the votes already hold. */
+    CREATE TABLE IF NOT EXISTS egg_offices (
+      name       TEXT PRIMARY KEY,
+      address    TEXT,
+      contact_id TEXT REFERENCES employees(id) ON DELETE SET NULL,
+      note       TEXT,
+      active     BOOLEAN NOT NULL DEFAULT TRUE,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+    /* 5.1 収穫登録.「10個入り1パックごとにボタンを押す」「同日中であれば取り消
+       し・修正ができる」.
+
+       One row per day rather than one per tap: the undo 佐野 asked for is
+       then a number going down by one, which is a thing a phone screen can
+       show honestly — a log of taps would have to explain which tap was
+       undone. 「10個未満の端数は登録しない」, so packs is whole and that is
+       the only unit the rest of the system ever sees. */
+    CREATE TABLE IF NOT EXISTS egg_harvest (
+      day        DATE PRIMARY KEY,
+      packs      INTEGER NOT NULL DEFAULT 0 CHECK (packs >= 0),
+      updated_by TEXT REFERENCES employees(id) ON DELETE SET NULL,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+    /* 9.2 発送週. Named after the Monday the eggs ship, which is also what
+       src/egg-week.js works every deadline out from. A row exists once the week
+       has been drawn: the rule and the seed are written at that moment and
+       never changed, so a draw re-run months later comes out the same —
+       which is the only thing that makes 「抽選」 checkable rather than a
+       promise. */
+    CREATE TABLE IF NOT EXISTS egg_weeks (
+      ship       DATE PRIMARY KEY,
+      packs      INTEGER,
+      rule       TEXT,
+      seed       TEXT,
+      drawn_at   TIMESTAMPTZ,
+      drawn_by   TEXT REFERENCES employees(id) ON DELETE SET NULL
+    );
+
+    /* 事務所別内訳 — how many packs went to each office, and the Monday the
+       contact there confirmed they arrived. */
+    CREATE TABLE IF NOT EXISTS egg_week_offices (
+      ship       DATE NOT NULL,
+      office     TEXT NOT NULL,
+      packs      INTEGER NOT NULL DEFAULT 0,
+      arrived_at TIMESTAMPTZ,
+      arrived_by TEXT REFERENCES employees(id) ON DELETE SET NULL,
+      PRIMARY KEY (ship, office)
+    );
+
+    /* 5.2 申請. One per person per week — 「申請の変更・取り消しは締切まで可能」
+       means the row is edited, not added to, so the pair is unique and the id
+       is built from it. The share is null until the draw runs and 0 after it for
+       anyone who missed out; those are different states and the screen says
+       受付済 for one and 落選 for the other, so they must not collapse. */
+    CREATE TABLE IF NOT EXISTS egg_requests (
+      id           TEXT PRIMARY KEY,
+      employee_id  TEXT NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
+      ship         DATE NOT NULL,
+      office       TEXT NOT NULL,
+      packs        INTEGER NOT NULL CHECK (packs >= 1),
+      purpose      TEXT NOT NULL,
+      reason       TEXT,
+      created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      got          INTEGER,
+      drawn_at     TIMESTAMPTZ,
+      picked_up_at TIMESTAMPTZ,
+      picked_up_by TEXT REFERENCES employees(id) ON DELETE SET NULL,
+      UNIQUE (employee_id, ship)
+    );
+    CREATE INDEX IF NOT EXISTS egg_requests_week_idx ON egg_requests(ship, office);
+
+    /* 6. 同意フロー.「同意日時と、同意した文面のバージョンを記録する」. The
+       version is a hash of the text (see eggTerms in src/egg.js), so an
+       administrator revising the terms invalidates every stored consent by
+       the act of revising them, and everybody is asked again without anyone
+       having had to remember to say so. */
+    CREATE TABLE IF NOT EXISTS egg_consents (
+      employee_id TEXT PRIMARY KEY REFERENCES employees(id) ON DELETE CASCADE,
+      version     TEXT NOT NULL,
+      agreed_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
   `);
 
   /* The consent used to be a checkbox on the sign-in screen, and signing in
@@ -277,6 +375,7 @@ const toEmployee = (r) => ({
   commute: Array.isArray(r.commute) ? r.commute : [],
   ...(r.mypage ? { mypage: true } : {}),
   ...(r.egg ? { egg: true } : {}),
+  ...(r.egg_farm ? { eggFarm: true } : {}),
   email: r.email || '',
   email2: r.email2 || '',
   email2On: !!r.email2_on,
@@ -306,9 +405,9 @@ async function setRoster(list) {
                                 consent, consent_asked, consent_at, sort_order, trial, dob,
                                 email2, email2_on, dept, section, client,
                                 affiliation, work_start, work_end, address, home_station,
-                                workplace, work_station, commute, mypage, egg)
+                                workplace, work_station, commute, mypage, egg, egg_farm)
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,
-                 $19,$20,$21,$22,$23,$24,$25,$26,$27,$28)
+                 $19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29)
          ON CONFLICT (id) DO UPDATE SET
            name = EXCLUDED.name, region = EXCLUDED.region, gender = EXCLUDED.gender,
            email = EXCLUDED.email, pedometer = EXCLUDED.pedometer, active = EXCLUDED.active,
@@ -321,7 +420,8 @@ async function setRoster(list) {
            work_start = EXCLUDED.work_start, work_end = EXCLUDED.work_end,
            address = EXCLUDED.address, home_station = EXCLUDED.home_station,
            workplace = EXCLUDED.workplace, work_station = EXCLUDED.work_station,
-           commute = EXCLUDED.commute, mypage = EXCLUDED.mypage, egg = EXCLUDED.egg`,
+           commute = EXCLUDED.commute, mypage = EXCLUDED.mypage, egg = EXCLUDED.egg,
+           egg_farm = EXCLUDED.egg_farm`,
         [
           String(p.id), p.name, p.region || null, p.gender || null, p.email || null,
           p.pedometer || null, p.active !== false, !!p.consent, !!p.consentAsked,
@@ -331,7 +431,7 @@ async function setRoster(list) {
           p.affiliation || null, p.workStart || null, p.workEnd || null,
           p.address || null, p.homeStation || null,
           p.workplace || null, p.workStation || null,
-          JSON.stringify(cleanCommute(p.commute)), !!p.mypage, !!p.egg,
+          JSON.stringify(cleanCommute(p.commute)), !!p.mypage, !!p.egg, !!p.eggFarm,
         ],
       );
     }
@@ -683,4 +783,337 @@ export async function eggAudience() {
     'SELECT COUNT(*)::int AS n FROM employees WHERE egg = TRUE AND active IS NOT FALSE',
   );
   return rows[0]?.n || 0;
+}
+
+/* ===================== モラエッグ Phase 1：配布の運用 ===================== */
+
+/* Unlike the survey above, none of this is anonymous and it cannot be: a
+   pack has to be handed to a named person at a named desk. What is kept
+   narrow instead is who can read what — an office contact sees their own
+   office's list and the committee sees totals, and the queries below are
+   written to make that the easy thing to do. */
+
+/* ------------------------------ 事務所 ----------------------------------- */
+
+/** The offices actually receiving eggs, with the contact who signs for them. */
+export async function eggOfficeRows(activeOnly = false) {
+  const { rows } = await pool.query(
+    `SELECT o.name, o.address, o.contact_id AS "contactId", o.note, o.active,
+            e.name AS "contactName"
+       FROM egg_offices o
+       LEFT JOIN employees e ON e.id = o.contact_id
+      ${activeOnly ? 'WHERE o.active' : ''}
+      ORDER BY o.name`,
+  );
+  return rows;
+}
+
+export async function eggOfficeSave({ name, address, contactId, note, active }) {
+  await pool.query(
+    `INSERT INTO egg_offices (name, address, contact_id, note, active)
+     VALUES ($1, $2, $3, $4, $5)
+     ON CONFLICT (name) DO UPDATE
+       SET address = EXCLUDED.address, contact_id = EXCLUDED.contact_id,
+           note = EXCLUDED.note, active = EXCLUDED.active`,
+    [String(name), address || null, contactId || null, note || null, active !== false],
+  );
+  return true;
+}
+
+export async function eggOfficeDelete(name) {
+  /* Closed rather than deleted while any request still points at it — a
+     request whose office has vanished is one nobody can collect. */
+  const { rows } = await pool.query(
+    'SELECT 1 FROM egg_requests WHERE office = $1 LIMIT 1', [String(name)],
+  );
+  if (rows.length) {
+    await pool.query('UPDATE egg_offices SET active = FALSE WHERE name = $1', [String(name)]);
+    return 'closed';
+  }
+  await pool.query('DELETE FROM egg_offices WHERE name = $1', [String(name)]);
+  return 'deleted';
+}
+
+/** Which office this person is the contact for, if any. */
+export async function eggContactFor(employeeId) {
+  const { rows } = await pool.query(
+    'SELECT name FROM egg_offices WHERE contact_id = $1 AND active',
+    [String(employeeId)],
+  );
+  return rows.map((r) => r.name);
+}
+
+/* ------------------------------- 収穫 ------------------------------------ */
+
+/** Every day's harvest between two dates, oldest first. */
+export async function eggHarvest(fromDay, toDay) {
+  const { rows } = await pool.query(
+    `SELECT day, packs, updated_by AS "updatedBy", updated_at AS "updatedAt"
+       FROM egg_harvest WHERE day >= $1 AND day <= $2 ORDER BY day`,
+    [fromDay, toDay],
+  );
+  return rows.map((r) => ({ ...r, day: fmtDate(r.day) }));
+}
+
+/**
+ * Add to (or take back from) a day's harvest, and return the new total.
+ *
+ * `delta` is +1 for a tap on 「+1パック」 and -1 for an undo. The addition
+ * happens inside the UPDATE rather than in JavaScript, so two people in the
+ * shed tapping at the same moment add two packs rather than one — read,
+ * add, write would lose one of them and nobody would ever know.
+ */
+export async function eggHarvestBump(day, delta, employeeId) {
+  const { rows } = await pool.query(
+    `INSERT INTO egg_harvest (day, packs, updated_by, updated_at)
+     VALUES ($1, GREATEST($2, 0), $3, NOW())
+     ON CONFLICT (day) DO UPDATE
+       SET packs = GREATEST(egg_harvest.packs + $2, 0),
+           updated_by = $3, updated_at = NOW()
+     RETURNING packs`,
+    [day, Math.trunc(Number(delta) || 0), String(employeeId)],
+  );
+  return rows[0]?.packs ?? 0;
+}
+
+/** Set a day outright, for a correction that is more than one tap out. */
+export async function eggHarvestSet(day, packs, employeeId) {
+  const n = Math.max(0, Math.floor(Number(packs) || 0));
+  const { rows } = await pool.query(
+    `INSERT INTO egg_harvest (day, packs, updated_by, updated_at)
+     VALUES ($1, $2, $3, NOW())
+     ON CONFLICT (day) DO UPDATE
+       SET packs = EXCLUDED.packs, updated_by = EXCLUDED.updated_by, updated_at = NOW()
+     RETURNING packs`,
+    [day, n, String(employeeId)],
+  );
+  return rows[0]?.packs ?? 0;
+}
+
+/* ------------------------------- 申請 ------------------------------------ */
+
+/* The id is built from the week and the person rather than generated, so the
+   same pair can only ever be one row however many times a form is submitted,
+   and a draw that re-runs orders ties the same way both times. */
+const reqId = (ship, employeeId) => `${ship}:${employeeId}`;
+
+export async function eggRequestSave(employeeId, ship, { office, packs, purpose, reason }) {
+  await pool.query(
+    `INSERT INTO egg_requests (id, employee_id, ship, office, packs, purpose, reason)
+     VALUES ($1, $2, $3, $4, $5, $6, $7)
+     ON CONFLICT (id) DO UPDATE
+       SET office = EXCLUDED.office, packs = EXCLUDED.packs,
+           purpose = EXCLUDED.purpose, reason = EXCLUDED.reason, updated_at = NOW()`,
+    [reqId(ship, employeeId), String(employeeId), ship, office, packs, purpose, reason || null],
+  );
+  return true;
+}
+
+/** 「申請の取り消しは締切まで可能」 — the caller checks the deadline. */
+export async function eggRequestDrop(employeeId, ship) {
+  await pool.query(
+    'DELETE FROM egg_requests WHERE employee_id = $1 AND ship = $2',
+    [String(employeeId), ship],
+  );
+  return true;
+}
+
+/** This person's own request for a week, and nobody else's. */
+export async function eggMyRequest(employeeId, ship) {
+  const { rows } = await pool.query(
+    `SELECT id, ship, office, packs, purpose, reason, got,
+            drawn_at AS "drawnAt", picked_up_at AS "pickedUpAt"
+       FROM egg_requests WHERE employee_id = $1 AND ship = $2`,
+    [String(employeeId), ship],
+  );
+  const r = rows[0];
+  return r ? { ...r, ship: fmtDate(r.ship) } : null;
+}
+
+/** This person's own history, newest week first. */
+export async function eggMyRequests(employeeId, limit = 12) {
+  const { rows } = await pool.query(
+    `SELECT ship, office, packs, purpose, got,
+            drawn_at AS "drawnAt", picked_up_at AS "pickedUpAt"
+       FROM egg_requests WHERE employee_id = $1 ORDER BY ship DESC LIMIT $2`,
+    [String(employeeId), Math.min(60, Math.max(1, limit))],
+  );
+  return rows.map((r) => ({ ...r, ship: fmtDate(r.ship) }));
+}
+
+/**
+ * A week's requests, with names, for the draw and for the contact's list.
+ *
+ * `office` narrows it to one office, which is what an office contact is
+ * given — they have no business reading the list for 東京.
+ */
+export async function eggWeekRequests(ship, office = null) {
+  const { rows } = await pool.query(
+    `SELECT r.id, r.employee_id AS "employeeId", e.name, r.office, r.packs,
+            r.purpose, r.reason, r.created_at AS "at", r.got,
+            r.drawn_at AS "drawnAt", r.picked_up_at AS "pickedUpAt"
+       FROM egg_requests r
+       LEFT JOIN employees e ON e.id = r.employee_id
+      WHERE r.ship = $1 ${office ? 'AND r.office = $2' : ''}
+      ORDER BY r.created_at, r.id`,
+    office ? [ship, office] : [ship],
+  );
+  return rows;
+}
+
+/**
+ * One request, by its id, with the week and office it belongs to.
+ *
+ * Collecting a pack has to find the request from the id on the button,
+ * not from a guess at which week it must be in: somebody collecting on the
+ * Monday of the next week would otherwise be looked up in the wrong week
+ * and told their pack does not exist.
+ */
+export async function eggRequestById(id) {
+  const { rows } = await pool.query(
+    `SELECT id, employee_id AS "employeeId", ship, office, packs, got,
+            picked_up_at AS "pickedUpAt"
+       FROM egg_requests WHERE id = $1`,
+    [String(id)],
+  );
+  const r = rows[0];
+  return r ? { ...r, ship: fmtDate(r.ship) } : null;
+}
+
+/** Who asked and got nothing last week — 前回落選者優先 reads this. */
+export async function eggMissed(ship) {
+  const { rows } = await pool.query(
+    'SELECT DISTINCT employee_id AS "employeeId" FROM egg_requests WHERE ship = $1 AND got = 0',
+    [ship],
+  );
+  return rows.map((r) => r.employeeId);
+}
+
+/* ---------------------------- 発送週と抽選 -------------------------------- */
+
+export async function eggWeek(ship) {
+  const { rows } = await pool.query(
+    `SELECT ship, packs, rule, seed, drawn_at AS "drawnAt", drawn_by AS "drawnBy"
+       FROM egg_weeks WHERE ship = $1`,
+    [ship],
+  );
+  const r = rows[0];
+  return r ? { ...r, ship: fmtDate(r.ship) } : null;
+}
+
+/**
+ * Write a draw: every request's share, the week's record of how it was
+ * decided, and the per-office split, all or nothing.
+ *
+ * In one transaction because a half-written draw is the worst of the
+ * possible states — some people told they have packs, the week with no
+ * record of the rule that decided it, and no way to tell which half ran.
+ */
+export async function eggDrawSave(ship, { packs, rule, seed, by }, allocated) {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query(
+      `INSERT INTO egg_weeks (ship, packs, rule, seed, drawn_at, drawn_by)
+       VALUES ($1, $2, $3, $4, NOW(), $5)
+       ON CONFLICT (ship) DO UPDATE
+         SET packs = EXCLUDED.packs, rule = EXCLUDED.rule, seed = EXCLUDED.seed,
+             drawn_at = NOW(), drawn_by = EXCLUDED.drawn_by`,
+      [ship, packs, rule, seed, by || null],
+    );
+    for (const r of allocated) {
+      await client.query(
+        'UPDATE egg_requests SET got = $2, drawn_at = NOW() WHERE id = $1',
+        [r.id, r.got],
+      );
+    }
+    /* The per-office split is derived from the draw rather than typed, so
+       the number the contact is told to expect is the number that was
+       actually allocated to them. */
+    await client.query('DELETE FROM egg_week_offices WHERE ship = $1 AND arrived_at IS NULL', [ship]);
+    const byOffice = new Map();
+    for (const r of allocated) {
+      if (r.got > 0) byOffice.set(r.office, (byOffice.get(r.office) || 0) + r.got);
+    }
+    for (const [office, n] of byOffice) {
+      await client.query(
+        `INSERT INTO egg_week_offices (ship, office, packs) VALUES ($1, $2, $3)
+         ON CONFLICT (ship, office) DO UPDATE SET packs = EXCLUDED.packs`,
+        [ship, office, n],
+      );
+    }
+    await client.query('COMMIT');
+    return true;
+  } catch (e) {
+    await client.query('ROLLBACK');
+    throw e;
+  } finally {
+    client.release();
+  }
+}
+
+export async function eggWeekOffices(ship) {
+  const { rows } = await pool.query(
+    `SELECT office, packs, arrived_at AS "arrivedAt", arrived_by AS "arrivedBy"
+       FROM egg_week_offices WHERE ship = $1 ORDER BY office`,
+    [ship],
+  );
+  return rows;
+}
+
+/** 「月曜に事務所担当者が到着を確認する」 */
+export async function eggArrived(ship, office, employeeId) {
+  await pool.query(
+    `INSERT INTO egg_week_offices (ship, office, packs, arrived_at, arrived_by)
+     VALUES ($1, $2, 0, NOW(), $3)
+     ON CONFLICT (ship, office) DO UPDATE SET arrived_at = NOW(), arrived_by = $3`,
+    [ship, office, String(employeeId)],
+  );
+  return true;
+}
+
+/**
+ * 「受け取りは、社員本人が押すか、事務所担当者がチェックする」.
+ *
+ * Only a request that actually won packs can be collected, which the WHERE
+ * clause enforces rather than the caller: ticking off somebody who was never
+ * allocated anything would quietly turn a 落選 into a 受け取り済み.
+ */
+export async function eggPickup(requestId, by, undo = false) {
+  const { rowCount } = await pool.query(
+    undo
+      ? 'UPDATE egg_requests SET picked_up_at = NULL, picked_up_by = NULL WHERE id = $1'
+      : `UPDATE egg_requests SET picked_up_at = NOW(), picked_up_by = $2
+          WHERE id = $1 AND got > 0`,
+    undo ? [requestId] : [requestId, String(by)],
+  );
+  return rowCount > 0;
+}
+
+/* ------------------------------- 同意 ------------------------------------ */
+
+export async function eggConsent(employeeId) {
+  const { rows } = await pool.query(
+    'SELECT version, agreed_at AS "agreedAt" FROM egg_consents WHERE employee_id = $1',
+    [String(employeeId)],
+  );
+  return rows[0] || null;
+}
+
+export async function eggConsentSave(employeeId, version) {
+  await pool.query(
+    `INSERT INTO egg_consents (employee_id, version, agreed_at)
+     VALUES ($1, $2, NOW())
+     ON CONFLICT (employee_id) DO UPDATE SET version = EXCLUDED.version, agreed_at = NOW()`,
+    [String(employeeId), String(version)],
+  );
+  return true;
+}
+
+/** Who may register a harvest — 丹波側の登録者. */
+export async function eggFarmers() {
+  const { rows } = await pool.query(
+    'SELECT id, name FROM employees WHERE egg_farm = TRUE AND active IS NOT FALSE ORDER BY id',
+  );
+  return rows;
 }

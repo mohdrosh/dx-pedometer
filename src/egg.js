@@ -125,6 +125,73 @@ export const EGG_NAMES = [
 
 export const EGG_NAME_IDS = EGG_NAMES.map((n) => n.id);
 
+/* 5.2 申請の目的.「私用」と「仕事用」を分けて集計できるようにする — 佐野 wants
+   the split because a week where most packs went to customers reads very
+   differently from one where they went home with people, and the committee
+   will be asked which it was. Ids rather than the Japanese words, so the
+   label can be reworded without rewriting every stored row. */
+export const EGG_PURPOSES = [
+  { id: 'private', ja: '私用', en: 'Personal' },
+  { id: 'work', ja: '仕事用', en: 'Business' },
+];
+export const EGG_PURPOSE_IDS = EGG_PURPOSES.map((p) => p.id);
+
+/* 2パック以上を申請するときは理由を書いてもらう。1パックなら不要. */
+export const REASON_MAX = 300;
+
+/* ------------------------------- the terms ------------------------------- */
+
+/* 6. 同意フロー. 佐野:「受け取り条件に同意した社員だけが申請できる」「管理者が
+   文面を改定した場合は、全員に再度同意を求める」.
+
+   That last sentence is why the version is a hash of the text rather than a
+   number somebody remembers to bump. An administrator editing the terms in
+   設定 changes the hash, every stored consent stops matching, and everybody
+   is asked again — without anyone having had to think of it. */
+export function hashText(str) {
+  let h = 2166136261;
+  const s = String(str ?? '');
+  for (let i = 0; i < s.length; i += 1) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return (h >>> 0).toString(36);
+}
+
+export const EGG_TERMS_JA = [
+  '受け取りは指定の事務所でお願いします。移動の費用は各自のご負担となります。',
+  '割れ・ヒビのあるタマゴについて、交換や返金のご対応はできません。',
+  '生ものですので、受け取り後の保管・調理・飲食は自己責任でお願いします。',
+  '発送週の金曜日までに受け取ってください。',
+].join('\n');
+
+export const EGG_TERMS_EN = [
+  'Collect at your chosen office. Travel there is at your own expense.',
+  'No replacement or refund for broken or cracked eggs.',
+  'These are fresh food: storage, cooking and eating after collection are at your own risk.',
+  'Collect by the Friday of the shipping week.',
+].join('\n');
+
+/** The terms as they stand, with the version a consent is recorded against. */
+export function eggTerms(cfg) {
+  const ja = String(cfg?.egg?.termsJa || '').trim() || EGG_TERMS_JA;
+  const en = String(cfg?.egg?.termsEn || '').trim() || EGG_TERMS_EN;
+  /* The Japanese text is the one that binds, so it alone sets the version —
+     fixing a typo in the English should not put 171 people back through the
+     consent screen. */
+  return { ja, en, version: hashText(ja) };
+}
+
+/**
+ * Has this person agreed to the terms as they read today?
+ *
+ * A consent recorded against text that has since been revised is not a
+ * consent to the new text, so it reads as no and they are asked again.
+ */
+export function consentOk(row, cfg) {
+  return !!row?.version && row.version === eggTerms(cfg).version;
+}
+
 /* ------------------------------- the answer ------------------------------ */
 
 /**
@@ -153,6 +220,77 @@ export function cleanVote(v, offices = EGG_OFFICES) {
 }
 
 export const COMMENT_MAX = 200;
+
+/* ------------------------------ the request ------------------------------ */
+
+/** Most people may ask for this many packs at once unless 設定 says otherwise. */
+export const PACKS_MAX = 10;
+
+export function eggMaxPacks(cfg) {
+  const n = Number(cfg?.egg?.maxPacks);
+  return Number.isInteger(n) && n >= 1 && n <= 99 ? n : PACKS_MAX;
+}
+
+/**
+ * 5.2 申請. The one shape a request may take, or an error code saying why not.
+ *
+ * Returns {ok:true, value} or {ok:false, error} rather than null, because
+ * unlike a survey answer a request is something a person typed on purpose
+ * and expects to be told about: 「2パック以上は理由を入力してください」 is a
+ * sentence the screen has to be able to say, and it cannot say it from a
+ * null. The error codes are what the server sends back; the wording lives
+ * in the UI, in both languages.
+ */
+export function cleanRequest(v, offices = EGG_OFFICES, cfg = null) {
+  const office = String(v?.office ?? '').trim();
+  if (!offices.includes(office)) return { ok: false, error: 'office' };
+
+  const packs = Math.floor(Number(v?.packs));
+  if (!Number.isFinite(packs) || packs < 1) return { ok: false, error: 'packs' };
+  if (packs > eggMaxPacks(cfg)) return { ok: false, error: 'tooMany' };
+
+  const purpose = String(v?.purpose ?? '').trim();
+  if (!EGG_PURPOSE_IDS.includes(purpose)) return { ok: false, error: 'purpose' };
+
+  const reason = String(v?.reason ?? '').replace(/\s+/g, ' ').trim().slice(0, REASON_MAX);
+  /* 「2パック以上の場合は理由を必須とする」. One pack is the ordinary case and
+     asking why would only be in the way. */
+  if (packs >= 2 && !reason) return { ok: false, error: 'reason' };
+
+  return { ok: true, value: { office, packs, purpose, ...(reason ? { reason } : {}) } };
+}
+
+/* ------------------------------ the totals ------------------------------- */
+
+/**
+ * 5.2:「申請の合計数は、目的別の内訳も含めて確認できる」.
+ *
+ * Unlike the survey this is not anonymous — a request has to be collected by
+ * the person who made it, and the office contact needs a name to hand a pack
+ * to. What this returns is still only counts, because the totals screen is
+ * read by everyone and nobody needs a list of who asked for what to see
+ * whether the week is oversubscribed.
+ */
+export function requestTotals(rows, offices = EGG_OFFICES) {
+  const byOffice = new Map(offices.map((o) => [o, 0]));
+  const byPurpose = new Map(EGG_PURPOSE_IDS.map((p) => [p, 0]));
+  let packs = 0;
+  let people = 0;
+  for (const r of rows || []) {
+    const want = Math.max(0, Math.floor(Number(r?.packs) || 0));
+    if (!want) continue;
+    people += 1;
+    packs += want;
+    if (byOffice.has(r.office)) byOffice.set(r.office, byOffice.get(r.office) + want);
+    if (byPurpose.has(r.purpose)) byPurpose.set(r.purpose, byPurpose.get(r.purpose) + want);
+  }
+  return {
+    people,
+    packs,
+    offices: [...byOffice].map(([office, count]) => ({ office, count })),
+    purposes: EGG_PURPOSES.map((p) => ({ ...p, count: byPurpose.get(p.id) || 0 })),
+  };
+}
 
 /* ------------------------------- the window ------------------------------ */
 
