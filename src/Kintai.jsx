@@ -906,8 +906,6 @@ export const KINTAI_CSS = `
 .kt-row .kt-in:hover,.kt-row .kt-st:hover{border-color:var(--rule);background:#fff}
 .kt-row .kt-in:focus,.kt-row .kt-st:focus{border-color:var(--brand);background:#fff;outline:0}
 .kt-row .kt-in:disabled,.kt-row .kt-st:disabled{color:var(--dim);border-color:transparent}
-.kt-row .kt-in::-webkit-calendar-picker-indicator{opacity:.3;padding:0;margin:0}
-.kt-row .kt-in:hover::-webkit-calendar-picker-indicator{opacity:.7}
 .kt-row.empty .kt-in,.kt-row.empty .kt-st{color:var(--faint)}
 
 .kt-row .kt-v{text-align:right;font-size:12px;

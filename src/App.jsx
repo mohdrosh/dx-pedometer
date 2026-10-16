@@ -3139,6 +3139,12 @@ function Styles() {
   font-feature-settings:"tnum" 0}
 .app button{font-family:inherit;cursor:pointer}
 .app input,.app select{font-family:inherit;font-size:16px;color:var(--ink)}
+/* Chrome draws a clock button inside every time input. It opens the same
+   picker the field already is, and in the month rows it sat on top of the
+   digits it was meant to help with. Every one of these is typed into, so
+   the button was only ever in the way. Date inputs keep their calendar
+   icon — picking a day off a grid is worth a button. */
+.app input[type=time]::-webkit-calendar-picker-indicator{display:none}
 .num,.mono,.stat-v,.dnum,.dval,.ld,.dg,.bignum,.periodbar em,.hit em,.ribbon-line span{
   font-variant-numeric:tabular-nums}
 .muted{color:var(--ink-2)} .sm{font-size:13.5px;line-height:1.8}
@@ -3641,11 +3647,13 @@ a.btn{text-decoration:none;text-align:center;display:inline-block}
   /* 「タブ切り替えの下のやつ、押しにくい」 — the row along the bottom
      becomes a rail down the side, where the pointer already is and where a
      label has room to be a label rather than a cramped word. */
+  /* Floor to ceiling, so it reads as a panel rather than a stack of
+     buttons that ran out. The wash carries on under the last one. */
   .nav{position:sticky;top:64px;grid-column:1;grid-row:2;
     align-self:start;left:auto;right:auto;bottom:auto;
-    flex-direction:column;z-index:10;
+    flex-direction:column;z-index:10;background:var(--wash);
     border-top:0;border-right:1px solid var(--rule-2);
-    max-height:calc(100vh - 64px);overflow:auto}
+    height:calc(100vh - 64px);overflow:auto}
   .nav button{flex:none;text-align:left;padding:9px 14px;font-size:13.5px;
     border-right:0;border-bottom:1px solid var(--hair)}
   .nav button:last-child{border-bottom:0}
@@ -3663,6 +3671,19 @@ a.btn{text-decoration:none;text-align:center;display:inline-block}
   /* 個人情報 and 万歩計の設定 are a list of short answers — 社員番号, 地区,
      性別 — each of which was taking a whole line of a very wide card. Two
      to a row, with anything that is genuinely wide spanning both. */
+  /* モラボット and his rail had 104px of track and a 26px step count, which
+     between the banner above and the figures below pushed the month's
+     chart off the first screen. Same scene, two thirds the height. */
+  .companion{padding:9px 16px 10px}
+  .companion .track{height:62px;margin-top:2px}
+  .companion .walker{width:50px;height:56px;margin-left:-25px;bottom:15px;
+    left:calc(25px + (100% - 50px) * var(--p, 0))}
+  .companion .rail,.companion .railfill{height:7px;bottom:6px;border-radius:4px}
+  .companion .goalpost{bottom:13px;height:18px}
+  .companion .goalpost::after{width:13px;height:9px}
+  .companion .foot{margin-top:5px}
+  .companion .csteps{font-size:19px}
+
   .pf-card{display:grid;grid-template-columns:1fr 1fr;column-gap:26px;align-items:start}
   .pf-card>.fld{margin-bottom:9px}
   .pf-card>.kv{border-bottom:1px solid var(--hair)}
