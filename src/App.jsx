@@ -3197,6 +3197,17 @@ function Styles() {
 .fld input,.fld select,.filters input,.filters select,.navrow input,.find input{
   width:100%;padding:13px;border:1px solid var(--rule);background:var(--field);
   border-radius:4px;outline:none;-webkit-appearance:none;appearance:none}
+/* A checkbox is not a text field. The rule above strips appearance for the
+   text inputs it was written for, and a checkbox that happens to sit inside
+   a .fld was caught by it — appearance:none removes a checkbox's native
+   drawing altogether, so it rendered as a plain bordered square that could
+   never show a tick however many times it was clicked. Reported four times;
+   every test I wrote asked the DOM whether it was checked, which it always
+   was, instead of whether anything had been drawn. Guarded globally so it
+   cannot happen to the next one. */
+.app input[type=checkbox]{-webkit-appearance:checkbox;appearance:auto;
+  width:auto;height:auto;padding:0;border:0;background:none;border-radius:0}
+
 .fld select,.filters select{background:var(--field) url("data:image/svg+xml;charset=utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6'%3E%3Cpath d='M0 0h10L5 6z' fill='%235A686F'/%3E%3C/svg%3E") no-repeat right 13px center/10px;padding-right:32px}
 .fld input:focus,.fld select:focus,.filters input:focus,.find input:focus{border-color:var(--brand);background:#fff}
 .fld input[inputmode=numeric]{font-size:21px;letter-spacing:.03em;font-weight:500}
