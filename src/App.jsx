@@ -1968,7 +1968,7 @@ function AdminTab({ cfg, setCfg, roster, setRoster, y, m, setPeriod, toast, holi
   };
 
   return (
-    <div className="tabbody">
+    <div className="tabbody ad-page">
       <div className="periodbar">
         <button onClick={() => shift(-1)}>‹</button>
         <div><strong>{y}年 {m}月度</strong><em>{fmtRange(y, m, lang)} · {pk}</em></div>
@@ -2340,6 +2340,19 @@ function PeopleAdmin({ cfg, setCfg, roster, setRoster, toast }) {
       return 0;
     });
 
+  /* Below 1280 the panel sits under the list rather than beside it, and the
+     list is 156 people long — so choosing somebody would scroll nothing and
+     look as though the click had missed. Only when it is actually off
+     screen: on a wide screen it is already in view and must not jump. */
+  const editRef = React.useRef(null);
+  useEffect(() => {
+    if (!edit || !editRef.current) return;
+    const r = editRef.current.getBoundingClientRect();
+    if (r.top > window.innerHeight - 80) {
+      editRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, [edit?.id, edit?._orig, edit?.isNew]);
+
   const sortBy = (k) => { setSortD(sortK === k ? -sortD : 1); setSortK(k); };
   const arrow = (k) => (sortK === k ? (sortD > 0 ? ' ▲' : ' ▼') : '');
 
@@ -2437,7 +2450,11 @@ function PeopleAdmin({ cfg, setCfg, roster, setRoster, toast }) {
           page beside the list rather than a dialog over it — choosing
           the next person is one click, and nothing has to be scrolled
           past to reach 保存. */}
-      <aside className="pa-edit">
+      <aside className="pa-edit" ref={editRef}>
+        <div className="pa-edit-h">
+          <strong>{edit ? (edit.isNew ? t('addPerson') : (edit.name || t('edit'))) : t('edit')}</strong>
+          {edit && <button className="mini" onClick={() => setEdit(null)}>{t('close')}</button>}
+        </div>
         {!edit && <p className="pa-none">{t('pickPerson')}</p>}
         {edit && (
           <>
@@ -3766,12 +3783,26 @@ a.btn{text-decoration:none;text-align:center;display:inline-block}
   /* 対象者: the list on the left, whoever is selected on the right. 156
      people and a form of twenty fields do not belong in a dialog — the
      dialog meant scrolling inside a scrolling page to reach 保存. */
-  .pa-cols{display:grid;grid-template-columns:minmax(0,1fr) 420px;align-items:start}
-  .pa-list{grid-column:1;min-width:0}
-  .pa-edit{grid-column:2;min-width:0;position:sticky;top:64px;background:#fff;
-    border-left:1px solid var(--rule);padding:0 0 14px;
-    max-height:calc(100vh - 64px);overflow:auto}
+  .tabbody.ad-page{max-width:1480px}
   .pa-edit>*{padding-left:14px;padding-right:14px}
+  /* The panel needs a line of its own at the top, or it begins at the very
+     edge of the card while the list begins below its search row, and the
+     two columns read as though they were torn apart. It earns that line
+     in both layouts, stacked or beside. */
+  .pa-edit-h{position:sticky;top:0;z-index:1;display:flex;align-items:center;
+    gap:10px;background:var(--wash);border-bottom:1px solid var(--rule);
+    padding-top:9px;padding-bottom:9px;margin-bottom:11px}
+  .pa-edit-h strong{flex:1;font-size:13px;font-weight:600;color:var(--ink-2);
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+  /* 検索・地域・追加 were a 48px row for three short controls. */
+  .pa-list .navrow{margin-top:0;gap:7px}
+  .pa-list .navrow input,.pa-list .navrow select{padding:6px 9px;font-size:13.5px}
+  .pa-list .navrow .btn{padding:6px 13px;font-size:13.5px;flex:0 0 auto}
+  .pa-list .check{margin:5px 0}
+  .pa-list .check span{font-size:12.5px}
+  .pa-list>.card{padding:11px 13px}
+  .pa-list .muted.sm{margin:4px 0 8px}
   .pa-edit .fld{margin-bottom:9px}
   .pa-edit .fld input,.pa-edit .fld select{padding:6px 9px;font-size:13.5px}
   .pa-edit .fld select{padding-right:26px;background-position:right 9px center}
@@ -3851,6 +3882,19 @@ a.btn{text-decoration:none;text-align:center;display:inline-block}
   .kt-submit{display:block}
   .kt-submit .btn.wide{width:100%}
 }
+/* 対象者 side by side, but only once the table still fits beside the panel.
+   At 1024 the two together squeezed the list back into a sideways scroll,
+   which is the thing the wide layout was supposed to remove — so below
+   1280 the panel sits under the list instead, full width, still not a
+   dialog. */
+@media(min-width:1280px){
+  .pa-cols{display:grid;grid-template-columns:minmax(0,1fr) 400px;align-items:start}
+  .pa-list{grid-column:1;min-width:0}
+  .pa-edit{grid-column:2;min-width:0;position:sticky;top:64px;background:#fff;
+    border-left:1px solid var(--rule);padding:0 0 14px;
+    max-height:calc(100vh - 64px);overflow:auto}
+}
+
 :focus-visible{outline:2px solid var(--brand);outline-offset:1px}
 `}</style>
   );
