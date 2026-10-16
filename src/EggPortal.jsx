@@ -20,7 +20,7 @@
    ========================================================================= */
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { apiRoot } from './storage';
+import { S, apiRoot } from './storage';
 import { EGG_TERMS_JA } from './egg.js';
 
 const L = {
@@ -784,7 +784,6 @@ export function EggAdmin({ lang, toast, cfg = {}, setCfg, people = [], rules = [
      looking saved and reaching nobody. */
   const saveCfg = async (patch) => {
     const next = { ...cfg, egg: { ...(cfg.egg || {}), ...patch } };
-    const { S } = await import('./storage');
     if (!await S.set('cfg', next)) { toast?.(t('failed')); return; }
     setCfg?.(next);
     toast?.(t('saved'));
