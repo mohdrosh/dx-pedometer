@@ -181,6 +181,7 @@ const STR = {
   carrier: ['使用交通会社名', 'Operator'],
   boardAt: ['乗車地', 'From'],
   alightAt: ['降車地', 'To'],
+  pickPerson: ['左の一覧から選ぶと、ここで編集できます。', 'Pick somebody on the left to edit them here.'],
   eggOn: ['タマゴ配布を使う', 'Use the egg portal'],
   eggOnNote: ['ONにすると、この方に「タマゴ」タブが出て、需要調査に回答できます。対象は正社員です。',
     'Switches on the タマゴ tab for this person and lets them answer the demand survey. Full-time employees only.'],
@@ -2344,6 +2345,8 @@ function PeopleAdmin({ cfg, setCfg, roster, setRoster, toast }) {
 
   return (
     <>
+      <div className="pa-cols">
+      <div className="pa-list">
       <div className="card">
         <div className="navrow wrap">
           <input className="grow" placeholder={t('search')} value={q} onChange={(e) => setQ(e.target.value)} />
@@ -2377,7 +2380,11 @@ function PeopleAdmin({ cfg, setCfg, roster, setRoster, toast }) {
             </thead>
             <tbody>
               {shown.map((p) => (
-                <tr key={p.id} className={p.active === false ? 'gone' : ''}>
+                <tr
+                  key={p.id}
+                  className={`${p.active === false ? 'gone' : ''}${
+                    edit && !edit.isNew && String(edit._orig ?? edit.id) === String(p.id) ? ' picked' : ''}`}
+                >
                   <td className="mono">{p.id}</td>
                   <td>
                     {p.name}
@@ -2424,7 +2431,14 @@ function PeopleAdmin({ cfg, setCfg, roster, setRoster, toast }) {
         </div>
       </div>
 
-      <Modal open={!!edit} onClose={() => setEdit(null)} title={edit?.isNew ? t('addPerson') : t('edit')}>
+      </div>
+
+      {/* 「クリックしたら右側に出てほしい」. The same fields, in the
+          page beside the list rather than a dialog over it — choosing
+          the next person is one click, and nothing has to be scrolled
+          past to reach 保存. */}
+      <aside className="pa-edit">
+        {!edit && <p className="pa-none">{t('pickPerson')}</p>}
         {edit && (
           <>
             <label className="fld"><span>{t('employeeId')}</span>
@@ -2529,7 +2543,8 @@ function PeopleAdmin({ cfg, setCfg, roster, setRoster, toast }) {
             </div>
           </>
         )}
-      </Modal>
+      </aside>
+      </div>
     </>
   );
 }
@@ -3748,6 +3763,31 @@ a.btn{text-decoration:none;text-align:center;display:inline-block}
   /* 個人情報 and 万歩計の設定 are a list of short answers — 社員番号, 地区,
      性別 — each of which was taking a whole line of a very wide card. Two
      to a row, with anything that is genuinely wide spanning both. */
+  /* 対象者: the list on the left, whoever is selected on the right. 156
+     people and a form of twenty fields do not belong in a dialog — the
+     dialog meant scrolling inside a scrolling page to reach 保存. */
+  .pa-cols{display:grid;grid-template-columns:minmax(0,1fr) 420px;align-items:start}
+  .pa-list{grid-column:1;min-width:0}
+  .pa-edit{grid-column:2;min-width:0;position:sticky;top:64px;background:#fff;
+    border-left:1px solid var(--rule);padding:0 0 14px;
+    max-height:calc(100vh - 64px);overflow:auto}
+  .pa-edit>*{padding-left:14px;padding-right:14px}
+  .pa-edit .fld{margin-bottom:9px}
+  .pa-edit .fld input,.pa-edit .fld select{padding:6px 9px;font-size:13.5px}
+  .pa-edit .fld select{padding-right:26px;background-position:right 9px center}
+  .pa-edit .fld>span{font-size:11px;margin-bottom:3px}
+  .pa-edit .navrow{position:sticky;bottom:0;background:#fff;padding-top:10px;
+    padding-bottom:4px;margin-top:4px;border-top:1px solid var(--hair)}
+  .pa-none{color:var(--dim);font-size:13px;padding-top:16px}
+  /* which row the panel belongs to */
+  .tbl tr.picked>td{background:var(--brand-wash)}
+  .tbl tr.picked>td:first-child{box-shadow:inset 3px 0 0 var(--brand)}
+
+  /* the admin's own chrome, closer up */
+  .seg.tabs button{padding:8px 10px;font-size:13px}
+  .tbl th,.tbl td{padding:5px 9px;font-size:13px}
+  .tbl .mini{padding:3px 8px;font-size:11.5px}
+
   /* 万歩計: the hero on the left, the month on the right, so nothing has to
      be scrolled past to reach the thing you type into. The calendar column
      is a fixed width because its contents decide it — seven days of a
