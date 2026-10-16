@@ -3091,7 +3091,10 @@ export default function App() {
                two dates, and it says so itself. An administrator reaches
                this to set that window and to watch the chart — the same
                chart everybody else sees, because there is no other one. */
-            <EggTab user={user} cfg={cfg} setCfg={setCfg} lang={lang} toast={toast} />
+            <EggTab
+              user={user} cfg={cfg} setCfg={setCfg} lang={lang} toast={toast}
+              people={roster || []}
+            />
           ) : mod !== 'steps' ? (
             <div className="pad center">
               <div className="soonbox">

@@ -17,6 +17,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { S, apiRoot } from './storage';
 import { NOT_NOW } from './egg.js';
+import EggPortal, { EggFarm, EggOffice, EggAdmin } from './EggPortal';
 
 const L = {
   head: ['タマゴ配布', 'Egg distribution'],
@@ -73,6 +74,14 @@ const L = {
     'Leaving the dates empty keeps the survey shut. While it is open, people can answer and change their answer.'],
   adminAnon: ['管理者にも個別の回答は表示されません。集計のみ閲覧できます。',
     'Individual answers are not shown to administrators either — only the totals.'],
+  /* sub-tabs. Phase 0 asked one question and was one screen; Phase 1 is
+     four jobs done by four different sorts of people, and a person only
+     ever sees the ones that are theirs. */
+  v_portal: ['配布', 'Eggs'],
+  v_farm: ['丹波', 'Harvest'],
+  v_office: ['事務所', 'Office'],
+  v_survey: ['需要調査', 'Survey'],
+  v_admin: ['管理', 'Admin'],
 };
 
 /* ---------------------------------------------------------------------------
@@ -110,7 +119,7 @@ function Bars({ rows, total, lead, t }) {
   );
 }
 
-export default function EggTab({ user, cfg = {}, setCfg, lang, toast }) {
+export default function EggTab({ user, cfg = {}, setCfg, lang, toast, people = [] }) {
   const t = useCallback((k) => (L[k] ? L[k][lang === 'ja' ? 0 : 1] || L[k][0] : k), [lang]);
 
   const [d, setD] = useState(null);
@@ -121,6 +130,19 @@ export default function EggTab({ user, cfg = {}, setCfg, lang, toast }) {
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState(false);
   const [win, setWin] = useState({ from: '', to: '' });
+  const [p1, setP1] = useState(null);
+  const [view, setView] = useState('portal');
+
+  /* Phase 1's read is done once here rather than inside each screen: the
+     roles it carries are what decide which screens exist, so the tab needs
+     it before it can draw its own strip of tabs. */
+  const loadP1 = useCallback(async () => {
+    try {
+      const res = await fetch(`${apiRoot()}/egg/portal`, { credentials: 'same-origin' });
+      setP1(res.ok ? await res.json() : null);
+    } catch { /* leave the screen as it was */ }
+  }, []);
+  useEffect(() => { loadP1(); }, [loadP1]);
 
   const load = useCallback(async () => {
     try {
@@ -183,6 +205,19 @@ export default function EggTab({ user, cfg = {}, setCfg, lang, toast }) {
   const siteName = won ? (lang === 'ja' ? won.ja : won.en) : t('head');
   const img = (name) => `${import.meta.env.BASE_URL}moraegg/${name}.webp`;
 
+  /* Which screens this person has. Not a menu of everything with the
+     irrelevant ones greyed out — a 丹波 registrar and an office contact do
+     different jobs, and showing each of them the other's screen is three
+     taps of nothing on a phone. */
+  const views = [
+    ...(p1 ? [['portal', t('v_portal')]] : []),
+    ...(p1?.role?.farm ? [['farm', t('v_farm')]] : []),
+    ...(p1?.role?.contactFor?.length || user?.admin ? [['office', t('v_office')]] : []),
+    ['survey', t('v_survey')],
+    ...(user?.admin ? [['admin', t('v_admin')]] : []),
+  ];
+  const at = views.some(([k]) => k === view) ? view : views[0][0];
+
   return (
     <div className="tabbody eg-page">
 
@@ -194,16 +229,42 @@ export default function EggTab({ user, cfg = {}, setCfg, lang, toast }) {
               never renamed halfway through deciding. */}
           <h2>{siteName}</h2>
           <p className="muted sm">{t('lede')}</p>
-          {d.window && (
+          {/* The survey's dates are the survey's business. Printing them
+              over the 配布 screen says the thing people are looking at
+              closes on a date that has nothing to do with it. */}
+          {at === 'survey' && d.window && (
             <p className="eg-win">
               {(d.open ? t('openUntil') : t('wasOpen'))
                 .replace('{from}', d.window.from).replace('{to}', d.window.to)}
             </p>
           )}
-          {!d.window && <p className="eg-win">{t('notYet')}</p>}
+          {at === 'survey' && !d.window && <p className="eg-win">{t('notYet')}</p>}
         </div>
       </div>
 
+      {views.length > 1 && (
+        <nav className="eg-sub">
+          {views.map(([k, label]) => (
+            <button
+              key={k} type="button" className={at === k ? 'on' : ''}
+              onClick={() => setView(k)}
+            >{label}</button>
+          ))}
+        </nav>
+      )}
+
+      {at === 'portal' && <EggPortal d={p1} reload={loadP1} lang={lang} toast={toast} />}
+      {at === 'farm' && <EggFarm lang={lang} toast={toast} />}
+      {at === 'office' && <EggOffice lang={lang} toast={toast} />}
+      {at === 'admin' && (
+        <EggAdmin
+          lang={lang} toast={toast} cfg={cfg} setCfg={setCfg}
+          people={people} rules={d.rules || []} onDone={loadP1}
+        />
+      )}
+
+      {at === 'survey' && (
+       <>
       {user?.admin && (
         <>
           <div className="sechead"><span>{t('admin')}</span></div>
@@ -421,6 +482,8 @@ export default function EggTab({ user, cfg = {}, setCfg, lang, toast }) {
           </div>
         </div>
       </div>
+       </>
+      )}
     </div>
   );
 }
@@ -508,6 +571,158 @@ export const EGG_CSS = `
 
 @media(prefers-reduced-motion:reduce){.eg-bt i{transition:none}}
 
+/* ======================= Phase 1：配布の運用 =============================
+   Same idiom as the rest of the app after the compacting pass: one scale of
+   type, 13px rows, no card inside a card, and nothing that makes a phone
+   scroll past a decision it could have shown.
+------------------------------------------------------------------------- */
+
+/* the strip of screens. Four jobs, so four tabs — but only the ones that
+   are this person's, which for most people means none of this is drawn. */
+.eg-sub{display:flex;gap:2px;padding:0 14px;border-bottom:1px solid var(--rule);
+  background:var(--wash);overflow-x:auto;scrollbar-width:none}
+.eg-sub::-webkit-scrollbar{display:none}
+.eg-sub button{padding:9px 14px;font-size:13px;color:var(--ink-2);
+  background:none;border:0;border-bottom:2px solid transparent;white-space:nowrap}
+.eg-sub button:hover{color:var(--brand)}
+.eg-sub button.on{color:var(--brand);font-weight:600;border-bottom-color:var(--brand)}
+
+/* the week at a glance: three facts on one line, not three cards */
+.eg-wk{display:flex;flex-wrap:wrap;gap:4px 22px;padding:10px 13px}
+.eg-wk div{display:flex;align-items:baseline;gap:7px}
+.eg-wk em{font-style:normal;font-size:11.5px;color:var(--dim)}
+.eg-wk b{font-size:13.5px;font-variant-numeric:tabular-nums}
+
+.eg-terms ul{margin:8px 0 12px;padding-left:19px;display:grid;gap:4px}
+.eg-terms li{font-size:13px;color:var(--ink-2);line-height:1.55}
+
+.eg-opt small{display:block;font-size:10.5px;opacity:.75;font-weight:400}
+.eg-row2{display:grid;gap:14px;margin-top:2px}
+.eg-step{display:flex;align-items:center;gap:10px}
+.eg-step b{font-size:19px;min-width:1.4em;text-align:center;
+  font-variant-numeric:tabular-nums}
+.eg-step .btn{width:36px;height:34px;padding:0;font-size:16px;line-height:1}
+.eg-acts{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.eg-warn{color:var(--warn);margin:6px 0 0}
+.eg-req .fld{margin-top:12px}
+
+.eg-mystat{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.eg-mystat-v{display:flex;align-items:baseline;gap:8px;margin-right:auto}
+.eg-mystat-v b{font-size:15px}
+.eg-mystat-v i{font-style:normal;color:var(--faint)}
+.eg-mystat p{flex:1 1 100%;margin:0}
+.pill.warn{border:1px solid var(--warn);color:var(--warn);background:var(--warn-wash);
+  font-size:11px;font-weight:600;padding:2px 8px;border-radius:999px}
+
+.eg-where{display:grid;gap:3px}
+.eg-where b{font-size:14px}
+.eg-where span{font-size:12.5px;color:var(--ink-2)}
+.eg-where em{font-style:normal;font-size:12.5px;color:var(--ink-2)}
+.eg-where-by{color:var(--brand) !important;font-weight:600}
+
+.eg-hist,.eg-days,.eg-mini,.eg-hand,.eg-offs{list-style:none;margin:0;padding:0}
+.eg-hist li{display:grid;grid-template-columns:5.6em minmax(0,1fr) 4.2em 6.6em;
+  align-items:center;gap:8px;padding:5px 0;font-size:12.5px;
+  border-top:1px solid var(--hair)}
+.eg-hist li:first-child{border-top:0}
+.eg-hist b{font-variant-numeric:tabular-nums}
+.eg-hist em{font-style:normal;color:var(--dim);text-align:right}
+
+/* The two breakdowns sit side by side from phone width up: they are four
+   short rows between them, and stacking them pushes the rest of the page
+   down a third of a screen for nothing. */
+@media(min-width:380px){.eg-p2 .eg-two{display:grid;grid-template-columns:1fr 1fr;column-gap:18px}}
+.eg-mini li{display:flex;justify-content:space-between;gap:10px;padding:4px 0;
+  font-size:12.5px;border-top:1px solid var(--hair)}
+.eg-mini li:first-child{border-top:0}
+.eg-mini b{font-variant-numeric:tabular-nums}
+
+/* ---- 5.4 対決グラフ ----------------------------------------------------
+   The stack is the week's harvest so far and the line is what has been
+   asked for, so "are there enough" is whether one has reached the other.
+   The mascot and the sentence beside it say the same thing without the
+   chart, which is what makes it safe for the chart to be this small.
+----------------------------------------------------------------------- */
+.eg-race-top{display:flex;align-items:center;gap:13px;margin-bottom:12px}
+.eg-race-top img{width:64px;height:64px;flex:none}
+.eg-race-n{font-size:27px;font-weight:600;line-height:1;
+  font-variant-numeric:tabular-nums}
+.eg-race-u{font-size:13px;color:var(--dim);margin-left:6px}
+.eg-race-s{font-size:12.5px;color:var(--warn);margin:4px 0 0;font-weight:600}
+.eg-race-s.win{color:var(--go)}
+
+.eg-race-ch{position:relative;display:grid;grid-template-columns:repeat(7,1fr);
+  gap:5px;height:104px;padding-bottom:15px}
+.eg-race-col{display:flex;flex-direction:column;justify-content:flex-end;
+  position:relative}
+/* The track is a guide, not a bar. At full strength seven empty days read
+   as seven full ones and the day that actually has eggs in it is the odd
+   one out; and fading the track fades the bar inside it, which is how the
+   harvest ended up paler than the days with nothing in them. So: a pale
+   wash set directly, a baseline to sit on, and the bar at full strength. */
+.eg-race-track{position:relative;flex:1;background:var(--wash);
+  border-bottom:1px solid var(--rule-2)}
+.eg-race-seg{position:absolute;left:0;right:0;background:var(--brand);
+  border-top:1px solid #fff;transition:height .3s ease}
+.eg-race-col em{position:absolute;bottom:-15px;left:0;right:0;text-align:center;
+  font-style:normal;font-size:10.5px;color:var(--dim)}
+/* The target reads as a target: dashed, above the bars, labelled in place
+   so nothing has to be matched to a legend. */
+.eg-race-line{position:absolute;left:0;right:0;height:0;
+  border-top:2px dashed var(--warn);pointer-events:none}
+.eg-race-line b{position:absolute;right:0;top:-15px;font-size:10.5px;
+  color:var(--warn);background:#fff;padding:0 3px;font-weight:600}
+@media(prefers-reduced-motion:reduce){.eg-race-seg{transition:none}}
+
+/* ---- 丹波 ------------------------------------------------------------- */
+.eg-farm-c{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.eg-farm-now{display:flex;align-items:baseline;gap:7px;margin-right:auto}
+.eg-farm-now em{font-style:normal;font-size:11.5px;color:var(--dim)}
+.eg-farm-now b{font-size:30px;font-weight:600;font-variant-numeric:tabular-nums}
+.eg-farm-now span{font-size:12.5px;color:var(--ink-2)}
+/* Pressed with a thumb, often with one hand full of eggs. */
+.eg-tap{min-height:48px;padding:0 26px;font-size:16px;font-weight:600}
+.eg-farm-c>p{flex:1 1 100%;margin:0}
+.eg-days li{display:flex;justify-content:space-between;padding:5px 0;
+  font-size:12.5px;border-top:1px solid var(--hair)}
+.eg-days li:first-child{border-top:0}
+.eg-days li.on{font-weight:600;color:var(--brand)}
+.eg-days b{font-variant-numeric:tabular-nums}
+
+/* ---- 事務所 ----------------------------------------------------------- */
+.eg-off-bar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:10px 13px}
+.eg-off-bar>span{margin-left:auto}
+.eg-arr{display:flex;align-items:center;gap:12px}
+.eg-arr-n{margin-left:auto;font-size:15px;font-variant-numeric:tabular-nums}
+.eg-hand li{display:grid;grid-template-columns:1fr 5em auto;align-items:center;
+  gap:10px;padding:6px 0;border-top:1px solid var(--hair)}
+.eg-hand li:first-child{border-top:0}
+.eg-hand-n{font-size:13.5px}
+.eg-hand li.done .eg-hand-n{color:var(--dim);text-decoration:line-through}
+.eg-hand b{font-size:12.5px;font-variant-numeric:tabular-nums;color:var(--ink-2)}
+.btn.sm{padding:4px 10px;font-size:12px}
+
+/* ---- 管理 ------------------------------------------------------------- */
+.eg-offs li{display:grid;grid-template-columns:7em minmax(0,1fr) 10em auto auto;
+  align-items:center;gap:8px;padding:6px 0;border-top:1px solid var(--hair)}
+.eg-offs li:first-child{border-top:0}
+.eg-offs li>b{font-size:13.5px}
+.eg-offs-on{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--ink-2)}
+.eg-offs-add{display:grid;grid-template-columns:7em minmax(0,1fr) auto;gap:8px;
+  margin-top:10px;padding-top:10px;border-top:1px solid var(--rule)}
+.eg-draw{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.eg-draw-r{font-size:12.5px;color:var(--ink-2);margin:0}
+.eg-draw>p.muted{flex:1 1 100%;margin:0}
+.eg-adm textarea{width:100%;padding:9px 11px;border:1px solid var(--rule);
+  background:var(--field);border-radius:4px;font:inherit;font-size:13px;
+  line-height:1.6;resize:vertical;outline:none}
+
+/* Phones get one column of everything; the 対決グラフ comes first because
+   it is the answer to the question people open this for. */
+.eg-p2{display:grid}
+.eg-p2-r{order:-1}
+.eg-off,.eg-adm{display:grid}
+
 @media(min-width:1024px){
   .eg-page{max-width:1240px}
   .eg-cols{display:grid;grid-template-columns:minmax(0,1fr) 580px;
@@ -522,5 +737,29 @@ export const EGG_CSS = `
   .eg-admin{display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap}
   .eg-admin .fld{margin-bottom:0}
   .eg-admin>p{flex:1 1 100%;margin:0}
+
+  /* 配布 gets the same two-pane shape as every other tab: what you do on
+     the left, how the week is going on the right, and no scrolling to get
+     from one to the other. */
+  .eg-p2{grid-template-columns:minmax(0,1fr) 420px;align-items:start;column-gap:0}
+  .eg-p2-r{order:0;border-left:1px solid var(--rule);position:sticky;top:64px}
+  .eg-p2-l{padding-right:16px}
+  .eg-row2{grid-template-columns:auto minmax(0,1fr);gap:22px}
+  .eg-race-ch{height:124px}
+
+  /* 事務所 and 管理 are two panes like every other tab. The panes are in
+     the markup rather than placed by nth-of-type: a sechead and a card are
+     both divs, so counting them picks the wrong elements the moment one
+     of them is conditional. */
+  .eg-off{grid-template-columns:minmax(0,340px) minmax(0,1fr);
+    align-items:start;column-gap:0}
+  .eg-adm{grid-template-columns:minmax(0,1fr) minmax(0,420px);
+    align-items:start;column-gap:0}
+  .eg-off-r,.eg-adm-r{border-left:1px solid var(--rule);position:sticky;top:64px}
+  .eg-off-l,.eg-adm-l{padding-right:16px}
+  .eg-off-bar{flex-direction:column;align-items:stretch}
+  .eg-off-bar>span{margin-left:0}
+  .eg-adm .ad-set{display:grid;grid-template-columns:1fr 1fr;gap:10px 14px}
+  .eg-adm .ad-set .fld:last-child{grid-column:span 2}
 }
 `;
