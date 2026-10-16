@@ -2987,7 +2987,11 @@ export default function App() {
 
   return (
     <LangCtx.Provider value={lang}>
-      <div className="app theme-seiji">
+      {/* shell: only the signed-in screen is the two-column grid. The sign-in
+          page, the trial form and the consent gate share .app but have no
+          rail and no .main, so the grid put their contents in a 164px
+          column and wrapped 万歩計実績表 down the left-hand side. */}
+      <div className="app theme-seiji shell">
         <Styles />
         <header className="hdr">
           <div className="hdr-l">
@@ -3620,7 +3624,7 @@ a.btn{text-decoration:none;text-align:center;display:inline-block}
 
   /* The shell becomes two columns: everything, and the rail. A fixed header
      height is what lets the rail stick to exactly the right offset. */
-  .app{display:grid;grid-template-columns:164px minmax(0,1fr);
+  .app.shell{display:grid;grid-template-columns:164px minmax(0,1fr);
     grid-template-rows:auto 1fr;align-content:start}
   .hdr{grid-column:1/-1;height:64px;padding-top:0;padding-bottom:0}
 
