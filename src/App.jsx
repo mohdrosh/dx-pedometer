@@ -1209,7 +1209,7 @@ function StepsTab({ user, cfg, holidays, y, m, setPeriod, toast }) {
   days.forEach((d) => grid.push(d));
 
   return (
-    <div className="tabbody">
+    <div className="tabbody st-page">
       <div className="periodbar">
         <button onClick={() => shift(-1)} aria-label="prev">‹</button>
         <div>
@@ -1225,142 +1225,155 @@ function StepsTab({ user, cfg, holidays, y, m, setPeriod, toast }) {
         {locked && <em>{t('lockedNote')}</em>}
       </div>
 
-      {companion && (
-        <div className="card companion">
-          <div className="crow">
-            <span className="clabel">{t('today')} {companion.mon}/{companion.dom}</span>
-            <span className="cgoal">{t('goalSteps').replace('{n}', nf(cfg.threshold))}</span>
-          </div>
-          <div className="track">
-            <div className="walker" style={{ '--p': companion.pct / 100 }}>
-              <MoraBot pose={companion.pose} />
+      {/* モラボットと月のグラフを左、カレンダーを右に。
+          They used to run one under the other, so the calendar you type
+          into was always a scroll away from the figures it moves. Side
+          by side, a number typed on the right changes the bar on the
+          left without the page moving at all. */}
+      <div className="st-cols">
+      <div className="st-hero">
+
+        {companion && (
+          <div className="card companion">
+            <div className="crow">
+              <span className="clabel">{t('today')} {companion.mon}/{companion.dom}</span>
+              <span className="cgoal">{t('goalSteps').replace('{n}', nf(cfg.threshold))}</span>
             </div>
-            <div className="goalpost" />
-            <div className="rail" />
-            <div className="railfill" style={{ width: `${companion.pct}%` }} />
-          </div>
-          <div className="crow foot">
-            <strong className="csteps">{companion.steps == null ? '–' : nf(companion.steps)}</strong>
-            <span className="cunit">{companion.steps == null ? '' : (lang === 'ja' ? '歩' : 'steps')}</span>
-            <span className={'cnote' + (companion.done ? ' ok' : '')}>{companion.note}</span>
-          </div>
-        </div>
-      )}
-
-      {result && (
-        <div className={'card result ' + result.kind}>
-          <div className="rbot"><MoraBot pose={result.kind === 'bonus' ? 'flag' : 'tumble'} /></div>
-          <div>
-            <strong>{result.title}</strong>
-            <p>{result.note}</p>
-          </div>
-        </div>
-      )}
-
-      <div className="card">
-        <div className="row2">
-          <Stat label={t('total')} value={nf(total)} sub={lang === 'ja' ? '歩' : 'steps'} />
-          <Stat label={t('entered')} value={`${filled.length}/${days.length}`} sub={t('days')} />
-        </div>
-        <Ribbon days={days} steps={steps} threshold={cfg.threshold} />
-        <div className="legend">
-          <i className="lg sat" />{t('sat')}
-          <i className="lg sun" />{t('sunHol')}
-          <i className="lg go" />{nf(cfg.threshold)}+
-          <i className="lg short" />&lt;{nf(cfg.threshold)}
-        </div>
-      </div>
-
-      <div className="sechead">
-        <span>{t('entryHead')}</span>
-        {!locked && saveState && (
-          <span className={'savestate ' + saveState}>
-            {saveState === 'saving' ? t('saving') : saveState === 'saved' ? t('savedOk') : t('saveFail')}
-          </span>
-        )}
-        <div className="seg">
-          <button className={view === 'cal' ? 'on' : ''} onClick={() => setView('cal')}>{t('calendar')}</button>
-          <button className={view === 'list' ? 'on' : ''} onClick={() => setView('list')}>{t('list')}</button>
-        </div>
-      </div>
-
-      {view === 'cal' ? (
-        <div className="cal">
-          {(lang === 'ja' ? DOW_JA : DOW_EN).map((w, i) => (
-            <div key={w} className={'cal-h' + (i === 0 ? ' sun' : i === 6 ? ' sat' : '')}>{w}</div>
-          ))}
-          {grid.map((d, i) => {
-            if (!d) return <div key={'e' + i} className="cell empty" />;
-            const v = steps[d.iso];
-            const has = v != null && v !== '';
-            return (
-              /* The number goes straight in the square. A dialog for one
-                 number was a dialog too many — the リスト view has always
-                 typed inline, and there was never a reason the calendar
-                 could not. */
-              <div
-                key={d.iso}
-                className={`cell ${dayClass(d)} ${has ? (Number(v) >= cfg.threshold ? 'go' : 'short') : 'blank'} ${locked ? 'lock' : ''} ${isFuture(d.iso) ? 'ahead' : ''}`}
-              >
-                <span className="dnum">{d.dom}</span>
-                <input
-                  className="dval" inputMode="numeric" placeholder="–"
-                  disabled={locked || isFuture(d.iso)}
-                  value={v == null ? '' : v}
-                  aria-label={`${d.mon}/${d.dom}`}
-                  onChange={(e) => {
-                    const raw = e.target.value.replace(/[^\d]/g, '');
-                    saveDay(d.iso, raw === '' ? '' : Number(raw));
-                  }}
-                />
+            <div className="track">
+              <div className="walker" style={{ '--p': companion.pct / 100 }}>
+                <MoraBot pose={companion.pose} />
               </div>
-            );
-          })}
+              <div className="goalpost" />
+              <div className="rail" />
+              <div className="railfill" style={{ width: `${companion.pct}%` }} />
+            </div>
+            <div className="crow foot">
+              <strong className="csteps">{companion.steps == null ? '–' : nf(companion.steps)}</strong>
+              <span className="cunit">{companion.steps == null ? '' : (lang === 'ja' ? '歩' : 'steps')}</span>
+              <span className={'cnote' + (companion.done ? ' ok' : '')}>{companion.note}</span>
+            </div>
+          </div>
+        )}
+
+        {result && (
+          <div className={'card result ' + result.kind}>
+            <div className="rbot"><MoraBot pose={result.kind === 'bonus' ? 'flag' : 'tumble'} /></div>
+            <div>
+              <strong>{result.title}</strong>
+              <p>{result.note}</p>
+            </div>
+          </div>
+        )}
+
+        <div className="card">
+          <div className="row2">
+            <Stat label={t('total')} value={nf(total)} sub={lang === 'ja' ? '歩' : 'steps'} />
+            <Stat label={t('entered')} value={`${filled.length}/${days.length}`} sub={t('days')} />
+          </div>
+          <Ribbon days={days} steps={steps} threshold={cfg.threshold} />
+          <div className="legend">
+            <i className="lg sat" />{t('sat')}
+            <i className="lg sun" />{t('sunHol')}
+            <i className="lg go" />{nf(cfg.threshold)}+
+            <i className="lg short" />&lt;{nf(cfg.threshold)}
+          </div>
         </div>
-      ) : (
-        <div className="listv" ref={listRef}>
-          <div className="ordbar">
-            <span>{t('dateOrder')}</span>
-            <button type="button" className="ordbtn" onClick={flipOrder}>
-              {desc ? t('orderDesc') : t('orderAsc')}
-              <em>{t('orderFlip')}</em>
+
+      </div>
+
+      <div className="st-cal">
+        <div className="sechead">
+          <span>{t('entryHead')}</span>
+          {!locked && saveState && (
+            <span className={'savestate ' + saveState}>
+              {saveState === 'saving' ? t('saving') : saveState === 'saved' ? t('savedOk') : t('saveFail')}
+            </span>
+          )}
+          <div className="seg">
+            <button className={view === 'cal' ? 'on' : ''} onClick={() => setView('cal')}>{t('calendar')}</button>
+            <button className={view === 'list' ? 'on' : ''} onClick={() => setView('list')}>{t('list')}</button>
+          </div>
+        </div>
+
+        {view === 'cal' ? (
+          <div className="cal">
+            {(lang === 'ja' ? DOW_JA : DOW_EN).map((w, i) => (
+              <div key={w} className={'cal-h' + (i === 0 ? ' sun' : i === 6 ? ' sat' : '')}>{w}</div>
+            ))}
+            {grid.map((d, i) => {
+              if (!d) return <div key={'e' + i} className="cell empty" />;
+              const v = steps[d.iso];
+              const has = v != null && v !== '';
+              return (
+                /* The number goes straight in the square. A dialog for one
+                   number was a dialog too many — the リスト view has always
+                   typed inline, and there was never a reason the calendar
+                   could not. */
+                <div
+                  key={d.iso}
+                  className={`cell ${dayClass(d)} ${has ? (Number(v) >= cfg.threshold ? 'go' : 'short') : 'blank'} ${locked ? 'lock' : ''} ${isFuture(d.iso) ? 'ahead' : ''}`}
+                >
+                  <span className="dnum">{d.dom}</span>
+                  <input
+                    className="dval" inputMode="numeric" placeholder="–"
+                    disabled={locked || isFuture(d.iso)}
+                    value={v == null ? '' : v}
+                    aria-label={`${d.mon}/${d.dom}`}
+                    onChange={(e) => {
+                      const raw = e.target.value.replace(/[^\d]/g, '');
+                      saveDay(d.iso, raw === '' ? '' : Number(raw));
+                    }}
+                  />
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="listv" ref={listRef}>
+            <div className="ordbar">
+              <span>{t('dateOrder')}</span>
+              <button type="button" className="ordbtn" onClick={flipOrder}>
+                {desc ? t('orderDesc') : t('orderAsc')}
+                <em>{t('orderFlip')}</em>
+              </button>
+            </div>
+            {(() => { const rows = slots.filter((sl) => !sl.none); return desc ? [...rows].reverse() : rows; })().map((sl) => {
+              const v = steps[sl.iso];
+              const hol = holidays[sl.iso];
+              return (
+                <div key={sl.iso} className={'lrow ' + dayClass(sl) + (isFuture(sl.iso) ? ' ahead' : '')}>
+                  <span className="ld">{sl.mon}/{sl.dom}<em>{(lang === 'ja' ? DOW_JA : DOW_EN)[sl.dow]}</em></span>
+                  {hol && <span className="hol">{hol}</span>}
+                  <input
+                    inputMode="numeric" disabled={locked || isFuture(sl.iso)} value={v == null ? '' : v}
+                    placeholder="0"
+                    onChange={(e) => {
+                      const raw = e.target.value.replace(/[^\d]/g, '');
+                      saveDay(sl.iso, raw === '' ? '' : Number(raw));
+                    }}
+                    onKeyDown={listKey}
+                    className={v != null && v !== '' ? (Number(v) >= cfg.threshold ? 'go' : 'short') : ''}
+                  />
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {!locked && (
+          <div className="submitbar">
+            {!windowOpen && <div className="note">{t('windowClosed')} — {t('windowNote')}</div>}
+            <button className="btn primary big" disabled={!allIn || !windowOpen} onClick={() => setAskSubmit(true)}>
+              {allIn
+                ? t('submit')
+                : lang === 'ja'
+                  ? `${t('submit')}（未入力 ${days.length - filled.length}日）`
+                  : `${t('submit')} (${days.length - filled.length} blank)`}
             </button>
           </div>
-          {(() => { const rows = slots.filter((sl) => !sl.none); return desc ? [...rows].reverse() : rows; })().map((sl) => {
-            const v = steps[sl.iso];
-            const hol = holidays[sl.iso];
-            return (
-              <div key={sl.iso} className={'lrow ' + dayClass(sl) + (isFuture(sl.iso) ? ' ahead' : '')}>
-                <span className="ld">{sl.mon}/{sl.dom}<em>{(lang === 'ja' ? DOW_JA : DOW_EN)[sl.dow]}</em></span>
-                {hol && <span className="hol">{hol}</span>}
-                <input
-                  inputMode="numeric" disabled={locked || isFuture(sl.iso)} value={v == null ? '' : v}
-                  placeholder="0"
-                  onChange={(e) => {
-                    const raw = e.target.value.replace(/[^\d]/g, '');
-                    saveDay(sl.iso, raw === '' ? '' : Number(raw));
-                  }}
-                  onKeyDown={listKey}
-                  className={v != null && v !== '' ? (Number(v) >= cfg.threshold ? 'go' : 'short') : ''}
-                />
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {!locked && (
-        <div className="submitbar">
-          {!windowOpen && <div className="note">{t('windowClosed')} — {t('windowNote')}</div>}
-          <button className="btn primary big" disabled={!allIn || !windowOpen} onClick={() => setAskSubmit(true)}>
-            {allIn
-              ? t('submit')
-              : lang === 'ja'
-                ? `${t('submit')}（未入力 ${days.length - filled.length}日）`
-                : `${t('submit')} (${days.length - filled.length} blank)`}
-          </button>
-        </div>
-      )}
+        )}
+      </div>
+      </div>
 
       <Modal open={hit} onClose={() => setHit(false)} title={t('bonusWon')}>
         {hit && (
@@ -1538,7 +1551,9 @@ function ProfileTab({ user, cfg, roster, setRoster, toast, y, m, onUpdated, show
     onUpdated(updated); toast(t('saved'));
   };
   return (
-    <div className="tabbody">
+    /* Under 万歩計 this has to be the width of the two columns above it, or
+       the blocks below the fold are a different shape to the ones above. */
+    <div className={'tabbody' + (show === 'pedometer' ? ' st-page' : '')}>
       {pedo && (
         <>
           <div className="sechead"><span>{t('targetStatus')}</span></div>
@@ -3466,11 +3481,21 @@ a.btn{text-decoration:none;text-align:center;display:inline-block}
    is the height that holds those. */
 .cell{border:0;border-right:1px solid var(--rule);
   border-bottom:1px solid var(--rule);background:#fff;border-radius:0;
-  display:flex;align-items:center;justify-content:space-between;gap:4px;
-  padding:3px 6px;text-align:left;position:relative;min-height:38px}
+  display:flex;align-items:center;justify-content:space-between;gap:3px;
+  padding:2px 5px;text-align:left;position:relative;min-height:36px}
+
+/* Seven columns across a phone is 55px each, and 55px does not hold a date
+   and 75,079 side by side — the last digit was simply cut off. So on a
+   phone the day stacks: the date on its own line, the count under it. */
+@media(max-width:640px){
+  .cell{flex-direction:column;align-items:stretch;justify-content:center;
+    gap:0;padding:3px 3px;min-height:44px}
+  .cell .dnum{font-size:10px;line-height:1.3}
+  .cell .dval{font-size:12px;padding:0 2px}
+}
 .cell.empty{background:var(--wash)}
-.cell .dnum{font-size:11.5px;color:var(--ink-2);flex:none}
-.cell .dval{font-size:13.5px;font-weight:600;text-align:right;letter-spacing:-.03em;
+.cell .dnum{font-size:11px;color:var(--ink-2);flex:none}
+.cell .dval{font-size:12.5px;font-weight:600;text-align:right;letter-spacing:-.03em;
   min-width:0;width:100%;border:1px solid transparent;border-radius:3px;
   background:transparent;padding:2px 3px;font-family:inherit;
   font-variant-numeric:tabular-nums}
@@ -3704,6 +3729,17 @@ a.btn{text-decoration:none;text-align:center;display:inline-block}
   /* 個人情報 and 万歩計の設定 are a list of short answers — 社員番号, 地区,
      性別 — each of which was taking a whole line of a very wide card. Two
      to a row, with anything that is genuinely wide spanning both. */
+  /* 万歩計: the hero on the left, the month on the right, so nothing has to
+     be scrolled past to reach the thing you type into. The calendar column
+     is a fixed width because its contents decide it — seven days of a
+     five-figure count — while the chart beside it takes what is left. */
+  .tabbody.st-page{max-width:1280px}
+  .st-cols{display:grid;grid-template-columns:minmax(0,1fr) 600px;align-items:start}
+  .st-hero{grid-column:1;min-width:0}
+  .st-cal{grid-column:2;min-width:0;position:sticky;top:64px;
+    border-left:1px solid var(--rule);background:#fff}
+  .st-cal .submitbar{position:static;border-top:0;padding:12px 14px}
+
   /* モラボット and his rail had 104px of track and a 26px step count, which
      between the banner above and the figures below pushed the month's
      chart off the first screen. Same scene, two thirds the height. */
