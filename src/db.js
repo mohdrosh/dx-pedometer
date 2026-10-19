@@ -220,6 +220,11 @@ export async function initSchema() {
       active     BOOLEAN NOT NULL DEFAULT TRUE,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
+    /* 佐野:「最低パック数を超えたら『今週はこの事務所にタマゴが届きます！』、
+       届かなかったら残念賞のメッセージを出す」. Below this many packs asked
+       for, a run to that office is not worth making; 0 means no minimum,
+       which is what every office starts with. */
+    ALTER TABLE egg_offices ADD COLUMN IF NOT EXISTS min_packs INTEGER NOT NULL DEFAULT 0;
 
     /* 5.1 収穫登録.「10個入り1パックごとにボタンを押す」「同日中であれば取り消
        し・修正ができる」.
@@ -799,7 +804,7 @@ export async function eggAudience() {
 export async function eggOfficeRows(activeOnly = false) {
   const { rows } = await pool.query(
     `SELECT o.name, o.address, o.contact_id AS "contactId", o.note, o.active,
-            e.name AS "contactName"
+            o.min_packs AS "minPacks", e.name AS "contactName"
        FROM egg_offices o
        LEFT JOIN employees e ON e.id = o.contact_id
       ${activeOnly ? 'WHERE o.active' : ''}
@@ -808,14 +813,16 @@ export async function eggOfficeRows(activeOnly = false) {
   return rows;
 }
 
-export async function eggOfficeSave({ name, address, contactId, note, active }) {
+export async function eggOfficeSave({ name, address, contactId, note, active, minPacks }) {
   await pool.query(
-    `INSERT INTO egg_offices (name, address, contact_id, note, active)
-     VALUES ($1, $2, $3, $4, $5)
+    `INSERT INTO egg_offices (name, address, contact_id, note, active, min_packs)
+     VALUES ($1, $2, $3, $4, $5, $6)
      ON CONFLICT (name) DO UPDATE
        SET address = EXCLUDED.address, contact_id = EXCLUDED.contact_id,
-           note = EXCLUDED.note, active = EXCLUDED.active`,
-    [String(name), address || null, contactId || null, note || null, active !== false],
+           note = EXCLUDED.note, active = EXCLUDED.active,
+           min_packs = EXCLUDED.min_packs`,
+    [String(name), address || null, contactId || null, note || null, active !== false,
+      Math.max(0, Math.floor(Number(minPacks) || 0))],
   );
   return true;
 }
@@ -863,6 +870,17 @@ export async function eggHarvest(fromDay, toDay) {
  * shed tapping at the same moment add two packs rather than one — read,
  * add, write would lose one of them and nobody would ever know.
  */
+/* An administrator's session id is an email address, not an employee — so
+   recording them as the registrar violates the foreign key and the whole
+   correction fails with a 500. Whoever is not on the roster is recorded as
+   nobody, which is what the ON DELETE SET NULL on this column already
+   means elsewhere. */
+const whoOrNull = async (id) => {
+  if (!id) return null;
+  const { rows } = await pool.query('SELECT 1 FROM employees WHERE id = $1', [String(id)]);
+  return rows.length ? String(id) : null;
+};
+
 export async function eggHarvestBump(day, delta, employeeId) {
   const { rows } = await pool.query(
     `INSERT INTO egg_harvest (day, packs, updated_by, updated_at)
@@ -871,7 +889,7 @@ export async function eggHarvestBump(day, delta, employeeId) {
        SET packs = GREATEST(egg_harvest.packs + $2, 0),
            updated_by = $3, updated_at = NOW()
      RETURNING packs`,
-    [day, Math.trunc(Number(delta) || 0), String(employeeId)],
+    [day, Math.trunc(Number(delta) || 0), await whoOrNull(employeeId)],
   );
   return rows[0]?.packs ?? 0;
 }
@@ -885,7 +903,7 @@ export async function eggHarvestSet(day, packs, employeeId) {
      ON CONFLICT (day) DO UPDATE
        SET packs = EXCLUDED.packs, updated_by = EXCLUDED.updated_by, updated_at = NOW()
      RETURNING packs`,
-    [day, n, String(employeeId)],
+    [day, n, await whoOrNull(employeeId)],
   );
   return rows[0]?.packs ?? 0;
 }
@@ -1019,7 +1037,7 @@ export async function eggDrawSave(ship, { packs, rule, seed, by }, allocated) {
        ON CONFLICT (ship) DO UPDATE
          SET packs = EXCLUDED.packs, rule = EXCLUDED.rule, seed = EXCLUDED.seed,
              drawn_at = NOW(), drawn_by = EXCLUDED.drawn_by`,
-      [ship, packs, rule, seed, by || null],
+      [ship, packs, rule, seed, await whoOrNull(by)],
     );
     for (const r of allocated) {
       await client.query(
@@ -1067,7 +1085,7 @@ export async function eggArrived(ship, office, employeeId) {
     `INSERT INTO egg_week_offices (ship, office, packs, arrived_at, arrived_by)
      VALUES ($1, $2, 0, NOW(), $3)
      ON CONFLICT (ship, office) DO UPDATE SET arrived_at = NOW(), arrived_by = $3`,
-    [ship, office, String(employeeId)],
+    [ship, office, await whoOrNull(employeeId)],
   );
   return true;
 }
@@ -1085,7 +1103,7 @@ export async function eggPickup(requestId, by, undo = false) {
       ? 'UPDATE egg_requests SET picked_up_at = NULL, picked_up_by = NULL WHERE id = $1'
       : `UPDATE egg_requests SET picked_up_at = NOW(), picked_up_by = $2
           WHERE id = $1 AND got > 0`,
-    undo ? [requestId] : [requestId, String(by)],
+    undo ? [requestId] : [requestId, await whoOrNull(by)],
   );
   return rowCount > 0;
 }

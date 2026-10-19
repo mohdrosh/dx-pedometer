@@ -3057,6 +3057,30 @@ export default function App() {
     ? user
     : roster.find((p) => String(p.id) === String(user.id)) || user;
 
+  /* 佐野:「マイページの中ではなく、マイページからリンクで開く別ページにして
+     ください。ただしデモのように『マイページに戻る』ボタンは残してください。」
+
+     So モラエッグ is not a tab: it is rendered before the shell and outside
+     it, with its own header and its own colours. Nothing of マイページ comes
+     with it — no rail, no bottom nav, no period bar — and the way back is
+     the one button she asked for. */
+  if (mod === 'egg' && (user.admin || moduleOpen(cfg, me, 'egg'))) {
+    return (
+      <LangCtx.Provider value={lang}>
+        <div className="app theme-seiji mg">
+          <Styles />
+          <EggTab
+            user={user} cfg={cfg} setCfg={setCfg} lang={lang} setLang={setLang}
+            toast={toast} people={roster || []}
+            onBack={() => { setMod('steps'); setTab(landingTab(user)); }}
+            onSignOut={signOut}
+          />
+          <Toast msg={toastMsg} />
+        </div>
+      </LangCtx.Provider>
+    );
+  }
+
   return (
     <LangCtx.Provider value={lang}>
       {/* shell: only the signed-in screen is the two-column grid. The sign-in
@@ -3103,15 +3127,6 @@ export default function App() {
                 base={import.meta.env.BASE_URL.replace(/\/$/, '')}
               />
             </>
-          ) : mod === 'egg' && (user.admin || moduleOpen(cfg, me, 'egg')) ? (
-            /* No PeriodBar: the survey is not a month, it is a window with
-               two dates, and it says so itself. An administrator reaches
-               this to set that window and to watch the chart — the same
-               chart everybody else sees, because there is no other one. */
-            <EggTab
-              user={user} cfg={cfg} setCfg={setCfg} lang={lang} toast={toast}
-              people={roster || []}
-            />
           ) : mod !== 'steps' ? (
             <div className="pad center">
               <div className="soonbox">
@@ -3151,13 +3166,18 @@ export default function App() {
             }
             const x = MODULES.find((v) => v.id === id);
             const open = moduleOpen(cfg, me, id);
+            /* モラエッグ is a page of its own, so its entry is a door rather
+               than a tab: it never shows as the current one, because the
+               moment you press it マイページ is not what you are looking at. */
+            const isDoor = id === 'egg';
             return (
               <button
                 key={id}
-                className={(mod === id && (user.admin || tab !== 'profile') ? 'on ' : '') + (open ? '' : 'dim')}
+                className={(!isDoor && mod === id && (user.admin || tab !== 'profile') ? 'on ' : '')
+                  + (open ? '' : 'dim') + (isDoor ? ' door' : '')}
                 onClick={() => { setMod(id); setTab(user.admin ? 'admin' : 'entry'); }}
               >
-                <span>{lang === 'ja' ? x.ja : x.en}</span>
+                <span>{lang === 'ja' ? x.ja : x.en}{isDoor && open ? ' ↗' : ''}</span>
                 {!open && <em className="badge">{tt('soon')}</em>}
               </button>
             );

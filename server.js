@@ -632,9 +632,14 @@ const server = http.createServer(async (req, res) => {
           pickup: pickupDeadline(ship, holidays),
         },
         open: requestsOpen(ship, now.stamp, now.h, cfg),
+        /* Each office carries the minimum that makes a run to it worth
+           making, and how many packs have been asked for so far — the two
+           numbers the 「今週タマゴが届きます！」 verdict is made of. */
         offices: offices.map((o) => ({
           name: o.name, address: o.address || '', contactName: o.contactName || '',
-          note: o.note || '',
+          note: o.note || '', minPacks: o.minPacks || 0,
+          asked: requests.filter((r) => r.office === o.name)
+            .reduce((a, r) => a + (r.packs || 0), 0),
         })),
         purposes: EGG_PURPOSES,
         maxPacks: eggMaxPacks(cfg),
@@ -851,6 +856,7 @@ const server = http.createServer(async (req, res) => {
         contactId: b?.contactId ? String(b.contactId) : null,
         note: String(b?.note || '').slice(0, 200),
         active: b?.active !== false,
+        minPacks: b?.minPacks,
       });
       return sendJson(res, 200, { offices: await eggOfficeRows(false) });
     }

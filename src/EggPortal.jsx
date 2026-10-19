@@ -78,6 +78,27 @@ const L = {
   history: ['これまでの申請', 'Your past requests'],
   whereTo: ['受け取り場所', 'Where to collect'],
 
+  /* 佐野の例:「最低パック数を超えたら『今週はこの事務所にタマゴが届きます！』、
+     届かなかったら残念賞のメッセージ」 */
+  comingTo: ['今週、{o}にタマゴが届きます！', 'Eggs are coming to {o} this week!'],
+  comingSub: ['{n}パックの申請が集まりました。受け取りをお忘れなく。',
+    '{n} packs requested. Don\u2019t forget to collect yours.'],
+  almost: ['あと{n}パックで{o}に届きます', '{n} more packs and {o} gets a delivery'],
+  almostSub: ['最低{m}パックから発送します。お誘いあわせのうえどうぞ。',
+    'We ship once {m} packs are requested. Spread the word.'],
+  missed: ['{o}は今週お休みです', 'No delivery to {o} this week'],
+  missedSub: ['申請が{m}パックに届きませんでした。来週またよろしくお願いします。',
+    'Requests fell short of {m} packs. Please try again next week.'],
+  thisWeekTo: ['今週の行き先', 'Where the eggs are going'],
+  coopNews: ['丹波の鶏舎だより', 'News from the coop'],
+  printables: ['印刷して使えます', 'Ready to print'],
+  printLabel: ['たまごパックのラベル', 'Carton label'],
+  printLabelNote: ['採卵日を手書きできます', 'Write the lay date by hand'],
+  printSeal: ['丹波のたまごシール', 'Tamba eggs sticker'],
+  printSealNote: ['パックのふたに', 'For the lid of the carton'],
+  printThanks: ['ありがとうカード', 'Thank-you card'],
+  printThanksNote: ['おすそわけに添えて', 'To tuck in with a gift'],
+
   /* 合計と対決グラフ */
   race: ['今週の収穫　対　来週の申請', "This week's harvest vs next week's requests"],
   harvested: ['収穫', 'Harvested'],
@@ -118,6 +139,7 @@ const L = {
   address: ['住所・受取場所', 'Address'],
   contact: ['担当者', 'Contact'],
   activeQ: ['受付中', 'Open'],
+  minPacks: ['最低パック数（0なら毎週発送）', 'Minimum packs (0 ships every week)'],
   add: ['追加', 'Add'],
   save: ['保存', 'Save'],
   saved: ['保存しました', 'Saved'],
@@ -159,7 +181,7 @@ const md = (iso, lang) => {
    The mascot says the same thing a second way, and the sentence under it
    says it a third — nothing here depends on seeing the chart at all.
 --------------------------------------------------------------------------- */
-function Race({ harvest, week0, packs, want, lang, t, img }) {
+function Race({ harvest, week0, packs, want, today, lang, t, img }) {
   const days = useMemo(() => {
     const out = [];
     const base = new Date(`${week0}T00:00:00Z`);
@@ -170,10 +192,11 @@ function Race({ harvest, week0, packs, want, lang, t, img }) {
     return out;
   }, [harvest, week0]);
 
-  /* The line has to be on the chart even when nobody has asked for anything
-     yet, and the bars have to be visible even when the line is far above
-     them, so the scale takes in both and never collapses to zero. */
-  const top = Math.max(1, want, packs, ...days.map((d) => d.packs));
+  /* The scale takes in both the bars and the target, so neither can fall
+     off the chart — and then a little headroom, because a week that
+     exactly meets the target drew a bar jammed against the ceiling with
+     the target line sitting on top of it. */
+  const top = Math.max(1, want, packs, ...days.map((d) => d.packs)) * 1.15;
   let run = 0;
   const bars = days.map((d) => {
     const from = run;
@@ -184,7 +207,11 @@ function Race({ harvest, week0, packs, want, lang, t, img }) {
   const winning = want > 0 && diff >= 0;
 
   return (
-    <div className="eg-race">
+    /* 佐野:「申請が集まるにつれて色が変わるグラフ」 — the fill is royal while
+       the eggs are still coming and green once there are enough. That is a
+       state rather than a series, so Moraegg's face and the line under the
+       number say the same thing without it. */
+    <div className={`eg-race${winning ? ' win' : ''}`}>
       <div className="eg-race-top">
         <img src={img(want === 0 ? 'hug' : winning ? 'basket' : 'cross')} alt="" />
         <div>
@@ -203,7 +230,11 @@ function Race({ harvest, week0, packs, want, lang, t, img }) {
         aria-label={`${t('harvested')} ${packs}, ${t('wanted')} ${want}`}
       >
         {bars.map((b) => (
-          <div key={b.iso} className="eg-race-col" title={`${md(b.iso, lang)} — ${b.packs}`}>
+          <div
+            key={b.iso}
+            className={`eg-race-col${b.iso === today ? ' today' : ''}`}
+            title={`${md(b.iso, lang)} — ${b.packs}`}
+          >
             <span className="eg-race-track">
               {/* Each day sits on top of the days before it, so the height
                   of the stack is the week's running total and the line is
@@ -221,6 +252,41 @@ function Race({ harvest, week0, packs, want, lang, t, img }) {
             <b>{t('wanted')} {want}</b>
           </span>
         )}
+      </div>
+    </div>
+  );
+}
+
+/* ---------------------------------------------------------------------------
+   The verdict on an office.
+
+   An office only gets a run if enough packs are asked for, so this is the
+   single thing most people open the page to find out. It is a sentence and
+   a face, not a colour: the green card and the blue one say different
+   things in words before they say anything in paint.
+--------------------------------------------------------------------------- */
+function Verdict({ office, lang, t, img }) {
+  const min = Math.max(0, Number(office.minPacks) || 0);
+  const asked = Math.max(0, Number(office.asked) || 0);
+  /* No minimum set means every week is a delivery week, so there is no
+     verdict to give and the card would only be noise. */
+  if (!min) return null;
+  const short = min - asked;
+  const state = short <= 0 ? 'go' : (asked > 0 ? 'wait' : 'miss');
+  const line = {
+    go: [t('comingTo'), t('comingSub')],
+    wait: [t('almost'), t('almostSub')],
+    miss: [t('missed'), t('missedSub')],
+  }[state];
+  const fill = (x) => x.replace('{o}', office.name)
+    .replace('{n}', String(state === 'go' ? asked : short))
+    .replace('{m}', String(min));
+  return (
+    <div className={`mg-verdict ${state}`}>
+      <img src={img(state === 'go' ? 'basket' : state === 'wait' ? 'hug' : 'empty')} alt="" />
+      <div>
+        <b>{fill(line[0])}</b>
+        <p>{fill(line[1])}</p>
       </div>
     </div>
   );
@@ -311,6 +377,16 @@ export default function EggPortal({ d, reload: load, lang, toast }) {
 
       {/* ------------------------------ left ------------------------------ */}
       <div className="eg-p2-l">
+
+        {/* Her artwork, shown whole. Each picture carries its own words and
+            its own background, so the page never crops one. */}
+        <img src={img('hens-well')} alt="" className="mg-pic mg-strip mg-opt" />
+
+        {/* 「今週はこの事務所にタマゴが届きます！」 — the thing most people
+            open this page to find out, so it is the first thing on it. */}
+        {d.offices.filter((o) => o.minPacks > 0).map((o) => (
+          <Verdict key={o.name} office={o} lang={lang} t={t} img={img} />
+        ))}
 
         <div className="card eg-wk">
           <div><em>{t('ship')}</em><b>{md(d.week.ship, lang)}</b></div>
@@ -427,6 +503,15 @@ export default function EggPortal({ d, reload: load, lang, toast }) {
           <>
             <div className="sechead"><span>{t('mine')}</span></div>
             <div className="card eg-mystat">
+              {/* A sticker on the card, in the row rather than floating over
+                  it: absolutely positioned it landed on the heading above
+                  and on the button beside it, depending on the width. */}
+              {(status === 'confirmed' || status === 'picked') && (
+                <img
+                  src={img(status === 'picked' ? 'thankyou-egg' : 'seal-round')}
+                  alt="" className="eg-stamp"
+                />
+              )}
               <span className={`pill ${status === 'missed' ? 'warn' : status === 'received' ? '' : 'ok'}`}>
                 {t(`st_${status}`)}
               </span>
@@ -498,7 +583,7 @@ export default function EggPortal({ d, reload: load, lang, toast }) {
         <div className="card">
           <Race
             harvest={d.harvest} week0={d.week0} packs={d.harvestPacks}
-            want={d.totals.packs} lang={lang} t={t} img={img}
+            want={d.totals.packs} today={d.today} lang={lang} t={t} img={img}
           />
           <div className="eg-two">
             <div>
@@ -522,6 +607,9 @@ export default function EggPortal({ d, reload: load, lang, toast }) {
             </div>
           </div>
         </div>
+
+        <div className="sechead"><span>{t('coopNews')}</span></div>
+        <img src={img('coop-news')} alt="" className="mg-pic" />
       </div>
     </div>
   );
@@ -538,6 +626,7 @@ export default function EggPortal({ d, reload: load, lang, toast }) {
 --------------------------------------------------------------------------- */
 export function EggFarm({ lang, toast }) {
   const t = useCallback((k) => (L[k] ? L[k][lang === 'ja' ? 0 : 1] || L[k][0] : k), [lang]);
+  const img = (n) => `${import.meta.env.BASE_URL}moraegg/${n}.webp`;
   const [d, setD] = useState(null);
   const [busy, setBusy] = useState(false);
 
@@ -564,6 +653,15 @@ export function EggFarm({ lang, toast }) {
 
   return (
     <div className="eg-farm">
+      {/* The picture matches the job: eggs in the nest box before any have
+          been registered today, the day's haul once they have. Its speech
+          bubble says 9個 — the live number is printed by the page below it,
+          never drawn into the artwork, so the two can never disagree. */}
+     <div className="eg-farm-l">
+      <img
+        src={img((today?.packs ?? d.packs) > 0 ? 'harvest-today' : 'about-to-lay')}
+        alt="" className="mg-pic mg-strip"
+      />
       <div className="sechead"><span>{t('farmHead')}</span></div>
       <div className="card eg-farm-c">
         <div className="eg-farm-now">
@@ -579,7 +677,9 @@ export function EggFarm({ lang, toast }) {
         </button>
         <p className="muted sm">{t('farmNote')}</p>
       </div>
+     </div>
 
+     <div className="eg-farm-r">
       <div className="sechead">
         <span>{t('weekTotal')}</span>
         <span className="muted sm">{d.harvestPacks} {t('pack')}</span>
@@ -595,6 +695,21 @@ export function EggFarm({ lang, toast }) {
           {!d.harvest.length && <li className="muted"><span>{t('noneYet')}</span><b>0</b></li>}
         </ul>
       </div>
+
+      {/* 佐野's print artwork, offered where the person packing the cartons
+          actually is. Opened in a tab and printed; nothing is generated. */}
+      <div className="sechead"><span>{t('printables')}</span></div>
+      <div className="card mg-print">
+        {[['label-asadore', 'printLabel', 'printLabelNote'],
+          ['seal-round', 'printSeal', 'printSealNote'],
+          ['thankyou-egg', 'printThanks', 'printThanksNote']].map(([file, title, note]) => (
+            <a key={file} href={img(file)} target="_blank" rel="noreferrer">
+              <img src={img(file)} alt="" />
+              <span><b>{t(title)}</b><span>{t(note)}</span></span>
+            </a>
+        ))}
+      </div>
+     </div>
     </div>
   );
 }
@@ -826,6 +941,14 @@ export function EggAdmin({ lang, toast, cfg = {}, setCfg, people = [], rules = [
                 <option value="">{t('contact')} —</option>
                 {people.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
               </select>
+              {/* 最低パック数: below this, no run is made to the office and
+                  everybody who asked is told so. 0 means always ship. */}
+              <input
+                className="eg-offs-m" type="number" min={0} max={999}
+                defaultValue={o.minPacks ?? 0} title={t('minPacks')}
+                onBlur={(e) => Number(e.target.value) !== (o.minPacks ?? 0)
+                  && put({ ...o, minPacks: Number(e.target.value) })}
+              />
               <label className="eg-offs-on">
                 <input
                   type="checkbox" checked={o.active}
@@ -837,6 +960,7 @@ export function EggAdmin({ lang, toast, cfg = {}, setCfg, people = [], rules = [
             </li>
           ))}
         </ul>
+        <p className="muted sm">{t('minPacks')}</p>
         <div className="eg-offs-add">
           <input
             value={draft.name} placeholder={t('officeName')}

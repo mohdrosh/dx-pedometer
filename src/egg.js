@@ -92,13 +92,16 @@ export const EGG_RULES = [
 
 export const EGG_RULE_IDS = EGG_RULES.map((r) => r.id);
 
-/* 問3 サイト名の投票. 佐野:「『タマゴ配布』は少し地味なので、社員に決めて
-   もらいましょう。いちばん票の多い名前をサイト名にします」 — and until the
-   vote closes the site stays タマゴ配布, so the name only changes once,
-   when it has been decided.
+/* 問3 サイト名の投票 — RETIRED.
 
-   Optional in the data, because answers given before this question
-   existed are still perfectly good answers; the form asks for it. */
+   佐野:「社長が『モラエッグ』に決めました。需要調査の問3は不要になったので
+   削除してください。」 The question is gone from the form and from the
+   results; this table and the counting below are kept deliberately.
+
+   People already voted. Deleting the column would throw their answers away
+   to save nothing, and if the decision is ever revisited the question goes
+   back by putting it on the form again. A stored name is still accepted and
+   still counted — nothing asks for one any more, that is all. */
 export const EGG_NAMES = [
   {
     id: 'moratama',
