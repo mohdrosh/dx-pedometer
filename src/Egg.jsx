@@ -19,6 +19,7 @@ import { S, apiRoot } from './storage';
 import { NOT_NOW } from './egg.js';
 import { MG_CSS } from './moraegg-theme';
 import EggPortal, { EggFarm, EggOffice, EggAdmin } from './EggPortal';
+import EggDish from './EggDish';
 
 /* 佐野:「社長が『モラエッグ』に決めました。需要調査の問3（サイト名の投票）は
    不要になったので削除してください。」 So the name is settled, the question
@@ -82,6 +83,7 @@ const L = {
      four jobs done by four different sorts of people, and a person only
      ever sees the ones that are theirs. */
   v_portal: ['配布', 'Eggs'],
+  v_dish: ['みんなの料理', 'Dishes'],
   v_farm: ['丹波', 'Harvest'],
   v_office: ['事務所', 'Office'],
   v_survey: ['需要調査', 'Survey'],
@@ -211,6 +213,9 @@ export default function EggTab({
      taps of nothing on a phone. */
   const views = [
     ...(p1 ? [['portal', t('v_portal')]] : []),
+    /* 7: open to everyone who can reach the portal, including the people
+       who did not get eggs this week — looking is half the point. */
+    ...(p1 ? [['dish', t('v_dish')]] : []),
     ...(p1?.role?.farm ? [['farm', t('v_farm')]] : []),
     ...(p1?.role?.contactFor?.length || user?.admin ? [['office', t('v_office')]] : []),
     ['survey', t('v_survey')],
@@ -262,6 +267,7 @@ export default function EggTab({
 
       <div className="mg-body">
       {at === 'portal' && <EggPortal d={p1} reload={loadP1} lang={lang} toast={toast} />}
+      {at === 'dish' && <EggDish lang={lang} toast={toast} />}
       {at === 'farm' && <EggFarm lang={lang} toast={toast} />}
       {at === 'office' && <EggOffice lang={lang} toast={toast} />}
       {at === 'admin' && (

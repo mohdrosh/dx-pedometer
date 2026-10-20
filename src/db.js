@@ -295,6 +295,75 @@ export async function initSchema() {
        administrator revising the terms invalidates every stored consent by
        the act of revising them, and everybody is asked again without anyone
        having had to remember to say so. */
+    /* ==================== Phase 2：料理写真の投稿 ======================= */
+
+    /* 7.1 投稿.「投稿者名は表示する（匿名にはしない）」 — the opposite of the
+       survey, deliberately: a dish with a name on it starts a conversation
+       and an anonymous one is just a photograph. So the employee id is
+       here to be shown, not hidden, and none of the care taken over
+       egg_votes applies.
+
+       hidden_at is moderation (section 8): an administrator can take a post
+       out of the timeline without destroying what somebody wrote, which a
+       DELETE would. The poster's own delete is a real delete. */
+    CREATE TABLE IF NOT EXISTS egg_posts (
+      id          TEXT PRIMARY KEY,
+      employee_id TEXT NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
+      dish        TEXT NOT NULL,
+      body        TEXT,
+      recipe      TEXT,
+      created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      hidden_at   TIMESTAMPTZ,
+      hidden_by   TEXT REFERENCES employees(id) ON DELETE SET NULL
+    );
+    CREATE INDEX IF NOT EXISTS egg_posts_new_idx ON egg_posts(created_at DESC);
+
+    /* The bytes live here rather than in a bucket. About 450MB a year at
+       this company's size, it inherits the session gate every other route
+       has, and ON DELETE CASCADE means a deleted post really takes its
+       photographs with it instead of leaving them in a bucket nobody
+       audits. Behind eggPhoto* below, so moving them later is a day.
+
+       Two sizes: the timeline shows thumbs, and only a tapped photo costs
+       its full weight. Both arrive already resized — the browser does it,
+       which is also what strips the EXIF, and a phone photo's EXIF carries
+       the GPS position it was taken at. */
+    CREATE TABLE IF NOT EXISTS egg_photos (
+      id         TEXT PRIMARY KEY,
+      post_id    TEXT NOT NULL REFERENCES egg_posts(id) ON DELETE CASCADE,
+      ord        INTEGER NOT NULL DEFAULT 0,
+      mime       TEXT NOT NULL,
+      bytes      BYTEA NOT NULL,
+      size       INTEGER NOT NULL,
+      thumb      BYTEA,
+      thumb_size INTEGER,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE INDEX IF NOT EXISTS egg_photos_post_idx ON egg_photos(post_id, ord);
+
+    /* 7.2:「1人1投稿につき各ボタン1回まで押せる（押し直しで取り消し）」 — which
+       is a primary key, not a check somebody has to remember to write. */
+    CREATE TABLE IF NOT EXISTS egg_reactions (
+      post_id     TEXT NOT NULL REFERENCES egg_posts(id) ON DELETE CASCADE,
+      employee_id TEXT NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
+      kind        TEXT NOT NULL,
+      created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      PRIMARY KEY (post_id, employee_id, kind)
+    );
+
+    /* 7.3 コメント.「自分のコメントは削除できる」, and an administrator can
+       hide one, same as a post. */
+    CREATE TABLE IF NOT EXISTS egg_comments (
+      id          TEXT PRIMARY KEY,
+      post_id     TEXT NOT NULL REFERENCES egg_posts(id) ON DELETE CASCADE,
+      employee_id TEXT NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
+      body        TEXT NOT NULL,
+      created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      hidden_at   TIMESTAMPTZ
+    );
+    CREATE INDEX IF NOT EXISTS egg_comments_post_idx ON egg_comments(post_id, created_at);
+
     CREATE TABLE IF NOT EXISTS egg_consents (
       employee_id TEXT PRIMARY KEY REFERENCES employees(id) ON DELETE CASCADE,
       version     TEXT NOT NULL,
@@ -1134,4 +1203,226 @@ export async function eggFarmers() {
     'SELECT id, name FROM employees WHERE egg_farm = TRUE AND active IS NOT FALSE ORDER BY id',
   );
   return rows;
+}
+
+/* ===================== モラエッグ Phase 2：料理写真 ====================== */
+
+/* Nothing here hides an author: 7.1.2 says posts carry a name, and the
+   whole point of the timeline is that they do. What these functions are
+   careful about instead is the photographs — they are the only large
+   objects in this database, so nothing selects their bytes unless the
+   caller actually wants to send a picture. */
+
+const nid = () => `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
+
+/**
+ * The timeline. Counts and the caller's own reactions, never the bytes.
+ *
+ * A post's photographs come back as ids only; the browser then asks for
+ * each one by its own URL, which lets the thumbnails be cached properly
+ * and keeps a page of twenty posts from being twenty megabytes of JSON.
+ */
+export async function dishFeed(viewerId, { limit = 30, before = null, admin = false } = {}) {
+  const { rows } = await pool.query(
+    `SELECT p.id, p.employee_id AS "employeeId", e.name AS "authorName",
+            p.dish, p.body, p.recipe,
+            p.created_at AS "createdAt", p.updated_at AS "updatedAt",
+            p.hidden_at AS "hiddenAt",
+            COALESCE((SELECT json_agg(f.id ORDER BY f.ord, f.id)
+                        FROM egg_photos f WHERE f.post_id = p.id), '[]') AS photos,
+            (SELECT COUNT(*)::int FROM egg_reactions r
+              WHERE r.post_id = p.id AND r.kind = 'like') AS "like",
+            (SELECT COUNT(*)::int FROM egg_reactions r
+              WHERE r.post_id = p.id AND r.kind = 'wantToMake') AS "wantToMake",
+            (SELECT COUNT(*)::int FROM egg_reactions r
+              WHERE r.post_id = p.id AND r.kind = 'recipePlease') AS "recipePlease",
+            COALESCE((SELECT json_agg(r.kind) FROM egg_reactions r
+                       WHERE r.post_id = p.id AND r.employee_id = $1), '[]') AS mine,
+            (SELECT COUNT(*)::int FROM egg_comments c
+              WHERE c.post_id = p.id AND c.hidden_at IS NULL) AS "comments"
+       FROM egg_posts p
+       LEFT JOIN employees e ON e.id = p.employee_id
+      WHERE ($2::boolean OR p.hidden_at IS NULL)
+        AND ($3::timestamptz IS NULL OR p.created_at < $3)
+      ORDER BY p.created_at DESC
+      LIMIT $4`,
+    [String(viewerId || ''), !!admin, before, Math.min(60, Math.max(1, limit))],
+  );
+  return rows.map((r) => ({ ...r, hidden: !!r.hiddenAt }));
+}
+
+export async function dishPost(id) {
+  const { rows } = await pool.query(
+    `SELECT id, employee_id AS "employeeId", dish, body, recipe,
+            hidden_at AS "hiddenAt"
+       FROM egg_posts WHERE id = $1`,
+    [String(id)],
+  );
+  return rows[0] || null;
+}
+
+export async function dishCreate(employeeId, { dish, body, recipe }) {
+  const id = nid();
+  await pool.query(
+    `INSERT INTO egg_posts (id, employee_id, dish, body, recipe)
+     VALUES ($1, $2, $3, $4, $5)`,
+    [id, String(employeeId), dish, body || null, recipe || null],
+  );
+  return id;
+}
+
+/** 7.1.5「投稿者本人は編集・削除ができる」 — the id in the WHERE clause is
+    the caller's, so there is no argument that would widen it. */
+export async function dishEdit(id, employeeId, { dish, body, recipe }) {
+  const { rowCount } = await pool.query(
+    `UPDATE egg_posts SET dish = $3, body = $4, recipe = $5, updated_at = NOW()
+      WHERE id = $1 AND employee_id = $2`,
+    [String(id), String(employeeId), dish, body || null, recipe || null],
+  );
+  return rowCount > 0;
+}
+
+/** The poster's own delete is a real delete; the photographs go with it. */
+export async function dishDelete(id, employeeId) {
+  const { rowCount } = await pool.query(
+    'DELETE FROM egg_posts WHERE id = $1 AND employee_id = $2',
+    [String(id), String(employeeId)],
+  );
+  return rowCount > 0;
+}
+
+/** Section 8: an administrator hides a post rather than destroying it. */
+export async function dishHide(id, by, hide = true) {
+  await pool.query(
+    hide
+      ? 'UPDATE egg_posts SET hidden_at = NOW(), hidden_by = $2 WHERE id = $1'
+      : 'UPDATE egg_posts SET hidden_at = NULL, hidden_by = NULL WHERE id = $1',
+    hide ? [String(id), await whoOrNull(by)] : [String(id)],
+  );
+  return true;
+}
+
+/* -------------------------------- 写真 ---------------------------------- */
+
+export async function dishPhotoAdd(postId, ord, { mime, bytes, thumb }) {
+  const id = nid();
+  await pool.query(
+    `INSERT INTO egg_photos (id, post_id, ord, mime, bytes, size, thumb, thumb_size)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+    [id, String(postId), ord, mime, bytes, bytes.length, thumb || null, thumb ? thumb.length : null],
+  );
+  return id;
+}
+
+/** The small copy, written straight after the full one by its owner. */
+export async function dishPhotoThumb(id, employeeId, bytes) {
+  const { rowCount } = await pool.query(
+    `UPDATE egg_photos f SET thumb = $3, thumb_size = $4
+       FROM egg_posts p
+      WHERE f.id = $1 AND f.post_id = p.id AND p.employee_id = $2`,
+    [String(id), String(employeeId), bytes, bytes.length],
+  );
+  return rowCount > 0;
+}
+
+/** One photograph's bytes, full size or thumbnail. The only read that
+    touches them, so everything else stays cheap. */
+export async function dishPhoto(id, thumb = false) {
+  const { rows } = await pool.query(
+    thumb
+      ? `SELECT mime, COALESCE(thumb, bytes) AS bytes,
+                post_id AS "postId" FROM egg_photos WHERE id = $1`
+      : 'SELECT mime, bytes, post_id AS "postId" FROM egg_photos WHERE id = $1',
+    [String(id)],
+  );
+  return rows[0] || null;
+}
+
+export async function dishPhotoCount(postId) {
+  const { rows } = await pool.query(
+    'SELECT COUNT(*)::int AS n FROM egg_photos WHERE post_id = $1', [String(postId)],
+  );
+  return rows[0]?.n || 0;
+}
+
+/* ----------------------------- リアクション ------------------------------ */
+
+/**
+ * Press once to react, press again to take it back. One statement either
+ * way: INSERT … ON CONFLICT DO NOTHING tells us whether the row was new,
+ * and if it was not, it was already there and should go.
+ */
+export async function dishReact(postId, employeeId, kind) {
+  const ins = await pool.query(
+    `INSERT INTO egg_reactions (post_id, employee_id, kind) VALUES ($1, $2, $3)
+     ON CONFLICT DO NOTHING`,
+    [String(postId), String(employeeId), String(kind)],
+  );
+  if (ins.rowCount) return true;
+  await pool.query(
+    'DELETE FROM egg_reactions WHERE post_id = $1 AND employee_id = $2 AND kind = $3',
+    [String(postId), String(employeeId), String(kind)],
+  );
+  return false;
+}
+
+/* ------------------------------- コメント -------------------------------- */
+
+export async function dishComments(postId, admin = false) {
+  const { rows } = await pool.query(
+    `SELECT c.id, c.employee_id AS "employeeId", e.name AS "authorName",
+            c.body, c.created_at AS "createdAt", c.hidden_at AS "hiddenAt"
+       FROM egg_comments c
+       LEFT JOIN employees e ON e.id = c.employee_id
+      WHERE c.post_id = $1 AND ($2::boolean OR c.hidden_at IS NULL)
+      ORDER BY c.created_at`,
+    [String(postId), !!admin],
+  );
+  return rows.map((r) => ({ ...r, hidden: !!r.hiddenAt }));
+}
+
+export async function dishCommentAdd(postId, employeeId, body) {
+  const id = nid();
+  await pool.query(
+    'INSERT INTO egg_comments (id, post_id, employee_id, body) VALUES ($1, $2, $3, $4)',
+    [id, String(postId), String(employeeId), body],
+  );
+  return id;
+}
+
+/** 「自分のコメントは削除できる」; an administrator hides instead. */
+export async function dishCommentDelete(id, employeeId) {
+  const { rowCount } = await pool.query(
+    'DELETE FROM egg_comments WHERE id = $1 AND employee_id = $2',
+    [String(id), String(employeeId)],
+  );
+  return rowCount > 0;
+}
+
+export async function dishCommentHide(id, hide = true) {
+  await pool.query(
+    `UPDATE egg_comments SET hidden_at = ${hide ? 'NOW()' : 'NULL'} WHERE id = $1`,
+    [String(id)],
+  );
+  return true;
+}
+
+/** Every post's author and month, for the badges and the month's best. */
+export async function dishStats() {
+  const { rows } = await pool.query(
+    `SELECT p.id, p.employee_id AS "employeeId", p.dish,
+            p.created_at AS "createdAt", p.hidden_at AS "hiddenAt",
+            (SELECT COUNT(*)::int FROM egg_reactions r
+              WHERE r.post_id = p.id AND r.kind = 'wantToMake') AS "wantToMake"
+       FROM egg_posts p`,
+  );
+  /* pg hands back a Date, and topDish compares the first seven characters
+     of the timestamp against a YYYY-MM month. String(aDate) starts "Tue
+     Oct", so the month never matched and the front page never had a
+     winner. Normalised here, where the row leaves the database. */
+  return rows.map((r) => ({
+    ...r,
+    createdAt: r.createdAt ? new Date(r.createdAt).toISOString() : null,
+    hidden: !!r.hiddenAt,
+  }));
 }

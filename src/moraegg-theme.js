@@ -507,4 +507,130 @@ export const MG_CSS = `
   .mg .ad-set .fld:last-child{grid-column:span 2}
   .mg .eg-admin>p{grid-column:span 2;margin:0}
 }
+
+/* ======================= 料理写真のタイムライン ==========================
+   Instagram-ish, in her colours. The banner is composed here rather than
+   baked into an image: the title stays bilingual and sharp at any size,
+   and the photograph underneath stays a file somebody can swap.
+------------------------------------------------------------------------- */
+.mg-dish{display:grid}
+.mg-dhero{position:relative;margin-bottom:14px;border-radius:var(--mg-round);
+  overflow:hidden;border:2.5px solid var(--mg-navy);box-shadow:var(--mg-pop)}
+.mg-dhero img{display:block;width:100%;height:auto}
+.mg-dhero-t{position:absolute;inset:auto 0 0 0;padding:26px 16px 13px;
+  background:linear-gradient(transparent,rgba(11,41,106,.86) 58%)}
+.mg-dhero-t b{display:block;font-size:22px;font-weight:900;color:#fff;
+  text-shadow:0 2px 6px rgba(11,41,106,.6)}
+.mg-dhero-t span{font-size:12.5px;font-weight:700;color:var(--mg-sun)}
+
+.mg-dtop{display:grid;gap:11px;margin-bottom:14px}
+.mg-side{display:grid;gap:12px;align-content:start}
+.mg-next{font-size:12px;font-weight:700;color:#5B6B86;margin:-4px 0 0;text-align:center}
+.mg-coop{padding:0;overflow:hidden;position:relative}
+.mg-coop img{display:block;width:100%;height:auto}
+.mg-coop span{position:absolute;left:10px;bottom:9px;font-size:11.5px;font-weight:900;
+  color:var(--mg-navy);background:var(--mg-sun);border:2px solid var(--mg-navy);
+  border-radius:999px;padding:2px 11px 3px}
+.mg-top1,.mg-badge{margin:0}
+.mg-top1 em{display:block;font-style:normal;font-size:11.5px;font-weight:700;color:#5B6B86}
+.mg-top1 b{font-size:19px;font-weight:900}
+.mg-badge{display:flex;align-items:center;gap:12px}
+.mg-badge img{width:54px;height:54px;flex:none}
+.mg-badge em{display:block;font-style:normal;font-size:11.5px;font-weight:700;color:#5B6B86}
+.mg-badge b{display:block;font-size:16px;font-weight:900}
+.mg-badge span{font-size:11.5px;font-weight:700;color:#5B6B86}
+.mg-newpost{justify-self:start}
+
+/* the composer */
+.mg-compose .eg-q{margin-top:4px}
+.mg-picks{display:flex;gap:9px;flex-wrap:wrap;margin-bottom:10px}
+.mg-pick{position:relative;width:86px;height:86px}
+.mg-pick img{width:100%;height:100%;object-fit:cover;border-radius:12px;
+  border:2.5px solid var(--mg-navy)}
+.mg-pick-x{position:absolute;top:-7px;right:-7px;width:24px;height:24px;
+  border-radius:999px;border:2px solid var(--mg-navy);background:#fff;
+  color:var(--mg-navy);font-weight:900;line-height:1;padding:0}
+/* 8:「写真に顧客や社外の人が写らないよう、投稿画面に注意書きを出す」 */
+.mg-care{font-size:12.5px;font-weight:700;color:var(--mg-navy);
+  background:var(--mg-sun);border:2px solid var(--mg-navy);border-radius:12px;
+  padding:9px 13px;margin:4px 0 0}
+
+/* the posts */
+.mg-feed{display:grid;gap:14px}
+.mg-post{margin:0}
+.mg-post.off{opacity:.62;border-style:dashed}
+.mg-post-h{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-bottom:7px}
+.mg-post-h b{font-size:14px;font-weight:900}
+.mg-post-h span{font-size:11.5px;font-weight:700;color:#5B6B86;margin-right:auto}
+.mg-post-d{font-size:18px;font-weight:900;margin:0 0 10px;color:var(--mg-navy)}
+.mg-post-b{font-size:13.5px;font-weight:500;line-height:1.7;margin:11px 0 0;color:#2C3C58}
+
+/* One photo fills the width; several share it, so a post is always the
+   same height whether it carries one dish or four. */
+.mg-shots{display:grid;gap:5px}
+.mg-shots.n2{grid-template-columns:1fr 1fr}
+.mg-shots.n3,.mg-shots.n4{grid-template-columns:1fr 1fr}
+.mg-shots button{padding:0;border:0;background:none;display:block;line-height:0}
+.mg-shots img{width:100%;height:100%;object-fit:cover;border-radius:12px;
+  border:2.5px solid var(--mg-navy);aspect-ratio:4/3}
+.mg-shots.n1 img{aspect-ratio:16/10}
+
+.mg-recipe{margin:11px 0 0;border:2px dashed var(--mg-royal);border-radius:12px;
+  background:var(--mg-sky);padding:9px 13px}
+.mg-recipe summary{font-size:12.5px;font-weight:900;color:var(--mg-royal);cursor:pointer}
+.mg-recipe pre{margin:8px 0 0;font:inherit;font-size:13px;font-weight:500;
+  white-space:pre-wrap;color:#2C3C58}
+.mg-asked{font-size:12.5px;font-weight:700;color:var(--mg-navy);
+  background:var(--mg-sun);border-radius:10px;padding:7px 11px;margin:10px 0 0}
+
+/* 7.2 the buttons */
+.mg-react{display:flex;gap:7px;flex-wrap:wrap;margin-top:12px}
+.mg-rx{display:inline-flex;align-items:center;gap:5px;
+  padding:6px 13px 7px;border:2px solid var(--mg-navy);border-radius:999px;
+  background:#fff;color:var(--mg-navy);font:inherit;font-size:12.5px;font-weight:700}
+.mg-rx:hover{background:var(--mg-sky)}
+.mg-rx.on{background:var(--mg-sun)}
+.mg-rx b{font-variant-numeric:tabular-nums;font-weight:900}
+.mg-rx:disabled{opacity:.55;cursor:default}
+.mg-rx.talk{margin-left:auto}
+
+/* 7.3 comments */
+.mg-thread{margin-top:12px;padding-top:11px;border-top:2px dotted #D9CFB0;display:grid;gap:9px}
+.mg-cm{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:9px;align-items:baseline}
+.mg-cm b{font-size:12.5px;font-weight:900}
+.mg-cm p{margin:0;font-size:13px;font-weight:500;color:#2C3C58}
+.mg-cm-x{background:none;border:0;font:inherit;font-size:11.5px;font-weight:700;
+  color:#8C96A8;padding:0}
+.mg-cm-x:hover{color:#B3261E}
+.mg-cm-new{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px}
+.app.mg .mg-cm-new input{border:2.5px solid var(--mg-navy);border-radius:999px;
+  background:#FFFDF6;padding:8px 15px;font:inherit;font-size:13.5px;
+  color:var(--mg-navy);outline:none}
+.app.mg .mg-cm-new input:focus{border-color:var(--mg-royal);background:#fff}
+
+/* a tapped photograph */
+.mg-lightbox{position:fixed;inset:0;z-index:60;border:0;padding:16px;
+  background:rgba(11,41,106,.9);display:flex;align-items:center;justify-content:center}
+.mg-lightbox img{max-width:100%;max-height:100%;border-radius:12px;
+  border:3px solid var(--mg-sun)}
+
+@media(min-width:900px){
+  .mg-dtop{grid-template-columns:repeat(auto-fit,minmax(220px,1fr));align-items:center}
+  .mg-dhero-t b{font-size:27px}
+  .mg-shots.n3{grid-template-columns:repeat(3,1fr)}
+  .mg-shots.n4{grid-template-columns:repeat(4,1fr)}
+  /* Two columns of posts would make a timeline you read in zig-zag, so
+     the feed stays one column and stops getting wider — and what would
+     be empty beside it holds the month's best and the badge. */
+  .mg-dish{grid-template-columns:minmax(0,1fr) minmax(0,300px);
+    column-gap:22px;align-items:start}
+  .mg-dhero,.mg-dtop,.mg-compose,.mg-feed{grid-column:1;max-width:720px}
+  .mg-side{grid-column:2;grid-row:1/span 4;position:sticky;top:18px}
+}
+@media(max-width:899px){
+  /* On a phone the sidebar's cards are worth having, above the feed. */
+  .mg-side{margin-bottom:14px;order:-1}
+  .mg-dish{display:flex;flex-direction:column}
+  .mg-dhero{order:-2}
+}
 `;

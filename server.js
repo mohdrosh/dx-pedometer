@@ -48,6 +48,10 @@ import {
   mondayOf, nextShipMonday, requestDeadline, requestsOpen, pickupDeadline,
   allocate, missedFrom, shiftDay, statusOf,
 } from './src/egg-week.js';
+import {
+  REACTIONS, PHOTOS_MAX, PHOTO_BYTES, PHOTO_EDGE, THUMB_EDGE,
+  cleanPost, cleanComment, cleanReaction, photoOk, badgeFor, topDish, postCounts,
+} from './src/dish.js';
 
 if (!process.env.DATABASE_URL) {
   console.error('\n  DATABASE_URL is not set.');
@@ -67,6 +71,10 @@ const {
   eggRequestSave, eggRequestDrop, eggMyRequest, eggMyRequests,
   eggWeekRequests, eggMissed, eggWeek, eggDrawSave, eggWeekOffices,
   eggArrived, eggPickup, eggConsent, eggConsentSave, eggRequestById,
+  dishFeed, dishPost, dishCreate, dishEdit, dishDelete, dishHide,
+  dishPhotoAdd, dishPhotoThumb, dishPhoto, dishPhotoCount,
+  dishReact, dishComments, dishCommentAdd, dishCommentDelete, dishCommentHide,
+  dishStats,
 } = await import('./src/db.js');
 
 const DIR = path.dirname(fileURLToPath(import.meta.url));
@@ -935,6 +943,213 @@ const server = http.createServer(async (req, res) => {
         missed: missedFrom(full.map((r, i) => ({ ...r, employeeId: already[i].employeeId }))).length,
         offices: await eggWeekOffices(ship),
       });
+    }
+
+    /* ==================== Phase 2：料理写真の投稿 =======================
+
+       佐野:「持ち帰った卵で作った料理を、インスタグラム風のタイムラインに投稿
+       してもらう。目的は社員同士の会話を増やすこと」
+
+       Unlike the survey, nothing here is anonymous — 7.1.2 says the
+       poster's name is shown, and that is the point. What these routes
+       guard instead is who may change a thing: a post is edited and
+       deleted by the person who wrote it, found by the session id and by
+       nothing in the body.
+       ------------------------------------------------------------------ */
+
+    if (url.pathname === '/api/egg/dish' && req.method === 'GET') {
+      if (!sess) return deny(res);
+      const who = await eggWho();
+      if (!who.egg && !who.admin) return deny(res, 403);
+
+      const all = await dishStats();
+      const counts = postCounts(all);
+      const month = tokyoNow().stamp.slice(0, 7);
+      return sendJson(res, 200, {
+        me: who.admin ? null : sess.employeeId,
+        admin: who.admin,
+        reactions: REACTIONS,
+        maxPhotos: PHOTOS_MAX,
+        posts: await dishFeed(sess.employeeId, {
+          limit: Number(url.searchParams.get('limit')) || 30,
+          before: url.searchParams.get('before') || null,
+          admin: who.admin,
+        }),
+        /* 7.4:「月間の『いちばん作ってみたい料理』などをトップに表示」 */
+        topDish: topDish(all, month),
+        /* 7.4:「投稿数に応じたモラエッグのバッジ」 */
+        myPosts: counts.get(String(sess.employeeId)) || 0,
+        myBadge: badgeFor(counts.get(String(sess.employeeId)) || 0),
+      });
+    }
+
+    if (url.pathname === '/api/egg/dish' && req.method === 'POST') {
+      if (!sess) return deny(res);
+      if (sess.isAdmin) return deny(res, 403);
+      if (rateLimited(`dish:${sess.sid}`, 20, 3600_000)) return sendJson(res, 429, { error: 'too_many' });
+      const who = await eggWho();
+      if (!who.egg) return deny(res, 403);
+
+      const b = await readBody(req).catch(() => null);
+      const parsed = cleanPost({ ...b, photos: ['pending'] });
+      if (!parsed.ok) return sendJson(res, 400, { error: `bad_${parsed.error}` });
+
+      /* The post is made first and its photographs posted to it one by
+         one. Base64 in a single body would inflate four photographs by a
+         third and put the whole thing in memory twice. */
+      const id = await dishCreate(sess.employeeId, parsed.value);
+      return sendJson(res, 200, { id });
+    }
+
+    if (url.pathname === '/api/egg/dish' && (req.method === 'PUT' || req.method === 'DELETE')) {
+      if (!sess) return deny(res);
+      if (sess.isAdmin) return deny(res, 403);
+      if (rateLimited(`dish:${sess.sid}`, 30, 60_000)) return sendJson(res, 429, { error: 'too_many' });
+      const id = String(url.searchParams.get('id') || '');
+
+      /* 7.1.5「投稿者本人は編集・削除ができる」 — and nobody else, which the
+         employee id in the query enforces rather than a check here. */
+      if (req.method === 'DELETE') {
+        return sendJson(res, 200, { ok: await dishDelete(id, sess.employeeId) });
+      }
+      const b = await readBody(req).catch(() => null);
+      const parsed = cleanPost({ ...b, photos: ['kept'] });
+      if (!parsed.ok) return sendJson(res, 400, { error: `bad_${parsed.error}` });
+      const done = await dishEdit(id, sess.employeeId, parsed.value);
+      return done ? sendJson(res, 200, { ok: true }) : deny(res, 404);
+    }
+
+    /* The bytes, posted raw one photograph at a time. The browser has
+       already resized them to PHOTO_EDGE and made the thumbnail; this
+       checks what actually arrived, because a browser is not a guard. */
+    if (url.pathname === '/api/egg/photo' && req.method === 'POST') {
+      if (!sess) return deny(res);
+      if (sess.isAdmin) return deny(res, 403);
+      if (rateLimited(`dishpic:${sess.sid}`, 40, 3600_000)) return sendJson(res, 429, { error: 'too_many' });
+
+      const postId = String(url.searchParams.get('post') || '');
+      const post = await dishPost(postId);
+      if (!post) return deny(res, 404);
+      if (String(post.employeeId) !== String(sess.employeeId)) return deny(res, 403);
+      if (await dishPhotoCount(postId) >= PHOTOS_MAX) return sendJson(res, 413, { error: 'too_many' });
+
+      const mime = String(req.headers['content-type'] || '').split(';')[0].trim();
+      const claimed = Number(req.headers['content-length'] || 0);
+      if (claimed > PHOTO_BYTES * 2) return sendJson(res, 413, { error: 'too_big' });
+
+      const bytes = await readBytes(req, PHOTO_BYTES * 2);
+      if (!bytes) return sendJson(res, 413, { error: 'too_big' });
+      const check = photoOk(mime, bytes.length);
+      if (!check.ok) return sendJson(res, 415, { error: check.error });
+
+      const ord = Number(url.searchParams.get('ord')) || 0;
+      const id = await dishPhotoAdd(postId, ord, { mime, bytes, thumb: null });
+      return sendJson(res, 200, { id });
+    }
+
+    /* The small copy, sent straight after the full one. Two requests
+       rather than one so neither body has to be parsed apart, and if the
+       second never arrives the timeline falls back to the full image —
+       slower, but never a broken picture. */
+    if (url.pathname === '/api/egg/photo' && req.method === 'PUT') {
+      if (!sess) return deny(res);
+      if (sess.isAdmin) return deny(res, 403);
+      if (rateLimited(`dishpic:${sess.sid}`, 40, 3600_000)) return sendJson(res, 429, { error: 'too_many' });
+
+      const mime = String(req.headers['content-type'] || '').split(';')[0].trim();
+      const bytes = await readBytes(req, PHOTO_BYTES);
+      if (!bytes) return sendJson(res, 413, { error: 'too_big' });
+      const check = photoOk(mime, bytes.length);
+      if (!check.ok) return sendJson(res, 415, { error: check.error });
+
+      /* Their own photograph: the employee id is in the UPDATE's join, so
+         there is no argument that would reach somebody else's. */
+      const done = await dishPhotoThumb(
+        String(url.searchParams.get('id') || ''), sess.employeeId, bytes,
+      );
+      return done ? sendJson(res, 200, { ok: true }) : deny(res, 404);
+    }
+
+    if (url.pathname === '/api/egg/photo' && req.method === 'GET') {
+      if (!sess) return deny(res);
+      const who = await eggWho();
+      if (!who.egg && !who.admin) return deny(res, 403);
+      const pic = await dishPhoto(
+        String(url.searchParams.get('id') || ''),
+        url.searchParams.get('thumb') === '1',
+      );
+      if (!pic) return deny(res, 404);
+      /* Immutable: a photograph never changes under its id, so it is
+         fetched once and then comes out of the browser's cache. */
+      res.writeHead(200, {
+        'Content-Type': pic.mime,
+        'Content-Length': pic.bytes.length,
+        'Cache-Control': 'private, max-age=31536000, immutable',
+      });
+      return res.end(pic.bytes);
+    }
+
+    /* 7.2:「1人1投稿につき各ボタン1回まで押せる（押し直しで取り消し）」 */
+    if (url.pathname === '/api/egg/dish/react' && req.method === 'POST') {
+      if (!sess) return deny(res);
+      if (sess.isAdmin) return deny(res, 403);
+      if (rateLimited(`dish:${sess.sid}`, 60, 60_000)) return sendJson(res, 429, { error: 'too_many' });
+      const who = await eggWho();
+      if (!who.egg) return deny(res, 403);
+
+      const b = await readBody(req).catch(() => null);
+      const kind = cleanReaction(b?.kind);
+      if (!kind) return sendJson(res, 400, { error: 'bad_kind' });
+      const post = await dishPost(String(b?.id || ''));
+      if (!post) return deny(res, 404);
+
+      const on = await dishReact(post.id, sess.employeeId, kind);
+      return sendJson(res, 200, { on });
+    }
+
+    /* 7.3 コメント */
+    if (url.pathname === '/api/egg/dish/comments' && req.method === 'GET') {
+      if (!sess) return deny(res);
+      const who = await eggWho();
+      if (!who.egg && !who.admin) return deny(res, 403);
+      return sendJson(res, 200, {
+        comments: await dishComments(String(url.searchParams.get('id') || ''), who.admin),
+      });
+    }
+
+    if (url.pathname === '/api/egg/dish/comment' && (req.method === 'POST' || req.method === 'DELETE')) {
+      if (!sess) return deny(res);
+      if (sess.isAdmin) return deny(res, 403);
+      if (rateLimited(`dish:${sess.sid}`, 30, 60_000)) return sendJson(res, 429, { error: 'too_many' });
+      const who = await eggWho();
+      if (!who.egg) return deny(res, 403);
+
+      if (req.method === 'DELETE') {
+        /* 「自分のコメントは削除できる」 — their own, by session id. */
+        const gone = await dishCommentDelete(String(url.searchParams.get('id') || ''), sess.employeeId);
+        return sendJson(res, 200, { ok: gone });
+      }
+      const b = await readBody(req).catch(() => null);
+      const parsed = cleanComment(b);
+      if (!parsed.ok) return sendJson(res, 400, { error: `bad_${parsed.error}` });
+      const post = await dishPost(String(b?.id || ''));
+      if (!post) return deny(res, 404);
+      await dishCommentAdd(post.id, sess.employeeId, parsed.value.body);
+      return sendJson(res, 200, { comments: await dishComments(post.id, false) });
+    }
+
+    /* 8:「管理者は不適切な投稿・コメントを非表示にできる」. Hidden, not
+       destroyed — an administrator taking a post out of the timeline is a
+       different act from its author deleting it, and only one of them
+       should lose what was written. */
+    if (url.pathname === '/api/egg/dish/hide' && req.method === 'POST') {
+      if (!sess?.isAdmin) return deny(res, 403);
+      const b = await readBody(req).catch(() => null);
+      const hide = b?.hide !== false;
+      if (b?.comment) await dishCommentHide(String(b.comment), hide);
+      else if (b?.id) await dishHide(String(b.id), sess.employeeId, hide);
+      else return sendJson(res, 400, { error: 'bad_target' });
+      return sendJson(res, 200, { ok: true });
     }
 
     /* 業務報告書 as the form itself, filled from the month on screen. Built
