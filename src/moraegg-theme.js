@@ -108,10 +108,19 @@ export const MG_CSS = `
   padding:6px 14px 7px;border:2.5px solid var(--mg-navy);border-radius:999px;
   background:var(--mg-paper);color:var(--mg-navy);
   font:inherit;font-size:12.5px;font-weight:700;white-space:nowrap;
-  box-shadow:var(--mg-pop);
+  box-shadow:var(--mg-pop);transition:transform .12s, background .12s;
 }
-.mg .eg-sub button:hover{background:var(--mg-sky)}
-.mg .eg-sub button.on{background:var(--mg-sun);box-shadow:0 3px 0 var(--mg-navy)}
+.mg .eg-sub button:hover{background:var(--mg-sky);transform:translateY(-1px)}
+/* The chosen tab used to carry a solid navy slab under it, which ran into
+   the navy border and read as a squared-off bottom on a pill that is round
+   everywhere else. A tab that is already chosen has nothing left to press,
+   so it is recessed rather than raised: the lift comes off, the shadow goes
+   inside, and the bottom edge is just the border again. */
+.mg .eg-sub button.on{
+  background:var(--mg-sun);
+  box-shadow:inset 0 3px 5px rgba(11,41,106,.22), inset 0 -1px 0 rgba(255,255,255,.4);
+  transform:none;
+}
 
 .mg-body{padding:12px 14px 0;max-width:1240px}
 
