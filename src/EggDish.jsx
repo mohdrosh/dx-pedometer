@@ -25,6 +25,13 @@ const L = {
   head: ['みんなの料理', 'What people cooked'],
   lede: ['タマゴで作ったお料理を見せてください。投稿は任意です。',
     'Show us what you made. Posting is entirely up to you.'],
+  /* the front of the site */
+  heroKicker: ['丹波の鶏舎から', 'From the coop in Tamba'],
+  heroTitle: ['モラエッグ', 'Moraegg'],
+  heroSub: ['朝どれたまごを、みんなで。', 'Fresh eggs, shared.'],
+  capMorning: ['朝のお出迎え', 'Morning welcome'],
+  capHarvest: ['今日の取れ高', "Today's eggs"],
+  capLaying: ['産卵中…', 'Laying…'],
   post: ['投稿する', 'Post a dish'],
   posting: ['送信中…', 'Posting…'],
   dish: ['料理名', 'Dish'],
@@ -112,6 +119,7 @@ export default function EggDish({ lang, toast }) {
   const [draft, setDraft] = useState({});
   const fileRef = useRef(null);
   const camRef = useRef(null);
+  const feedRef = useRef(null);
 
   const api = useCallback(async (path, method = 'GET', body, type) => {
     const res = await fetch(`${apiRoot()}/egg${path}`, {
@@ -130,6 +138,23 @@ export default function EggDish({ lang, toast }) {
     if (j.ok) setD(j);
   }, [api]);
   useEffect(() => { load(); }, [load]);
+
+  /* Posts rise as they scroll into view. Marked one at a time rather than
+     with a blanket class so a post already on screen is not animated in
+     from nowhere, and skipped entirely for anybody who has asked for less
+     movement. */
+  useEffect(() => {
+    if (!feedRef.current) return undefined;
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return undefined;
+    const io = new IntersectionObserver((rows) => {
+      rows.forEach((r) => r.isIntersecting && r.target.classList.add('in'));
+    }, { rootMargin: '0px 0px -40px 0px' });
+    feedRef.current.querySelectorAll('.mg-post').forEach((el) => {
+      el.classList.add('rise');
+      io.observe(el);
+    });
+    return () => io.disconnect();
+  }, [d]);
 
   if (!d) return <div className="pad muted">…</div>;
 
@@ -203,18 +228,39 @@ export default function EggDish({ lang, toast }) {
   return (
     <div className="mg-dish">
 
-      {/* --------------------------- the head --------------------------- */}
-      <div className="mg-dhero">
-        <img src={img('dish-hero')} alt="" />
-        <div className="mg-dhero-t">
-          <b>{t('head')}</b>
-          <span>{t('lede')}</span>
+      {/* --------------------------- the front ---------------------------
+          Three pictures across the top, the egg under them, the name on a
+          banner under that — the shape he sketched. The photographs are
+          pinned up rather than framed: a white edge, a soft shadow and a
+          few degrees of tilt, which is what gives the Hay Day pages their
+          hand-made feel. */}
+      <div className="mg-hero">
+        <div className="mg-hero-pics">
+          {[['coop-door', 'capMorning', -5], ['dish-hero', 'capHarvest', 2],
+            ['coop-nest', 'capLaying', 5]].map(([file, cap, deg]) => (
+              <figure key={file} style={{ '--tilt': `${deg}deg` }}>
+                <img src={img(file)} alt="" />
+                <figcaption>{t(cap)}</figcaption>
+              </figure>
+          ))}
+        </div>
+
+        <img src={img('hug')} alt="" className="mg-hero-egg" />
+
+        <div className="mg-hero-banner">
+          <em>{t('heroKicker')}</em>
+          <b>{t('heroTitle')}</b>
+          <span>{t('heroSub')}</span>
         </div>
       </div>
 
-      <div className="mg-dtop">
+      {/* The heading, what it is for, and the way to add to it — one bar
+          rather than three stacked rows. */}
+      <div className="mg-dbar">
+        <b>{t('head')}</b>
+        <span>{t('lede')}</span>
         {!d.admin && !open && (
-          <button className="btn primary mg-newpost" onClick={() => setOpen(true)}>
+          <button className="btn primary sm mg-newpost" onClick={() => setOpen(true)}>
             ＋ {t('post')}
           </button>
         )}
@@ -287,15 +333,18 @@ export default function EggDish({ lang, toast }) {
         </div>
       )}
 
-      {/* --------------------------- the timeline ----------------------- */}
-      {!d.posts.length && (
-        <div className="card eg-shut">
-          <img src={img('empty')} alt="" />
-          <p className="muted sm">{t('noneYet')}</p>
-        </div>
-      )}
-
-      <div className="mg-feed">
+      {/* --------------------------- the timeline -----------------------
+          The empty state lives inside the feed, not beside it: on a phone
+          this is a flex column ordered by hand, and a card with no order
+          of its own sorts to the front — which put "nothing here yet"
+          above the banner. */}
+      <div className="mg-feed" ref={feedRef}>
+        {!d.posts.length && (
+          <div className="card eg-shut">
+            <img src={img('empty')} alt="" />
+            <p className="muted sm">{t('noneYet')}</p>
+          </div>
+        )}
         {d.posts.map((p) => {
           const isMine = String(p.employeeId) === String(d.me);
           const thread = threads[p.id];

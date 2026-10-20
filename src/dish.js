@@ -75,8 +75,12 @@ export const PHOTO_TYPES = ['image/webp', 'image/jpeg', 'image/png'];
 /* What the browser resizes to before uploading. Big enough that a dish
    still looks worth making, small enough that a year of posts is a few
    hundred megabytes. */
-export const PHOTO_EDGE = 1400;
-export const THUMB_EDGE = 420;
+export const PHOTO_EDGE = 1600;
+/* The timeline draws a single photograph about 680px wide, so a 420px
+   thumbnail was being blown up to 1.6x and looked it. 820 covers that at
+   full density and still weighs about 70KB; the full-size copy is only
+   fetched when somebody taps a photograph open. */
+export const THUMB_EDGE = 820;
 
 const tidy = (v, max) => String(v ?? '').replace(/\r\n?/g, '\n')
   .replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim().slice(0, max);

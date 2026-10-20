@@ -33,7 +33,7 @@ export const MG_CSS = `
   --mg-cream:#FEF6DF; --mg-royal:#2152B8; --mg-navy:#0B296A;
   --mg-sun:#FFC62F; --mg-leaf:#15860A; --mg-paper:#fff;
   --mg-dot:#F2E6C4; --mg-sky:#EAF0FB;
-  --mg-round:18px;
+  --mg-round:14px;
   /* The sticker shadow: a hard offset in the border colour, no blur. It is
      what makes a card look stuck on rather than floating. */
   --mg-pop:0 3px 0 rgba(11,41,106,.16);
@@ -55,20 +55,20 @@ export const MG_CSS = `
 
 /* ------------------------------ the header ------------------------------ */
 .mg-hdr{
-  display:flex;align-items:center;gap:14px;flex-wrap:wrap;
-  padding:11px 16px;background:var(--mg-navy);
+  display:flex;align-items:center;gap:12px;flex-wrap:wrap;
+  padding:8px 14px;background:var(--mg-navy);
   border-bottom:4px solid var(--mg-sun);
 }
 .mg-back{
-  display:inline-flex;align-items:center;gap:6px;
-  padding:7px 15px 8px;border:2px solid var(--mg-sun);border-radius:999px;
+  display:inline-flex;align-items:center;gap:5px;
+  padding:5px 12px 6px;border:2px solid var(--mg-sun);border-radius:999px;
   background:transparent;color:var(--mg-sun);
-  font:inherit;font-size:13px;font-weight:700;white-space:nowrap;
+  font:inherit;font-size:12px;font-weight:700;white-space:nowrap;
 }
 .mg-back:hover{background:var(--mg-sun);color:var(--mg-navy)}
 .mg-brand{display:flex;align-items:center;gap:11px;margin-right:auto}
-.mg-seal{width:44px;height:44px;flex:none}
-.mg-brand h1{margin:0;font-size:21px;font-weight:900;color:#fff;letter-spacing:.02em}
+.mg-seal{width:36px;height:36px;flex:none}
+.mg-brand h1{margin:0;font-size:18px;font-weight:900;color:#fff;letter-spacing:.02em}
 .mg-brand p{margin:1px 0 0;font-size:11.5px;font-weight:500;color:var(--mg-sun)}
 .mg-hdr-r{display:flex;gap:7px}
 /* On a phone the three groups wrap to three rows and the header eats a
@@ -95,15 +95,15 @@ export const MG_CSS = `
 }
 .mg .eg-sub::-webkit-scrollbar{display:none}
 .mg .eg-sub button{
-  padding:8px 17px 9px;border:2.5px solid var(--mg-navy);border-radius:999px;
+  padding:6px 14px 7px;border:2.5px solid var(--mg-navy);border-radius:999px;
   background:var(--mg-paper);color:var(--mg-navy);
-  font:inherit;font-size:13.5px;font-weight:700;white-space:nowrap;
+  font:inherit;font-size:12.5px;font-weight:700;white-space:nowrap;
   box-shadow:var(--mg-pop);
 }
 .mg .eg-sub button:hover{background:var(--mg-sky)}
 .mg .eg-sub button.on{background:var(--mg-sun);box-shadow:0 3px 0 var(--mg-navy)}
 
-.mg-body{padding:14px 16px 0;max-width:1240px}
+.mg-body{padding:12px 14px 0;max-width:1240px}
 
 /* ------------------------------- the cards ------------------------------ */
 /* One shape for everything: white, a thick navy outline, a hard shadow. */
@@ -111,43 +111,43 @@ export const MG_CSS = `
   background:var(--mg-paper);
   border:2.5px solid var(--mg-navy);border-radius:var(--mg-round);
   box-shadow:var(--mg-pop);
-  padding:15px 16px;margin-bottom:14px;
+  padding:12px 13px;margin-bottom:11px;
 }
 .mg .card.soft{background:var(--mg-sky)}
 
 /* A heading is a label stuck to the top of what it names, not a grey bar. */
 .mg .sechead{
   display:flex;align-items:baseline;gap:10px;justify-content:space-between;
-  background:none;border:0;padding:0;margin:18px 0 8px;
+  background:none;border:0;padding:0;margin:14px 0 7px;
 }
 .mg .sechead:first-child{margin-top:2px}
 .mg .sechead>span:first-child{
-  font-size:15px;font-weight:900;color:var(--mg-navy);
+  font-size:13.5px;font-weight:900;color:var(--mg-navy);
   /* the yellow marker-pen underline */
   background:linear-gradient(transparent 62%,var(--mg-sun) 62%,var(--mg-sun) 94%,transparent 94%);
   padding:0 3px;
 }
-.mg .sechead>span+span{font-size:12.5px;font-weight:700;color:var(--mg-royal)}
+.mg .sechead>span+span{font-size:11.5px;font-weight:700;color:var(--mg-royal)}
 
 /* ------------------------------ the buttons ----------------------------- */
 .mg .btn{
-  padding:10px 19px 11px;border:2.5px solid var(--mg-navy);border-radius:999px;
+  padding:7px 15px 8px;border:2.5px solid var(--mg-navy);border-radius:999px;
   background:var(--mg-paper);color:var(--mg-navy);
-  font:inherit;font-size:14px;font-weight:700;
-  box-shadow:0 3px 0 var(--mg-navy);transition:transform .07s,box-shadow .07s;
+  font:inherit;font-size:13px;font-weight:700;
+  box-shadow:0 2px 0 var(--mg-navy);transition:transform .07s,box-shadow .07s;
 }
 .mg .btn:hover{background:var(--mg-sky);border-color:var(--mg-navy)}
 /* Pressed buttons go down and the shadow goes with them. */
-.mg .btn:active{transform:translateY(3px);box-shadow:0 0 0 var(--mg-navy)}
+.mg .btn:active{transform:translateY(2px);box-shadow:0 0 0 var(--mg-navy)}
 .mg .btn.primary{background:var(--mg-royal);color:#fff}
 .mg .btn.primary:hover{background:#1A449E}
 .mg .btn.ghost{background:var(--mg-paper)}
-.mg .btn.big{width:auto;padding:13px 30px 14px;font-size:16px;font-weight:900}
-.mg .btn.sm{padding:5px 13px 6px;font-size:12.5px;box-shadow:0 2px 0 var(--mg-navy)}
+.mg .btn.big{width:auto;padding:10px 24px 11px;font-size:14.5px;font-weight:900}
+.mg .btn.sm{padding:4px 11px 5px;font-size:11.5px;box-shadow:0 2px 0 var(--mg-navy)}
 .mg .btn.sm:active{transform:translateY(2px)}
 .mg .btn:disabled{
   background:#E7E9EE;color:#9AA3B2;border-color:#C3C9D4;
-  box-shadow:0 3px 0 #C3C9D4;cursor:not-allowed;transform:none;
+  box-shadow:0 2px 0 #C3C9D4;cursor:not-allowed;transform:none;
 }
 .mg .btn.danger{color:#B3261E;border-color:#B3261E;box-shadow:0 3px 0 #B3261E}
 
@@ -156,8 +156,8 @@ export const MG_CSS = `
 .mg .fld>span{font-size:12.5px;font-weight:700;color:var(--mg-navy);margin-bottom:5px}
 .app.mg .fld input,.app.mg .fld select,.app.mg .fld textarea,
 .app.mg .eg-offs-add input,.app.mg .eg-offs-a,.app.mg .eg-offs select{
-  border:2.5px solid var(--mg-navy);border-radius:12px;background:#FFFDF6;
-  padding:9px 13px;font:inherit;font-size:14px;color:var(--mg-navy);outline:none;
+  border:2px solid var(--mg-navy);border-radius:10px;background:#FFFDF6;
+  padding:7px 11px;font:inherit;font-size:13.5px;color:var(--mg-navy);outline:none;
 }
 .app.mg .fld input:focus,.app.mg .fld select:focus,.app.mg .fld textarea:focus{
   border-color:var(--mg-royal);background:#fff;
@@ -196,9 +196,9 @@ export const MG_CSS = `
 .mg .eg-opts{display:flex;flex-wrap:wrap;gap:8px}
 .mg .eg-opt{
   display:inline-flex;align-items:center;gap:5px;
-  padding:8px 16px 9px;border:2.5px solid var(--mg-navy);border-radius:999px;
+  padding:6px 13px 7px;border:2.5px solid var(--mg-navy);border-radius:999px;
   background:var(--mg-paper);color:var(--mg-navy);
-  font:inherit;font-size:14px;font-weight:700;box-shadow:0 2px 0 var(--mg-navy);
+  font:inherit;font-size:13px;font-weight:700;box-shadow:0 2px 0 var(--mg-navy);
 }
 .mg .eg-opt:hover{background:var(--mg-sky)}
 .mg .eg-opt.on{background:var(--mg-sun)}
@@ -216,7 +216,7 @@ export const MG_CSS = `
 }
 .mg .eg-rule:hover{background:var(--mg-sky)}
 .mg .eg-rule.on{background:var(--mg-sun);box-shadow:0 2px 0 var(--mg-navy)}
-.mg .eg-rule strong{font-size:14.5px;font-weight:900;color:var(--mg-navy)}
+.mg .eg-rule strong{font-size:13.5px;font-weight:900;color:var(--mg-navy)}
 .mg .eg-rule span{font-size:12.5px;font-weight:500;color:#3E4F6E}
 .mg .eg-rule em{font-style:normal;font-size:11.5px;font-weight:700}
 .mg .eg-rule em.pro{color:var(--mg-leaf)}
@@ -230,7 +230,7 @@ export const MG_CSS = `
   background:var(--mg-sky);border:2px dashed var(--mg-royal);
   border-radius:12px;padding:9px 13px;margin:0 0 14px;
 }
-.mg .eg-q{font-size:15px;font-weight:900;color:var(--mg-navy);margin:0 0 9px}
+.mg .eg-q{font-size:13.5px;font-weight:900;color:var(--mg-navy);margin:0 0 9px}
 .mg .pill{
   border-radius:999px;font-size:11.5px;font-weight:900;padding:3px 11px 4px;
   border:2px solid var(--mg-navy);background:var(--mg-paper);color:var(--mg-navy);
@@ -272,7 +272,7 @@ export const MG_CSS = `
 /* ------------------------------- the race ------------------------------- */
 .mg .eg-race-top{display:flex;align-items:center;gap:14px;margin-bottom:14px}
 .mg .eg-race-top img{width:72px;height:72px;flex:none}
-.mg .eg-race-n{font-size:40px;font-weight:900;line-height:1;color:var(--mg-navy)}
+.mg .eg-race-n{font-size:34px;font-weight:900;line-height:1;color:var(--mg-navy)}
 .mg .eg-race-u{font-size:14px;font-weight:700;color:#5B6B86;margin-left:7px}
 .mg .eg-race-s{font-size:13.5px;font-weight:900;margin:5px 0 0;color:var(--mg-royal)}
 .mg .eg-race-s.win{color:var(--mg-leaf)}
@@ -353,11 +353,11 @@ export const MG_CSS = `
 /* --------------------------- the big tap target ------------------------- */
 /* 丹波: pressed with a thumb, often one-handed, often holding eggs. */
 .mg .eg-tap{
-  min-height:58px;padding:0 32px;font-size:19px;font-weight:900;
+  min-height:50px;padding:0 26px;font-size:17px;font-weight:900;
   background:var(--mg-sun);color:var(--mg-navy);border-color:var(--mg-navy);
 }
 .mg .eg-tap:hover{background:#FFD45E}
-.mg .eg-farm-now b{font-size:46px;font-weight:900;color:var(--mg-navy)}
+.mg .eg-farm-now b{font-size:38px;font-weight:900;color:var(--mg-navy)}
 .mg .eg-farm-now em{font-size:12.5px;font-weight:700;color:#5B6B86}
 .mg .eg-farm-now span{font-size:13px;font-weight:700;color:#3E4F6E}
 
@@ -366,7 +366,7 @@ export const MG_CSS = `
 .mg .eg-wk em{font-size:11.5px;font-weight:700;color:#3E4F6E}
 .mg .eg-wk b{font-size:14.5px;font-weight:900;color:var(--mg-navy)}
 .mg .eg-terms li{font-size:13px;font-weight:500;color:#3E4F6E;line-height:1.6}
-.mg .eg-step b{font-size:26px;font-weight:900;color:var(--mg-navy);min-width:1.5em;
+.mg .eg-step b{font-size:22px;font-weight:900;color:var(--mg-navy);min-width:1.5em;
   text-align:center}
 .mg .eg-step .btn{width:42px;height:42px;padding:0;font-size:20px;line-height:1}
 .mg .eg-mystat-v b,.mg .eg-mine-v b{font-size:16px;font-weight:900}
@@ -514,15 +514,67 @@ export const MG_CSS = `
    and the photograph underneath stays a file somebody can swap.
 ------------------------------------------------------------------------- */
 .mg-dish{display:grid}
-.mg-dhero{position:relative;margin-bottom:14px;border-radius:var(--mg-round);
-  overflow:hidden;border:2.5px solid var(--mg-navy);box-shadow:var(--mg-pop)}
-.mg-dhero img{display:block;width:100%;height:auto}
-.mg-dhero-t{position:absolute;inset:auto 0 0 0;padding:26px 16px 13px;
-  background:linear-gradient(transparent,rgba(11,41,106,.86) 58%)}
-.mg-dhero-t b{display:block;font-size:22px;font-weight:900;color:#fff;
-  text-shadow:0 2px 6px rgba(11,41,106,.6)}
-.mg-dhero-t span{font-size:12.5px;font-weight:700;color:var(--mg-sun)}
 
+/* ------------------------------- the front ------------------------------
+   Photographs pinned up, the egg beneath them, the name on a banner —
+   the arrangement he drew. Hay Day's pictures are a white edge, a soft
+   shadow and a few degrees of tilt, and that is most of why their pages
+   feel hand-made rather than laid out; the same three things here.
+------------------------------------------------------------------------ */
+.mg-hero{display:grid;justify-items:center;margin:2px 0 18px}
+.mg-hero-pics{display:grid;grid-template-columns:repeat(3,1fr);
+  gap:4px;width:100%;align-items:start}
+.mg-hero-pics figure{
+  margin:0;background:#fff;padding:5px 5px 0;border-radius:3px;
+  box-shadow:0 3px 9px rgba(11,41,106,.22);
+  transform:rotate(var(--tilt));
+  transition:transform .25s cubic-bezier(.34,1.3,.64,1);
+}
+.mg-hero-pics figure:hover{transform:rotate(0deg) translateY(-4px) scale(1.03);z-index:2}
+.mg-hero-pics img{display:block;width:100%;aspect-ratio:4/3;object-fit:cover;
+  border-radius:2px}
+.mg-hero-pics figcaption{
+  font-size:10.5px;font-weight:900;color:var(--mg-navy);
+  text-align:center;padding:4px 2px 5px;
+}
+
+/* The egg sits under the photographs and breathes. */
+.mg-hero-egg{width:74px;height:74px;margin:-14px 0 -6px;position:relative;z-index:3;
+  animation:mg-bob 3.4s ease-in-out infinite}
+@keyframes mg-bob{
+  0%,100%{transform:translateY(0) rotate(-2deg)}
+  50%{transform:translateY(-7px) rotate(2deg)}
+}
+
+/* A ribbon, with the ends notched out of it. */
+.mg-hero-banner{
+  position:relative;background:var(--mg-navy);color:#fff;
+  padding:9px 34px 10px;text-align:center;min-width:240px;
+  clip-path:polygon(0 0,100% 0,100% 100%,0 100%,14px 50%);
+  box-shadow:0 3px 0 rgba(11,41,106,.25);
+}
+.mg-hero-banner::before,.mg-hero-banner::after{
+  content:"";position:absolute;top:0;bottom:0;width:16px;background:var(--mg-sun)}
+.mg-hero-banner::before{left:0;clip-path:polygon(0 0,100% 0,60% 50%,100% 100%,0 100%)}
+.mg-hero-banner::after{right:0;clip-path:polygon(0 0,100% 0,100% 100%,0 100%,40% 50%)}
+.mg-hero-banner em{display:block;font-style:normal;font-size:10px;font-weight:700;
+  color:var(--mg-sun);letter-spacing:.08em}
+.mg-hero-banner b{display:block;font-size:23px;font-weight:900;line-height:1.1;
+  /* Hay Day outlines its display type rather than shadowing it. */
+  text-shadow:0 2px 0 rgba(0,0,0,.25)}
+.mg-hero-banner span{display:block;font-size:10.5px;font-weight:700;color:var(--mg-sun)}
+
+@media(prefers-reduced-motion:reduce){
+  .mg-hero-egg{animation:none}
+  .mg-hero-pics figure{transition:none}
+}
+
+.mg-dbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 11px}
+.mg-dbar b{font-size:14px;font-weight:900;color:var(--mg-navy);
+  background:linear-gradient(transparent 62%,var(--mg-sun) 62%,var(--mg-sun) 94%,transparent 94%);
+  padding:0 3px}
+.mg-dbar span{font-size:11.5px;font-weight:500;color:#5B6B86;margin-right:auto}
+.mg-dbar .btn{flex:none}
 .mg-dtop{display:grid;gap:11px;margin-bottom:14px}
 .mg-side{display:grid;gap:12px;align-content:start}
 .mg-next{font-size:12px;font-weight:700;color:#5B6B86;margin:-4px 0 0;text-align:center}
@@ -533,11 +585,11 @@ export const MG_CSS = `
   border-radius:999px;padding:2px 11px 3px}
 .mg-top1,.mg-badge{margin:0}
 .mg-top1 em{display:block;font-style:normal;font-size:11.5px;font-weight:700;color:#5B6B86}
-.mg-top1 b{font-size:19px;font-weight:900}
+.mg-top1 b{font-size:17px;font-weight:900}
 .mg-badge{display:flex;align-items:center;gap:12px}
 .mg-badge img{width:54px;height:54px;flex:none}
 .mg-badge em{display:block;font-style:normal;font-size:11.5px;font-weight:700;color:#5B6B86}
-.mg-badge b{display:block;font-size:16px;font-weight:900}
+.mg-badge b{display:block;font-size:14.5px;font-weight:900}
 .mg-badge span{font-size:11.5px;font-weight:700;color:#5B6B86}
 .mg-newpost{justify-self:start}
 
@@ -557,23 +609,45 @@ export const MG_CSS = `
 
 /* the posts */
 .mg-feed{display:grid;gap:14px}
-.mg-post{margin:0}
+.mg-post{margin:0;transition:transform .2s ease,box-shadow .2s ease}
+.mg-post:hover{transform:translateY(-2px);box-shadow:0 6px 0 rgba(11,41,106,.14)}
+/* Posts rise as they come into view — the one borrowed Hay Day motion
+   that costs nothing and makes a long feed feel alive. Added by script
+   on intersection, so a post already on screen when the page loads is
+   not animated in from nowhere. */
+.mg-post.rise{opacity:0;transform:translateY(14px)}
+.mg-post.rise.in{opacity:1;transform:none;
+  transition:opacity .45s ease,transform .45s cubic-bezier(.34,1.2,.64,1)}
+@media(prefers-reduced-motion:reduce){
+  .mg-post,.mg-post:hover{transition:none;transform:none}
+  .mg-post.rise{opacity:1;transform:none}
+}
 .mg-post.off{opacity:.62;border-style:dashed}
 .mg-post-h{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-bottom:7px}
-.mg-post-h b{font-size:14px;font-weight:900}
+.mg-post-h b{font-size:13px;font-weight:900}
 .mg-post-h span{font-size:11.5px;font-weight:700;color:#5B6B86;margin-right:auto}
-.mg-post-d{font-size:18px;font-weight:900;margin:0 0 10px;color:var(--mg-navy)}
-.mg-post-b{font-size:13.5px;font-weight:500;line-height:1.7;margin:11px 0 0;color:#2C3C58}
+.mg-post-d{font-size:16px;font-weight:900;margin:0 0 10px;color:var(--mg-navy)}
+.mg-post-b{font-size:13px;font-weight:500;line-height:1.7;margin:11px 0 0;color:#2C3C58}
 
 /* One photo fills the width; several share it, so a post is always the
    same height whether it carries one dish or four. */
+/* A dish is whatever shape it was photographed in. Forcing 16:10 and
+   cropping to fill turned a bowl of rice shot portrait into a letterboxed
+   close-up of its middle — the food cropped out and the rest enlarged.
+   One photograph is therefore shown whole, bounded by a height rather
+   than a shape. Several share a row, where a common cell is what makes
+   the row read as a set, so those do crop — but to a square, which takes
+   the middle of a plate rather than a slice of it. */
 .mg-shots{display:grid;gap:5px}
-.mg-shots.n2{grid-template-columns:1fr 1fr}
-.mg-shots.n3,.mg-shots.n4{grid-template-columns:1fr 1fr}
 .mg-shots button{padding:0;border:0;background:none;display:block;line-height:0}
-.mg-shots img{width:100%;height:100%;object-fit:cover;border-radius:12px;
-  border:2.5px solid var(--mg-navy);aspect-ratio:4/3}
-.mg-shots.n1 img{aspect-ratio:16/10}
+.mg-shots img{display:block;width:100%;border-radius:10px;
+  border:2px solid var(--mg-navy)}
+.mg-shots.n1{justify-items:center}
+.mg-shots.n1 img{height:auto;max-height:420px;width:auto;max-width:100%;
+  object-fit:contain}
+.mg-shots.n2,.mg-shots.n3,.mg-shots.n4{grid-template-columns:1fr 1fr}
+.mg-shots.n2 img,.mg-shots.n3 img,.mg-shots.n4 img{
+  aspect-ratio:1;height:100%;object-fit:cover}
 
 .mg-recipe{margin:11px 0 0;border:2px dashed var(--mg-royal);border-radius:12px;
   background:var(--mg-sky);padding:9px 13px}
@@ -585,9 +659,9 @@ export const MG_CSS = `
 
 /* 7.2 the buttons */
 .mg-react{display:flex;gap:7px;flex-wrap:wrap;margin-top:12px}
-.mg-rx{display:inline-flex;align-items:center;gap:5px;
-  padding:6px 13px 7px;border:2px solid var(--mg-navy);border-radius:999px;
-  background:#fff;color:var(--mg-navy);font:inherit;font-size:12.5px;font-weight:700}
+.mg-rx{display:inline-flex;align-items:center;gap:4px;
+  padding:4px 10px 5px;border:2px solid var(--mg-navy);border-radius:999px;
+  background:#fff;color:var(--mg-navy);font:inherit;font-size:11.5px;font-weight:700}
 .mg-rx:hover{background:var(--mg-sky)}
 .mg-rx.on{background:var(--mg-sun)}
 .mg-rx b{font-variant-numeric:tabular-nums;font-weight:900}
@@ -616,7 +690,11 @@ export const MG_CSS = `
 
 @media(min-width:900px){
   .mg-dtop{grid-template-columns:repeat(auto-fit,minmax(220px,1fr));align-items:center}
-  .mg-dhero-t b{font-size:27px}
+  .mg-hero-banner b{font-size:27px}
+  .mg-hero-pics{gap:10px}
+  .mg-hero-pics figure{padding:7px 7px 0}
+  .mg-hero-pics figcaption{font-size:11.5px}
+  .mg-hero-egg{width:88px;height:88px}
   .mg-shots.n3{grid-template-columns:repeat(3,1fr)}
   .mg-shots.n4{grid-template-columns:repeat(4,1fr)}
   /* Two columns of posts would make a timeline you read in zig-zag, so
@@ -624,13 +702,18 @@ export const MG_CSS = `
      be empty beside it holds the month's best and the badge. */
   .mg-dish{grid-template-columns:minmax(0,1fr) minmax(0,300px);
     column-gap:22px;align-items:start}
-  .mg-dhero,.mg-dtop,.mg-compose,.mg-feed{grid-column:1;max-width:720px}
+  .mg-hero,.mg-dbar,.mg-dtop,.mg-compose,.mg-feed{grid-column:1;max-width:720px}
   .mg-side{grid-column:2;grid-row:1/span 4;position:sticky;top:18px}
 }
 @media(max-width:899px){
-  /* On a phone the sidebar's cards are worth having, above the feed. */
-  .mg-side{margin-bottom:14px;order:-1}
+  /* On a phone the dishes come first — they are what the page is for.
+     The badge and the coop picture follow them rather than standing
+     between the banner and the first photograph. */
   .mg-dish{display:flex;flex-direction:column}
-  .mg-dhero{order:-2}
+  .mg-hero{order:1}
+  .mg-dbar{order:2}
+  .mg-compose{order:3}
+  .mg-feed{order:4}
+  .mg-side{order:5;margin-top:14px}
 }
 `;

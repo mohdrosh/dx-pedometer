@@ -138,7 +138,7 @@ export default function EggTab({
   const [editing, setEditing] = useState(false);
   const [win, setWin] = useState({ from: '', to: '' });
   const [p1, setP1] = useState(null);
-  const [view, setView] = useState('portal');
+  const [view, setView] = useState('dish');
 
   /* Phase 1's read is done once here rather than inside each screen: the
      roles it carries are what decide which screens exist, so the tab needs
@@ -211,11 +211,13 @@ export default function EggTab({
      irrelevant ones greyed out — a 丹波 registrar and an office contact do
      different jobs, and showing each of them the other's screen is three
      taps of nothing on a phone. */
+  /* The dishes are the front of the site: it is the part people come back
+     to, and the only part that is different every week. 配布 is the job
+     you came to do, so it is next. The survey answers one question once
+     and then sits there, so it goes to the back. */
   const views = [
-    ...(p1 ? [['portal', t('v_portal')]] : []),
-    /* 7: open to everyone who can reach the portal, including the people
-       who did not get eggs this week — looking is half the point. */
     ...(p1 ? [['dish', t('v_dish')]] : []),
+    ...(p1 ? [['portal', t('v_portal')]] : []),
     ...(p1?.role?.farm ? [['farm', t('v_farm')]] : []),
     ...(p1?.role?.contactFor?.length || user?.admin ? [['office', t('v_office')]] : []),
     ['survey', t('v_survey')],
