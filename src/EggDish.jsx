@@ -68,6 +68,8 @@ const L = {
   myPosts: ['{n}回の投稿', '{n} posts'],
   recipeAsked: ['レシピを聞かれています。写真の下に書き足せます。',
     'Someone asked for the recipe. You can add it under the photo.'],
+  close: ['閉じる', 'Close'],
+  by: ['', 'by '],
   failed: ['送信できませんでした', 'Could not send that'],
   tooBig: ['写真が大きすぎます', 'That photo is too large'],
   posted: ['投稿しました。ありがとうございます！', 'Posted — thank you!'],
@@ -114,7 +116,8 @@ export default function EggDish({ lang, toast }) {
   const [editing, setEditing] = useState(null);     /* a post id */
   const [form, setForm] = useState({ dish: '', body: '', recipe: '' });
   const [files, setFiles] = useState([]);
-  const [showing, setShowing] = useState(null);     /* a photo id, full size */
+  const [showing, setShowing] = useState(null);     /* a post id, opened */
+  const [full, setFull] = useState(null);           /* a photo id, full size */
   const [threads, setThreads] = useState({});       /* post id -> comments */
   const [draft, setDraft] = useState({});
   const fileRef = useRef(null);
@@ -178,6 +181,7 @@ export default function EggDish({ lang, toast }) {
         if (!files.length) return;
         const made = await api('/dish', 'POST', form);
         if (!made.ok || !made.id) { toast?.(t('failed')); return; }
+        let landed = 0;
         for (let i = 0; i < files.length; i += 1) {
           /* Full size first, then the small copy against the id it comes
              back with. If the second never lands the timeline simply shows
@@ -185,8 +189,18 @@ export default function EggDish({ lang, toast }) {
           const big = await shrink(files[i].file, PHOTO_EDGE, 0.82);
           const up = await api(`/photo?post=${made.id}&ord=${i}`, 'POST', big, big.type);
           if (!up.ok) { toast?.(up.status === 413 ? t('tooBig') : t('failed')); continue; }
+          landed += 1;
           const small = await shrink(files[i].file, THUMB_EDGE, 0.72);
           await api(`/photo?id=${up.id}`, 'PUT', small, small.type);
+        }
+        /* The post is made before its photographs, so a failed upload
+           would otherwise leave a dish with no picture of it sitting in
+           the grid as an empty tile. If none of them landed, the post
+           goes with them. */
+        if (!landed) {
+          await api(`/dish?id=${made.id}`, 'DELETE');
+          toast?.(t('failed'));
+          return;
         }
         toast?.(t('posted'));
       }
@@ -256,6 +270,35 @@ export default function EggDish({ lang, toast }) {
 
       {/* The heading, what it is for, and the way to add to it — one bar
           rather than three stacked rows. */}
+      {/* 7.4, as a strip rather than a column beside the feed: the grid
+          below wants the whole width now. */}
+      <div className="mg-strip2">
+        {d.myBadge && (
+          <span className="mg-chip">
+            <img src={img(d.myBadge.art)} alt="" />
+            <b>{lang === 'ja' ? d.myBadge.ja : d.myBadge.en}</b>
+            <em>{t('myPosts').replace('{n}', String(d.myPosts))}</em>
+          </span>
+        )}
+        {d.topDish && (
+          <span className="mg-chip top">
+            <i aria-hidden="true">🍳</i>
+            <b>{d.topDish.dish}</b>
+            <em>{t('topDish')}</em>
+          </span>
+        )}
+        {!d.admin && (() => {
+          const next = BADGES.find((x) => x.at > d.myPosts);
+          return next ? (
+            <span className="mg-next">
+              {t('nextBadge')
+                .replace('{n}', String(next.at - d.myPosts))
+                .replace('{b}', lang === 'ja' ? next.ja : next.en)}
+            </span>
+          ) : null;
+        })()}
+      </div>
+
       <div className="mg-dbar">
         <b>{t('head')}</b>
         <span>{t('lede')}</span>
@@ -333,36 +376,71 @@ export default function EggDish({ lang, toast }) {
         </div>
       )}
 
-      {/* --------------------------- the timeline -----------------------
-          The empty state lives inside the feed, not beside it: on a phone
-          this is a flex column ordered by hand, and a card with no order
-          of its own sorts to the front — which put "nothing here yet"
-          above the banner. */}
-      <div className="mg-feed" ref={feedRef}>
+      {/* ---------------------------- the grid --------------------------
+          Small square tiles, tapped to open — the shape a photo app uses,
+          and the reason: a dish is recognised from a thumbnail, so twelve
+          of them in a glance beats one and a half down a column. The
+          whole post — the other photographs, the recipe, the reactions,
+          the comments — is a tap away rather than always on screen. */}
+      <div className="mg-grid" ref={feedRef}>
         {!d.posts.length && (
-          <div className="card eg-shut">
+          <div className="card eg-shut mg-grid-none">
             <img src={img('empty')} alt="" />
             <p className="muted sm">{t('noneYet')}</p>
           </div>
         )}
-        {d.posts.map((p) => {
-          const isMine = String(p.employeeId) === String(d.me);
-          const thread = threads[p.id];
-          return (
-            <article key={p.id} className={`card mg-post${p.hidden ? ' off' : ''}`}>
+        {d.posts.map((p) => (
+          <button
+            key={p.id} type="button"
+            className={`mg-tile${p.hidden ? ' off' : ''}`}
+            onClick={() => setShowing(p.id)}
+          >
+            {p.photos[0]
+              ? <img src={pic(p.photos[0], true)} alt={p.dish} loading="lazy" />
+              : <span className="mg-tile-no">🍳</span>}
+            <span className="mg-tile-over">
+              <b>{p.dish}</b>
+              <em>{p.authorName}</em>
+            </span>
+            <span className="mg-tile-sum">
+              {p.photos.length > 1 && <i className="mg-tile-many" aria-hidden="true">❏</i>}
+              {!!p.like && <i>🥚{p.like}</i>}
+              {!!p.wantToMake && <i>🍳{p.wantToMake}</i>}
+              {!!p.comments && <i>💬{p.comments}</i>}
+            </span>
+            {p.hidden && <em className="eg-exp mg-tile-hid">{t('hidden')}</em>}
+          </button>
+        ))}
+      </div>
+
+      {/* ------------------------- one post, opened --------------------- */}
+      {showing && (() => {
+        const p = d.posts.find((x) => x.id === showing);
+        if (!p) return null;
+        const isMine = String(p.employeeId) === String(d.me);
+        const thread = threads[p.id];
+        return (
+          <div
+            className="mg-sheet" role="dialog" aria-modal="true"
+            onClick={(e) => e.target === e.currentTarget && setShowing(null)}
+          >
+            <article className="mg-sheet-in">
               <header className="mg-post-h">
                 <b>{p.authorName}</b>
                 <span>{when(p.createdAt)}</span>
                 {p.hidden && <em className="eg-exp">{t('hidden')}</em>}
                 {isMine && (
                   <>
-                    <button className="btn sm ghost" onClick={() => startEdit(p)}>{t('edit')}</button>
+                    <button className="btn sm ghost" onClick={() => { setShowing(null); startEdit(p); }}>
+                      {t('edit')}
+                    </button>
                     <button
                       className="btn sm danger"
                       onClick={async () => {
                         /* eslint-disable-next-line no-alert */
                         if (!window.confirm(t('delSure'))) return;
-                        await api(`/dish?id=${p.id}`, 'DELETE'); load();
+                        await api(`/dish?id=${p.id}`, 'DELETE');
+                        setShowing(null); load();
                       }}
                     >{t('del')}</button>
                   </>
@@ -373,6 +451,10 @@ export default function EggDish({ lang, toast }) {
                     onClick={async () => { await api('/dish/hide', 'POST', { id: p.id, hide: !p.hidden }); load(); }}
                   >{p.hidden ? t('unhide') : t('hide')}</button>
                 )}
+                <button
+                  type="button" className="mg-sheet-x" aria-label={t('close')}
+                  onClick={() => setShowing(null)}
+                >×</button>
               </header>
 
               <h3 className="mg-post-d">{p.dish}</h3>
@@ -380,8 +462,8 @@ export default function EggDish({ lang, toast }) {
               {!!p.photos.length && (
                 <div className={`mg-shots n${Math.min(p.photos.length, 4)}`}>
                   {p.photos.map((id) => (
-                    <button key={id} type="button" onClick={() => setShowing(id)}>
-                      <img src={pic(id, true)} alt={p.dish} loading="lazy" />
+                    <button key={id} type="button" onClick={() => setFull(id)}>
+                      <img src={pic(id, true)} alt={p.dish} />
                     </button>
                   ))}
                 </div>
@@ -389,12 +471,11 @@ export default function EggDish({ lang, toast }) {
 
               {p.body && <p className="mg-post-b">{p.body}</p>}
               {p.recipe && (
-                <details className="mg-recipe">
+                <details className="mg-recipe" open>
                   <summary>{t('recipe')}</summary>
                   <pre>{p.recipe}</pre>
                 </details>
               )}
-              {/* 「投稿者に知らせる。投稿者は写真の下にレシピを追記できる」 */}
               {isMine && !p.recipe && p.recipePlease > 0 && (
                 <p className="mg-asked">{t('recipeAsked')}</p>
               )}
@@ -450,56 +531,14 @@ export default function EggDish({ lang, toast }) {
                 </div>
               )}
             </article>
-          );
-        })}
-      </div>
-
-      {/* ----------------------------- beside it ------------------------
-          On a wide screen the timeline stops getting wider at 720px — two
-          columns of posts would be read in zig-zag — so what would be
-          empty beside it carries the things worth glancing at. */}
-      <aside className="mg-side">
-        {/* 7.4:「月間の『いちばん作ってみたい料理』などをトップに表示」 */}
-        {d.topDish && (
-          <div className="card mg-top1">
-            <em>{t('topDish')}</em>
-            <b>{d.topDish.dish}</b>
           </div>
-        )}
+        );
+      })()}
 
-        {/* 7.4:「投稿数に応じたモラエッグのバッジ」. It only ever goes up —
-            nothing anywhere counts the weeks somebody did not cook. */}
-        {d.myBadge && (
-          <div className="card mg-badge">
-            <img src={img(d.myBadge.art)} alt="" />
-            <div>
-              <em>{t('myBadge')}</em>
-              <b>{lang === 'ja' ? d.myBadge.ja : d.myBadge.en}</b>
-              <span>{t('myPosts').replace('{n}', String(d.myPosts))}</span>
-            </div>
-          </div>
-        )}
-        {!d.admin && (() => {
-          const next = BADGES.find((x) => x.at > d.myPosts);
-          return next ? (
-            <p className="mg-next">
-              {t('nextBadge')
-                .replace('{n}', String(next.at - d.myPosts))
-                .replace('{b}', lang === 'ja' ? next.ja : next.en)}
-            </p>
-          ) : null;
-        })()}
-
-        <div className="card mg-coop">
-          <img src={img('coop-greens')} alt="" />
-          <span>{t('fromCoop')}</span>
-        </div>
-      </aside>
-
-      {/* a tapped photograph, full size */}
-      {showing && (
-        <button type="button" className="mg-lightbox" onClick={() => setShowing(null)}>
-          <img src={pic(showing, false)} alt="" />
+      {/* and one photograph, at its full size, over the top of that */}
+      {full && (
+        <button type="button" className="mg-lightbox" onClick={() => setFull(null)}>
+          <img src={pic(full, false)} alt="" />
         </button>
       )}
     </div>

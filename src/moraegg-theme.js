@@ -53,40 +53,50 @@ export const MG_CSS = `
   padding-bottom:40px;
 }
 
-/* ------------------------------ the header ------------------------------ */
+/* ------------------------------ the header ------------------------------
+   A quiet bar. The first version shouted: a 4px yellow rule under it and
+   every control a thick outlined pill, which is a lot of border for three
+   words and two links. Same colours, a third of the weight.
+------------------------------------------------------------------------ */
 .mg-hdr{
-  display:flex;align-items:center;gap:12px;flex-wrap:wrap;
-  padding:8px 14px;background:var(--mg-navy);
-  border-bottom:4px solid var(--mg-sun);
+  display:flex;align-items:center;gap:14px;
+  padding:0 18px;height:54px;background:var(--mg-navy);
+  box-shadow:inset 0 -1px 0 rgba(255,198,47,.5);
 }
+.mg-back i{font-style:normal;line-height:1}
 .mg-back{
-  display:inline-flex;align-items:center;gap:5px;
-  padding:5px 12px 6px;border:2px solid var(--mg-sun);border-radius:999px;
-  background:transparent;color:var(--mg-sun);
-  font:inherit;font-size:12px;font-weight:700;white-space:nowrap;
+  display:inline-flex;align-items:center;gap:6px;
+  padding:5px 2px;border:0;background:none;color:rgba(255,255,255,.72);
+  font:inherit;font-size:12.5px;font-weight:700;white-space:nowrap;
 }
-.mg-back:hover{background:var(--mg-sun);color:var(--mg-navy)}
-.mg-brand{display:flex;align-items:center;gap:11px;margin-right:auto}
-.mg-seal{width:36px;height:36px;flex:none}
-.mg-brand h1{margin:0;font-size:18px;font-weight:900;color:#fff;letter-spacing:.02em}
-.mg-brand p{margin:1px 0 0;font-size:11.5px;font-weight:500;color:var(--mg-sun)}
-.mg-hdr-r{display:flex;gap:7px}
-/* On a phone the three groups wrap to three rows and the header eats a
-   fifth of the screen. Two rows: the way out and the controls share one,
-   the name takes the other. */
-@media(max-width:620px){
-  .mg-hdr{gap:9px;padding:9px 13px}
-  .mg-back{order:1}
-  .mg-hdr-r{order:2;margin-left:auto}
-  .mg-brand{order:3;flex:1 1 100%;margin-right:0}
-  .mg-seal{width:38px;height:38px}
-  .mg-brand h1{font-size:19px}
-}
+.mg-back:hover{color:var(--mg-sun)}
+.mg-brand{display:flex;align-items:center;gap:9px;margin:0 auto;
+  padding-left:14px;border-left:1px solid rgba(255,255,255,.16)}
+.mg-seal{width:30px;height:30px;flex:none;border-radius:999px}
+.mg-brand h1{margin:0;font-size:16.5px;font-weight:900;color:#fff;letter-spacing:.01em}
+.mg-brand p{display:none}
+.mg-hdr-r{display:flex;gap:4px}
 .mg-mini{
-  padding:6px 12px;border:2px solid rgba(255,255,255,.4);border-radius:999px;
-  background:transparent;color:#fff;font:inherit;font-size:12px;font-weight:700;
+  padding:5px 10px;border:0;border-radius:7px;
+  background:rgba(255,255,255,.09);color:rgba(255,255,255,.82);
+  font:inherit;font-size:11.5px;font-weight:700;
 }
-.mg-mini:hover{border-color:#fff;background:rgba(255,255,255,.14)}
+.mg-mini:hover{background:rgba(255,255,255,.2);color:#fff}
+
+/* On a phone the bar holds four things across 390px, and the name is the
+   one that must not break: 「モラエッグ」 wrapping to two lines is what
+   made the bar look broken. The way back keeps its arrow and loses its
+   words — the arrow is the affordance, the words were the width. */
+@media(max-width:620px){
+  .mg-hdr{height:48px;padding:0 10px;gap:8px}
+  .mg-back span{display:none}
+  .mg-back{gap:0;padding:5px 4px}
+  .mg-back i{font-size:17px}
+  .mg-brand{padding-left:8px;gap:7px;min-width:0}
+  .mg-brand h1{font-size:15px;white-space:nowrap}
+  .mg-seal{width:26px;height:26px}
+  .mg-mini{padding:5px 8px;font-size:11px}
+}
 
 /* ------------------------------- the tabs ------------------------------- */
 .mg .eg-sub{
@@ -521,7 +531,7 @@ export const MG_CSS = `
    shadow and a few degrees of tilt, and that is most of why their pages
    feel hand-made rather than laid out; the same three things here.
 ------------------------------------------------------------------------ */
-.mg-hero{display:grid;justify-items:center;margin:2px 0 18px}
+.mg-hero{display:grid;justify-items:center;margin:4px auto 20px;width:100%;max-width:820px}
 .mg-hero-pics{display:grid;grid-template-columns:repeat(3,1fr);
   gap:4px;width:100%;align-items:start}
 .mg-hero-pics figure{
@@ -607,55 +617,119 @@ export const MG_CSS = `
   background:var(--mg-sun);border:2px solid var(--mg-navy);border-radius:12px;
   padding:9px 13px;margin:4px 0 0}
 
-/* the posts */
-.mg-feed{display:grid;gap:14px}
-.mg-post{margin:0;transition:transform .2s ease,box-shadow .2s ease}
-.mg-post:hover{transform:translateY(-2px);box-shadow:0 6px 0 rgba(11,41,106,.14)}
-/* Posts rise as they come into view — the one borrowed Hay Day motion
-   that costs nothing and makes a long feed feel alive. Added by script
-   on intersection, so a post already on screen when the page loads is
-   not animated in from nowhere. */
-.mg-post.rise{opacity:0;transform:translateY(14px)}
-.mg-post.rise.in{opacity:1;transform:none;
-  transition:opacity .45s ease,transform .45s cubic-bezier(.34,1.2,.64,1)}
-@media(prefers-reduced-motion:reduce){
-  .mg-post,.mg-post:hover{transition:none;transform:none}
-  .mg-post.rise{opacity:1;transform:none}
+/* ------------------------------- the grid -------------------------------
+   Square tiles, the way a photo app shows a profile. A dish is
+   recognisable from a thumbnail, so a dozen in one glance beats one and a
+   half down a column — which is what the full-width feed gave, and why
+   one post was taking half the screen.
+------------------------------------------------------------------------ */
+.mg-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:6px}
+.mg-grid-none{grid-column:1/-1;margin:0}
+.mg-tile{
+  position:relative;padding:0;border:2px solid var(--mg-navy);
+  border-radius:10px;overflow:hidden;background:var(--mg-sky);
+  aspect-ratio:1;display:block;line-height:0;
+  box-shadow:0 2px 0 rgba(11,41,106,.16);
+  transition:transform .18s ease,box-shadow .18s ease;
 }
-.mg-post.off{opacity:.62;border-style:dashed}
-.mg-post-h{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-bottom:7px}
-.mg-post-h b{font-size:13px;font-weight:900}
-.mg-post-h span{font-size:11.5px;font-weight:700;color:#5B6B86;margin-right:auto}
-.mg-post-d{font-size:16px;font-weight:900;margin:0 0 10px;color:var(--mg-navy)}
-.mg-post-b{font-size:13px;font-weight:500;line-height:1.7;margin:11px 0 0;color:#2C3C58}
+.mg-tile:hover{transform:translateY(-2px);box-shadow:0 5px 0 rgba(11,41,106,.18);z-index:2}
+.mg-tile img{width:100%;height:100%;object-fit:cover;display:block}
+.mg-tile-no{display:flex;align-items:center;justify-content:center;
+  width:100%;height:100%;font-size:34px}
+.mg-tile.off{opacity:.55;border-style:dashed}
 
-/* One photo fills the width; several share it, so a post is always the
-   same height whether it carries one dish or four. */
-/* A dish is whatever shape it was photographed in. Forcing 16:10 and
-   cropping to fill turned a bowl of rice shot portrait into a letterboxed
-   close-up of its middle — the food cropped out and the rest enlarged.
-   One photograph is therefore shown whole, bounded by a height rather
-   than a shape. Several share a row, where a common cell is what makes
-   the row read as a set, so those do crop — but to a square, which takes
-   the middle of a plate rather than a slice of it. */
+/* The name sits on the picture, so a tile says what it is without being
+   opened — legible because of the wash under it, not the colour of it. */
+/* line-height is restored here: the tile itself is set to 0 so the image
+   leaves no gap under it, and that collapses the text in these overlays
+   to a sliver if they do not set their own. */
+.mg-tile-over{
+  position:absolute;inset:auto 0 0 0;padding:16px 8px 6px;text-align:left;
+  background:linear-gradient(transparent,rgba(11,41,106,.82) 62%);
+  line-height:1.3;
+}
+.mg-tile-over b{display:block;font-size:12px;font-weight:900;color:#fff;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mg-tile-over em{font-style:normal;font-size:10px;font-weight:700;color:var(--mg-sun)}
+.mg-tile-sum{position:absolute;top:5px;right:6px;display:flex;gap:4px;line-height:1.3}
+.mg-tile-sum i{font-style:normal;font-size:10px;font-weight:900;color:var(--mg-navy);
+  background:rgba(255,255,255,.92);border-radius:999px;padding:2px 6px 3px;
+  line-height:1.2}
+.mg-tile-many{font-size:11px !important}
+.mg-tile-hid{position:absolute;top:5px;left:6px}
+
+/* ----------------------------- the photos ------------------------------
+   Every link in the chain has to be told it may shrink: the grid column,
+   the button inside it, and the image inside that. Miss one and
+   max-width:100% resolves against the photograph's own width — which is
+   how a 1368px picture came to hang out of a 560px card.
+
+   A dish is whatever shape it was photographed in, so one photograph is
+   shown whole and bounded by a height. Several share a square cell,
+   because a common cell is what makes a row read as a set — and a square
+   takes the middle of a plate rather than a slice of it.
+------------------------------------------------------------------------ */
 .mg-shots{display:grid;gap:5px}
-.mg-shots button{padding:0;border:0;background:none;display:block;line-height:0}
+.mg-shots button{padding:0;border:0;background:none;display:block;
+  line-height:0;min-width:0;max-width:100%}
 .mg-shots img{display:block;width:100%;border-radius:10px;
   border:2px solid var(--mg-navy)}
-.mg-shots.n1{justify-items:center}
-.mg-shots.n1 img{height:auto;max-height:420px;width:auto;max-width:100%;
+.mg-shots.n1{grid-template-columns:minmax(0,1fr)}
+.mg-shots.n1 button{width:100%;display:flex;justify-content:center}
+.mg-shots.n1 img{width:auto;height:auto;max-width:100%;max-height:420px;
   object-fit:contain}
 .mg-shots.n2,.mg-shots.n3,.mg-shots.n4{grid-template-columns:1fr 1fr}
 .mg-shots.n2 img,.mg-shots.n3 img,.mg-shots.n4 img{
   aspect-ratio:1;height:100%;object-fit:cover}
 
-.mg-recipe{margin:11px 0 0;border:2px dashed var(--mg-royal);border-radius:12px;
-  background:var(--mg-sky);padding:9px 13px}
-.mg-recipe summary{font-size:12.5px;font-weight:900;color:var(--mg-royal);cursor:pointer}
-.mg-recipe pre{margin:8px 0 0;font:inherit;font-size:13px;font-weight:500;
-  white-space:pre-wrap;color:#2C3C58}
-.mg-asked{font-size:12.5px;font-weight:700;color:var(--mg-navy);
-  background:var(--mg-sun);border-radius:10px;padding:7px 11px;margin:10px 0 0}
+/* ------------------------------ the recipe -----------------------------
+   A recipe is the one thing on a post somebody copies out, so it keeps
+   its own panel and pre-wrapped whitespace — the line breaks a cook typed
+   are the instructions. The ask below it is only ever shown to the poster:
+   「レシピ教えて」 is a nudge, not a public scoreboard.
+------------------------------------------------------------------------ */
+.mg-recipe{margin:8px 0 0;border:2px solid var(--mg-navy);border-radius:12px;
+  background:var(--mg-cream);padding:8px 10px}
+.mg-recipe summary{font-weight:800;color:var(--mg-navy);cursor:pointer;
+  font-size:13px;list-style:none}
+.mg-recipe summary::-webkit-details-marker{display:none}
+.mg-recipe summary::before{content:'\\25B8';display:inline-block;
+  margin-right:6px;transition:transform .15s}
+.mg-recipe[open] summary::before{transform:rotate(90deg)}
+.mg-recipe pre{margin:6px 0 0;font:inherit;font-size:13px;line-height:1.6;
+  white-space:pre-wrap;word-break:break-word;color:var(--mg-ink)}
+.mg-asked{margin:8px 0 0;font-size:12px;font-weight:700;color:var(--mg-green)}
+
+/* ------------------------- one post, opened ----------------------------- */
+.mg-sheet{position:fixed;inset:0;z-index:50;display:flex;
+  align-items:flex-start;justify-content:center;padding:18px 12px;
+  background:rgba(11,41,106,.55);overflow:auto}
+.mg-sheet-in{
+  background:var(--mg-paper);border:2.5px solid var(--mg-navy);
+  border-radius:var(--mg-round);box-shadow:0 10px 0 rgba(11,41,106,.18);
+  padding:13px 14px;width:100%;max-width:560px;margin:auto 0;
+}
+.mg-sheet-x{margin-left:4px;width:28px;height:28px;padding:0;border-radius:999px;
+  border:2px solid var(--mg-navy);background:#fff;color:var(--mg-navy);
+  font:inherit;font-size:16px;font-weight:900;line-height:1}
+.mg-sheet-x:hover{background:var(--mg-sun)}
+.mg-post-h{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:7px}
+.mg-post-h b{font-size:13px;font-weight:900}
+.mg-post-h span{font-size:11.5px;font-weight:700;color:#5B6B86;margin-right:auto}
+.mg-post-d{font-size:16px;font-weight:900;margin:0 0 10px;color:var(--mg-navy)}
+.mg-post-b{font-size:13px;font-weight:500;line-height:1.7;margin:11px 0 0;color:#2C3C58}
+
+/* 7.4, as a strip rather than a column beside the feed */
+.mg-strip2{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:0 0 11px}
+.mg-chip{display:inline-flex;align-items:center;gap:7px;
+  border:2px solid var(--mg-navy);border-radius:999px;background:#fff;
+  padding:3px 13px 4px 4px;box-shadow:0 2px 0 rgba(11,41,106,.14)}
+.mg-chip img{width:28px;height:28px;flex:none}
+.mg-chip i{font-style:normal;font-size:16px;margin-left:8px}
+.mg-chip b{font-size:12.5px;font-weight:900;color:var(--mg-navy)}
+.mg-chip em{font-style:normal;font-size:10.5px;font-weight:700;color:#5B6B86}
+.mg-chip.top{background:var(--mg-sun)}
+.mg-next{font-size:11px;font-weight:700;color:#5B6B86}
 
 /* 7.2 the buttons */
 .mg-react{display:flex;gap:7px;flex-wrap:wrap;margin-top:12px}
@@ -690,30 +764,27 @@ export const MG_CSS = `
 
 @media(min-width:900px){
   .mg-dtop{grid-template-columns:repeat(auto-fit,minmax(220px,1fr));align-items:center}
-  .mg-hero-banner b{font-size:27px}
-  .mg-hero-pics{gap:10px}
-  .mg-hero-pics figure{padding:7px 7px 0}
-  .mg-hero-pics figcaption{font-size:11.5px}
-  .mg-hero-egg{width:88px;height:88px}
+  /* The front of the site, so it gets the middle of the page and some
+     size. It is the first thing anybody sees and it should look like it. */
+  .mg-hero{max-width:820px;margin-bottom:26px}
+  .mg-hero-pics{gap:16px}
+  .mg-hero-pics figure{padding:9px 9px 0;border-radius:4px}
+  .mg-hero-pics figcaption{font-size:13px;padding:7px 2px 8px}
+  .mg-hero-egg{width:104px;height:104px;margin:-18px 0 -8px}
+  .mg-hero-banner{padding:12px 46px 13px;min-width:330px}
+  .mg-hero-banner b{font-size:33px}
+  .mg-hero-banner em{font-size:11.5px}
+  .mg-hero-banner span{font-size:12px}
   .mg-shots.n3{grid-template-columns:repeat(3,1fr)}
   .mg-shots.n4{grid-template-columns:repeat(4,1fr)}
-  /* Two columns of posts would make a timeline you read in zig-zag, so
-     the feed stays one column and stops getting wider — and what would
-     be empty beside it holds the month's best and the badge. */
-  .mg-dish{grid-template-columns:minmax(0,1fr) minmax(0,300px);
-    column-gap:22px;align-items:start}
-  .mg-hero,.mg-dbar,.mg-dtop,.mg-compose,.mg-feed{grid-column:1;max-width:720px}
-  .mg-side{grid-column:2;grid-row:1/span 4;position:sticky;top:18px}
+  /* One centred column. The hero is the front of the site, so it sits in
+     the middle of the page rather than at the left edge of a text column
+     with three hundred pixels of nothing beside it. */
+  .mg-dish{max-width:860px;margin:0 auto}
+  .mg-grid{grid-template-columns:repeat(3,1fr);gap:10px}
+  .mg-compose{max-width:560px}
 }
-@media(max-width:899px){
-  /* On a phone the dishes come first — they are what the page is for.
-     The badge and the coop picture follow them rather than standing
-     between the banner and the first photograph. */
-  .mg-dish{display:flex;flex-direction:column}
-  .mg-hero{order:1}
-  .mg-dbar{order:2}
-  .mg-compose{order:3}
-  .mg-feed{order:4}
-  .mg-side{order:5;margin-top:14px}
+@media(min-width:1280px){
+  .mg-grid{grid-template-columns:repeat(4,1fr)}
 }
 `;

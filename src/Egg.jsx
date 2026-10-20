@@ -233,8 +233,9 @@ export default function EggTab({
           the way back is the first thing on it rather than the last. */}
       <header className="mg-hdr">
         {onBack && (
-          <button type="button" className="mg-back" onClick={onBack}>
-            ← {t('back')}
+          <button type="button" className="mg-back" onClick={onBack} aria-label={t('back')}>
+            <i aria-hidden="true">←</i>
+            <span>{t('back')}</span>
           </button>
         )}
         <div className="mg-brand">
