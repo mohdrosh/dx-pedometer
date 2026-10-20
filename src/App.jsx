@@ -108,6 +108,24 @@ const landingTab = (u) => (u?.admin ? 'admin' : (u?.mypage ? 'profile' : 'entry'
 const AT_MYPAGE_DOOR = typeof window !== 'undefined'
   && /(^|\/)my\/?$/.test(window.location.pathname);
 
+/* The third door. モラエッグ has an address of its own — .../egg — so it can
+   be bookmarked, pasted into a message and opened without going through
+   マイページ first. It needs nothing from nginx: the server already serves
+   index.html for any path that is not a file, which is how /my works.
+   The tab stays as well, so nobody who does not have the link is stranded. */
+const AT_EGG_DOOR = typeof window !== 'undefined'
+  && /(^|\/)egg\/?$/.test(window.location.pathname);
+
+/* Keep the address bar honest as somebody moves between the two. Pushing a
+   state rather than reloading: this is one page, and a reload would throw
+   away everything it has fetched. */
+const EGG_URL = `${import.meta.env.BASE_URL}egg`;
+function showUrl(toEgg) {
+  if (typeof window === 'undefined' || !window.history?.replaceState) return;
+  const want = toEgg ? EGG_URL : import.meta.env.BASE_URL;
+  if (window.location.pathname !== want) window.history.replaceState(null, '', want);
+}
+
 /* ============================== i18n ====================================== */
 const LangCtx = createContext('ja');
 const useLang = () => useContext(LangCtx);
@@ -432,6 +450,9 @@ const STR = {
   mypageTitle: ['マイページ', 'My Page'],
   mypageEyebrow: ['モラブ阪神工業株式会社', 'Morabu Hanshin'],
   mypageHello: ['こんにちは！\nマイページへようこそ。', 'Hello! Welcome to your page.'],
+  eggDoorTitle: ['モラエッグ', 'Moraegg'],
+  eggDoorEyebrow: ['丹波の鶏舎から、朝どれたまご', 'Fresh eggs from the coop in Tamba'],
+  eggDoorHello: ['こんにちは！\n今週のタマゴ、どうぞ。', "Hello! This week's eggs are here."],
   thisMonth: ['今月度', 'Current month'],
   subWindow: ['提出期間', 'Submission'],
   profileHead: ['登録情報', 'Your details'],
@@ -964,12 +985,12 @@ function Login({ onLogin, onTrial, lang, setLang, notice }) {
 
         <div className="login-hello">
           <MoraBot pose="hello" title={t('botAlt')} />
-          <p className="bubble">{t(AT_MYPAGE_DOOR ? 'mypageHello' : 'botHello')}</p>
+          <p className="bubble">{t(AT_EGG_DOOR ? 'eggDoorHello' : AT_MYPAGE_DOOR ? 'mypageHello' : 'botHello')}</p>
         </div>
 
         <div className="login-title">
-          <span className="eyebrow">{t(AT_MYPAGE_DOOR ? 'mypageEyebrow' : 'eyebrow')}</span>
-          <h1>{t(AT_MYPAGE_DOOR ? 'mypageTitle' : 'mainTitle')}</h1>
+          <span className="eyebrow">{t(AT_EGG_DOOR ? 'eggDoorEyebrow' : AT_MYPAGE_DOOR ? 'mypageEyebrow' : 'eyebrow')}</span>
+          <h1>{t(AT_EGG_DOOR ? 'eggDoorTitle' : AT_MYPAGE_DOOR ? 'mypageTitle' : 'mainTitle')}</h1>
         </div>
 
         <label className="fld">
@@ -2891,7 +2912,7 @@ export default function App() {
   const [roster, setRoster] = useState(null);
   const [user, setUser] = useState(null);
   const [expired, setExpired] = useState(false);
-  const [mod, setMod] = useState('steps');
+  const [mod, setMod] = useState(AT_EGG_DOOR ? 'egg' : 'steps');
   const [tab, setTab] = useState('entry');
   const [holidays, setHolidays] = useState(HOLIDAYS_FALLBACK);
   const [{ y, m }, setPeriod] = useState(currentPeriod());
@@ -3072,7 +3093,7 @@ export default function App() {
           <EggTab
             user={user} cfg={cfg} setCfg={setCfg} lang={lang} setLang={setLang}
             toast={toast} people={roster || []}
-            onBack={() => { setMod('steps'); setTab(landingTab(user)); }}
+            onBack={() => { showUrl(false); setMod('steps'); setTab(landingTab(user)); }}
             onSignOut={signOut}
           />
           <Toast msg={toastMsg} />
@@ -3159,7 +3180,10 @@ export default function App() {
             if (id === 'personal') {
               if (user.admin) return null;
               return (
-                <button key="personal" className={tab === 'profile' ? 'on' : ''} onClick={() => setTab('profile')}>
+                <button
+                  key="personal" className={tab === 'profile' ? 'on' : ''}
+                  onClick={() => { showUrl(false); setTab('profile'); }}
+                >
                   <span>{me.mypage ? tt('personalInfo') : tt('mypage')}</span>
                 </button>
               );
@@ -3175,7 +3199,13 @@ export default function App() {
                 key={id}
                 className={(!isDoor && mod === id && (user.admin || tab !== 'profile') ? 'on ' : '')
                   + (open ? '' : 'dim') + (isDoor ? ' door' : '')}
-                onClick={() => { setMod(id); setTab(user.admin ? 'admin' : 'entry'); }}
+                onClick={() => {
+                  /* The address follows the screen, so the egg page can be
+                     copied out of the bar and pasted to somebody else. */
+                  showUrl(isDoor);
+                  setMod(id);
+                  setTab(user.admin ? 'admin' : 'entry');
+                }}
               >
                 <span>{lang === 'ja' ? x.ja : x.en}{isDoor && open ? ' ↗' : ''}</span>
                 {!open && <em className="badge">{tt('soon')}</em>}
