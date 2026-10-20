@@ -59,7 +59,8 @@ export const MG_CSS = `
    words and two links. Same colours, a third of the weight.
 ------------------------------------------------------------------------ */
 .mg-hdr{
-  display:flex;align-items:center;gap:14px;
+  position:relative;
+  display:flex;align-items:center;gap:14px;justify-content:space-between;
   padding:0 18px;height:54px;background:var(--mg-navy);
   box-shadow:inset 0 -1px 0 rgba(255,198,47,.5);
 }
@@ -70,8 +71,14 @@ export const MG_CSS = `
   font:inherit;font-size:12.5px;font-weight:700;white-space:nowrap;
 }
 .mg-back:hover{color:var(--mg-sun)}
-.mg-brand{display:flex;align-items:center;gap:9px;margin:0 auto;
-  padding-left:14px;border-left:1px solid rgba(255,255,255,.16)}
+/* Centred on the bar itself rather than in the space the two sets of
+   controls leave over — those are different widths, so an auto margin
+   put the name slightly right of centre. Taken out of the flow and
+   pinned to the middle, with the pointer passing through to whatever is
+   behind it so it never sits on top of a control. */
+.mg-brand{display:flex;align-items:center;gap:9px;
+  position:absolute;left:50%;transform:translateX(-50%);
+  pointer-events:none}
 .mg-seal{width:30px;height:30px;flex:none;border-radius:999px}
 .mg-brand h1{margin:0;font-size:16.5px;font-weight:900;color:#fff;letter-spacing:.01em}
 .mg-brand p{display:none}
@@ -92,7 +99,7 @@ export const MG_CSS = `
   .mg-back span{display:none}
   .mg-back{gap:0;padding:5px 4px}
   .mg-back i{font-size:17px}
-  .mg-brand{padding-left:8px;gap:7px;min-width:0}
+  .mg-brand{gap:7px;min-width:0}
   .mg-brand h1{font-size:15px;white-space:nowrap}
   .mg-seal{width:26px;height:26px}
   .mg-mini{padding:5px 8px;font-size:11px}
