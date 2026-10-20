@@ -46,7 +46,7 @@ import {
 } from './src/egg.js';
 import {
   mondayOf, nextShipMonday, requestDeadline, requestsOpen, pickupDeadline,
-  allocate, missedFrom, shiftDay,
+  allocate, missedFrom, shiftDay, statusOf,
 } from './src/egg-week.js';
 
 if (!process.env.DATABASE_URL) {
@@ -585,6 +585,11 @@ const server = http.createServer(async (req, res) => {
          管理者        runs the draw, opens offices, edits the terms
        ------------------------------------------------------------------ */
 
+    /** A request with the one status every screen should print for it. */
+    const withStatus = (row, todayIso, holidays) => (
+      row ? { ...row, status: statusOf(row, todayIso, holidays) } : null
+    );
+
     /** Who the caller is, worked out from the session alone. */
     const eggWho = async () => {
       if (sess.isAdmin) return { admin: true, egg: true, farm: true, contactFor: [], person: null };
@@ -646,9 +651,13 @@ const server = http.createServer(async (req, res) => {
         terms: eggTerms(cfg),
         consented: consentOk(consent, cfg),
         consentAt: consent?.agreedAt || null,
-        /* 「自分の申請状況が確認できる」 — their own row, taken by session id. */
-        mine: who.admin ? null : await eggMyRequest(sess.employeeId, ship),
-        history: who.admin ? [] : await eggMyRequests(sess.employeeId, 8),
+        /* 「自分の申請状況が確認できる」 — their own row, taken by session id.
+           The status is worked out here rather than in each screen, so the
+           participant, the office contact and any export can never disagree
+           about whether a pack has expired. */
+        mine: withStatus(await eggMyRequest(sess.employeeId, ship), now.stamp, holidays),
+        history: (who.admin ? [] : await eggMyRequests(sess.employeeId, 8))
+          .map((r) => withStatus(r, now.stamp, holidays)),
         /* 「申請の合計数は目的別の内訳も含めて確認できる」 — counts, open to
            everyone, and no names in them. */
         totals: requestTotals(requests, offices.map((o) => o.name)),
@@ -788,16 +797,22 @@ const server = http.createServer(async (req, res) => {
         offices: mine,
         office,
         ship,
-        weeks: [mondayOf(now.stamp), nextShipMonday(now.stamp)],
+        /* Last week as well as this one and next. 5.5 makes an uncollected
+           pack the office's to deal with, but it only expires on the Friday
+           — and on Monday "this week" moves on and takes it out of sight,
+           which is precisely when they are deciding what to do with it. */
+        weeks: [shiftDay(mondayOf(now.stamp), -7), mondayOf(now.stamp), nextShipMonday(now.stamp)],
         pickup: pickupDeadline(ship, holidays),
         deadline: requestDeadline(ship, cfg),
         arrival: (await eggWeekOffices(ship)).find((o) => o.office === office) || null,
         /* Only the people who actually won packs are on the list to hand to;
            a 落選 has nothing to collect and does not need their name read
-           out at the front desk. */
+           out at the front desk. The expired ones stay on it, because
+           5.5 makes them this office's to deal with. */
         rows: rows.filter((r) => r.got > 0).map((r) => ({
           id: r.id, name: r.name, packs: r.got, purpose: r.purpose,
           pickedUpAt: r.pickedUpAt,
+          status: statusOf({ ...r, ship }, now.stamp, holidays),
         })),
       });
     }

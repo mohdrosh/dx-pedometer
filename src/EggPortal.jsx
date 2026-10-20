@@ -28,6 +28,7 @@ const L = {
   ship: ['発送日', 'Ships'],
   deadline: ['申請締切', 'Requests close'],
   pickupBy: ['受取期限', 'Collect by'],
+  lastWeek: ['先週', 'Last week'],
   thisWeek: ['今週', 'This week'],
   nextWeek: ['来週', 'Next week'],
   closed: ['申請の受付は終了しました', 'Requests for this week have closed'],
@@ -38,6 +39,8 @@ const L = {
   terms: ['受け取りの条件', 'Pickup terms'],
   termsNote: ['申請の前に、下記をご確認ください。', 'Please read this before requesting.'],
   agree: ['同意して申請へ進む', 'Agree and continue'],
+  /* 6.2.1:「同意画面でチェックを入れて『同意する』を押すと申請可能になる」 */
+  agreeTick: ['上記の条件に同意します', 'I agree to the terms above'],
   agreed: ['同意済み', 'Agreed'],
   agreedOn: ['{d} に同意', 'Agreed {d}'],
   reagree: ['条件が改定されました。もう一度ご確認ください。',
@@ -71,6 +74,13 @@ const L = {
   st_confirmed: ['確定', 'Confirmed'],
   st_missed: ['落選', 'Not this week'],
   st_picked: ['受け取り済み', 'Collected'],
+  /* 5.5:「期限までに受け取られなかったパックは、その事務所の判断で扱う。
+     システムでは『期限切れ』として記録するのみ」 */
+  st_expired: ['期限切れ', 'Expired'],
+  expiredNote: ['受け取り期限を過ぎました。事務所にお問い合わせください。',
+    'The pickup deadline has passed. Please ask your office.'],
+  expiredOffice: ['期限切れのパックは事務所でご判断ください。',
+    'Expired packs are for the office to deal with.'],
   gotPacks: ['{n}パック確定', '{n} packs confirmed'],
   missedNote: ['今回は行き渡りませんでした。来週の抽選では優先されます。',
     'Not enough to go round this week. You get priority next week.'],
@@ -298,6 +308,10 @@ function Verdict({ office, lang, t, img }) {
    decide which screens exist at all — fetching it a second time here would
    ask the same question twice to draw one of its own answers. */
 export default function EggPortal({ d, reload: load, lang, toast }) {
+  /* 6.2.1 asks for a tick before the button, so agreeing is a deliberate
+     act rather than the thing that happens when you press the only button
+     on the screen. */
+  const [ticked, setTicked] = useState(false);
   const t = useCallback((k) => (L[k] ? L[k][lang === 'ja' ? 0 : 1] || L[k][0] : k), [lang]);
   const img = (n) => `${import.meta.env.BASE_URL}moraegg/${n}.webp`;
 
@@ -364,10 +378,10 @@ export default function EggPortal({ d, reload: load, lang, toast }) {
   };
 
   const mine = d.mine;
-  const status = !mine ? null
-    : mine.pickedUpAt ? 'picked'
-      : mine.got > 0 ? 'confirmed'
-        : mine.drawnAt ? 'missed' : 'received';
+  /* Worked out on the server, so this screen, the office contact's list and
+     anything exported later can never disagree about whether a pack has
+     expired — which depends on a date and a holiday list, not on markup. */
+  const status = mine?.status || null;
 
   const showForm = d.open && (!mine || editing);
   const needReason = form.packs >= 2 && !form.reason.trim();
@@ -406,7 +420,16 @@ export default function EggPortal({ d, reload: load, lang, toast }) {
                   <li key={i}>{line}</li>
                 ))}
               </ul>
-              <button className="btn primary" disabled={busy} onClick={consent}>{t('agree')}</button>
+              <label className="check mg-tick">
+                <input
+                  type="checkbox" checked={ticked}
+                  onChange={(e) => setTicked(e.target.checked)}
+                />
+                <span>{t('agreeTick')}</span>
+              </label>
+              <button
+                className="btn primary" disabled={busy || !ticked} onClick={consent}
+              >{t('agree')}</button>
             </div>
           </>
         )}
@@ -512,7 +535,8 @@ export default function EggPortal({ d, reload: load, lang, toast }) {
                   alt="" className="eg-stamp"
                 />
               )}
-              <span className={`pill ${status === 'missed' ? 'warn' : status === 'received' ? '' : 'ok'}`}>
+              <span className={`pill ${status === 'missed' || status === 'expired' ? 'warn'
+                : status === 'received' ? '' : 'ok'}`}>
                 {t(`st_${status}`)}
               </span>
               <div className="eg-mystat-v">
@@ -523,6 +547,7 @@ export default function EggPortal({ d, reload: load, lang, toast }) {
                   : `${mine.packs} ${t('pack')}`}</b>
               </div>
               {status === 'missed' && <p className="muted sm">{t('missedNote')}</p>}
+              {status === 'expired' && <p className="muted sm">{t('expiredNote')}</p>}
               <div className="eg-acts">
                 {d.open && <button className="btn" onClick={() => setEditing(true)}>{t('update')}</button>}
                 {status === 'confirmed' && (
@@ -568,7 +593,7 @@ export default function EggPortal({ d, reload: load, lang, toast }) {
                     <span>{md(h.ship, lang)}</span>
                     <span>{h.office}</span>
                     <b>{h.got === null ? `${h.packs} ${t('pack')}` : `${h.got}/${h.packs}`}</b>
-                    <em>{t(`st_${h.pickedUpAt ? 'picked' : h.got > 0 ? 'confirmed' : h.drawnAt ? 'missed' : 'received'}`)}</em>
+                    <em>{t(`st_${h.status || 'received'}`)}</em>
                   </li>
                 ))}
               </ul>
@@ -741,8 +766,8 @@ export function EggOffice({ lang, toast }) {
        next week's is full — so if this one has nobody on it and the next
        one does, open on that instead. Only once, and never over a week
        the contact chose themselves. */
-    if (!ship && !j.rows.length && j.weeks?.[1]) {
-      const nx = await fetch(`${apiRoot()}/egg/office?ship=${j.weeks[1]}&office=${encodeURIComponent(j.office)}`,
+    if (!ship && !j.rows.length && j.weeks?.[2]) {
+      const nx = await fetch(`${apiRoot()}/egg/office?ship=${j.weeks[2]}&office=${encodeURIComponent(j.office)}`,
         { credentials: 'same-origin' });
       if (nx.ok) {
         const n = await nx.json();
@@ -788,7 +813,7 @@ export function EggOffice({ lang, toast }) {
             <button
               key={w} type="button" className={`eg-opt${d.ship === w ? ' on' : ''}`}
               onClick={() => setShip(w)}
-            >{(i === 0 ? t('thisWeek') : t('nextWeek'))} {md(w, lang)}</button>
+            >{t(['lastWeek', 'thisWeek', 'nextWeek'][i] || 'thisWeek')} {md(w, lang)}</button>
           ))}
         </div>
         <span className="muted sm">{t('pickupBy')} {md(d.pickup, lang)}</span>
@@ -824,7 +849,10 @@ export function EggOffice({ lang, toast }) {
             <ul className="eg-hand">
               {d.rows.map((r) => (
                 <li key={r.id} className={r.pickedUpAt ? 'done' : ''}>
-                  <span className="eg-hand-n">{r.name}</span>
+                  <span className="eg-hand-n">
+                    {r.name}
+                    {r.status === 'expired' && <em className="eg-exp">{t('st_expired')}</em>}
+                  </span>
                   <b>{t('packsFor').replace('{n}', String(r.packs))}</b>
                   {r.pickedUpAt
                     ? (
@@ -843,6 +871,9 @@ export function EggOffice({ lang, toast }) {
               ))}
             </ul>
           )}
+        {d.rows.some((r) => r.status === 'expired') && (
+          <p className="muted sm">{t('expiredOffice')}</p>
+        )}
       </div>
      </div>
     </div>

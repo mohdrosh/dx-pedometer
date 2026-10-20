@@ -167,6 +167,30 @@ export const MG_CSS = `
 .mg .muted{color:#5B6B86}
 .mg .sm{font-size:12.5px;line-height:1.75}
 
+/* A checkbox, drawn by the browser.
+
+   This has been broken twice in this codebase by a rule that set
+   appearance:none on every input inside a wrapper: the box kept its
+   checked property, every test still passed, and it could not draw a tick.
+   So the native drawing is asserted here rather than assumed, and
+   accent-color makes it ours without taking the painting away. */
+.app.mg input[type=checkbox]{
+  -webkit-appearance:checkbox;appearance:auto;
+  width:auto;height:auto;padding:0;border:0;background:none;border-radius:0;
+  accent-color:var(--mg-royal);
+}
+.mg .check{display:flex;align-items:center;gap:8px;font-size:13.5px;
+  font-weight:700;color:var(--mg-navy);cursor:pointer}
+.mg .mg-tick{
+  background:var(--mg-sky);border:2px solid var(--mg-royal);border-radius:12px;
+  padding:10px 13px;margin:0 0 11px;
+}
+.mg .eg-exp{
+  font-style:normal;font-size:10.5px;font-weight:900;margin-left:7px;
+  color:var(--mg-navy);background:var(--mg-sun);
+  border:1.5px solid var(--mg-navy);border-radius:999px;padding:1px 7px 2px;
+}
+
 /* ------------------------------- the chips ------------------------------ */
 /* Selected is yellow with a tick, so it is never colour on its own. */
 .mg .eg-opts{display:flex;flex-wrap:wrap;gap:8px}

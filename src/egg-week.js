@@ -200,10 +200,31 @@ export function missedFrom(allocated) {
   return [...new Set((allocated || []).filter((r) => r.got === 0).map((r) => String(r.employeeId)))];
 }
 
-/** What a request's status reads as once a draw has run. */
-export function statusOf(row) {
+/**
+ * What a request's status reads as.
+ *
+ * 5.2:「自分の申請状況（受付済／確定／落選／受け取り済み）が確認できる」, and
+ * 5.5:「期限までに受け取られなかったパックは、その事務所の判断で扱う。システム
+ * では『期限切れ』として記録するのみ」 — so there is a fifth state, and it is
+ * the one the office contact needs to see to know which packs are now theirs
+ * to deal with.
+ *
+ * Expiry is worked out from the deadline rather than written by a nightly
+ * job. A job is a thing that can fail silently over a long weekend and
+ * leave a week looking collectable when it is not; a date comparison
+ * cannot. Collecting late still counts — somebody who turns up on Monday
+ * with the packs still on the desk has collected them, whatever the
+ * deadline said, so pickedUpAt is checked first.
+ *
+ * Called without a date nothing ever expires, which is what the older
+ * callers that do not know today's date should see.
+ */
+export function statusOf(row, todayIso = null, holidays = {}) {
   if (row?.pickedUpAt) return 'picked';
-  if (row?.got > 0) return 'confirmed';
+  if (row?.got > 0) {
+    const by = row.ship ? pickupDeadline(mondayOf(row.ship), holidays) : null;
+    return todayIso && by && String(todayIso) > by ? 'expired' : 'confirmed';
+  }
   if (row?.drawnAt) return 'missed';
   return 'received';
 }

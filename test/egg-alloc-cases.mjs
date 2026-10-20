@@ -237,6 +237,36 @@ is('and a lost one says that', statusOf({ got: 0, drawnAt: 'x' }), 'missed');
 is('once collected, collected', statusOf({ got: 1, drawnAt: 'x', pickedUpAt: 'y' }), 'picked');
 is('a nonexistent request is not a status', statusOf(null), 'received');
 
+/* 5.5:「期限までに受け取られなかったパックは…『期限切れ』として記録する」.
+   The shipment is Monday 2026-10-26, so the deadline is Friday the 30th. */
+const won = { got: 1, drawnAt: 'x', ship: '2026-10-26' };
+
+is('on the deadline itself it is still there to collect',
+  statusOf(won, '2026-10-30'), 'confirmed');
+is('the day after, it has expired', statusOf(won, '2026-10-31'), 'expired');
+is('and mid-week it is simply confirmed', statusOf(won, '2026-10-28'), 'confirmed');
+
+/* Turning up late with the packs still on the desk is still collecting
+   them, whatever the deadline said. */
+is('collected after the deadline is collected, not expired',
+  statusOf({ ...won, pickedUpAt: 'y' }, '2026-11-03'), 'picked');
+
+/* A 落選 has nothing to expire — there were never any packs. */
+is('a request that won nothing cannot expire',
+  statusOf({ got: 0, drawnAt: 'x', ship: '2026-10-26' }, '2026-11-30'), 'missed');
+is('nor can one that has not been drawn',
+  statusOf({ got: 0, ship: '2026-10-26' }, '2026-11-30'), 'received');
+
+/* 金曜が休みなら木曜. A holiday on the Friday pulls the whole thing forward. */
+is('a holiday on the Friday expires it a day earlier',
+  statusOf(won, '2026-10-30', { '2026-10-30': '休' }), 'expired');
+is('and the Thursday is then the last day to collect',
+  statusOf(won, '2026-10-29', { '2026-10-30': '休' }), 'confirmed');
+
+/* Callers that do not know what day it is must not expire anything. */
+is('with no date, nothing ever expires', statusOf(won), 'confirmed');
+is('a row with no week cannot be judged either', statusOf({ got: 1, drawnAt: 'x' }, '2027-01-01'), 'confirmed');
+
 if (fails.length) {
   console.error(`\n  ${fails.length} of ${n} failed:\n`);
   fails.forEach((f) => console.error(`  ✗ ${f}\n`));
