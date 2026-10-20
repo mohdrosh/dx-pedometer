@@ -273,7 +273,10 @@ export const MG_CSS = `
 /* Capped by HEIGHT, not width: the artwork comes square (1400×1400) and
    wide (1600×977), and a width cap that suits one makes the other own the
    screen. Never cropped — the speech bubble is part of the picture. */
-.mg-strip{margin-bottom:14px;max-height:270px;width:auto;max-width:100%}
+.mg-strip{margin-bottom:12px;max-height:150px;width:auto;max-width:100%}
+/* The 鶏舎だより is a picture, not a page: capped like the rest of her
+   artwork so it stops owning the bottom half of the column. */
+.mg .eg-p2-news .mg-pic{width:100%}
 /* Two full-width pictures stacked on a phone is half a screen of scrolling
    for decoration. The one at the top goes; the 鶏舎だより below stays,
    because it is the one carrying news. */
@@ -296,11 +299,11 @@ export const MG_CSS = `
 .mg-verdict.miss{background:var(--mg-sky)}
 
 /* ------------------------------- the race ------------------------------- */
-.mg .eg-race-top{display:flex;align-items:center;gap:14px;margin-bottom:14px}
-.mg .eg-race-top img{width:72px;height:72px;flex:none}
-.mg .eg-race-n{font-size:34px;font-weight:900;line-height:1;color:var(--mg-navy)}
-.mg .eg-race-u{font-size:14px;font-weight:700;color:#5B6B86;margin-left:7px}
-.mg .eg-race-s{font-size:13.5px;font-weight:900;margin:5px 0 0;color:var(--mg-royal)}
+.mg .eg-race-top{display:flex;align-items:center;gap:11px;margin-bottom:10px}
+.mg .eg-race-top img{width:50px;height:50px;flex:none}
+.mg .eg-race-n{font-size:26px;font-weight:900;line-height:1;color:var(--mg-navy)}
+.mg .eg-race-u{font-size:13px;font-weight:700;color:#5B6B86;margin-left:6px}
+.mg .eg-race-s{font-size:12.5px;font-weight:900;margin:3px 0 0;color:var(--mg-royal)}
 .mg .eg-race-s.win{color:var(--mg-leaf)}
 
 /* One plot area with one outline. Boxing each day separately turned a
@@ -308,7 +311,7 @@ export const MG_CSS = `
    had eggs in it read as the odd one out. */
 .mg .eg-race-ch{
   position:relative;display:grid;grid-template-columns:repeat(7,1fr);
-  gap:6px;height:132px;padding:7px 7px 26px;
+  gap:6px;height:96px;padding:6px 6px 22px;
   background:#FFFDF6;border:2.5px solid var(--mg-navy);border-radius:14px;
 }
 .mg .eg-race-col{display:flex;flex-direction:column;justify-content:flex-end;position:relative}
@@ -324,8 +327,8 @@ export const MG_CSS = `
 }
 .mg .eg-race.win .eg-race-seg{background:var(--mg-leaf)}
 .mg .eg-race-col em{
-  position:absolute;bottom:-22px;left:0;right:0;text-align:center;
-  font-style:normal;font-size:11.5px;font-weight:700;color:#5B6B86;
+  position:absolute;bottom:-19px;left:0;right:0;text-align:center;
+  font-style:normal;font-size:11px;font-weight:700;color:#5B6B86;
 }
 .mg .eg-race-col.today em{color:var(--mg-navy);font-weight:900}
 .mg .eg-race-line{
@@ -350,30 +353,34 @@ export const MG_CSS = `
 .mg .eg-days li.on{color:var(--mg-royal)}
 .mg .eg-hand li.done .eg-hand-n{color:#8C96A8}
 .mg .eg-notes li{
-  background:var(--mg-sky);border:2px solid var(--mg-royal);border-radius:12px;
-  padding:9px 13px;margin-bottom:8px;font-size:13px;font-weight:500;
+  background:var(--mg-sky);border:2px solid var(--mg-royal);border-radius:10px;
+  padding:6px 11px;margin-bottom:6px;font-size:12.5px;font-weight:500;
   color:var(--mg-navy);list-style:none;
 }
+.mg .eg-notes li:last-child{margin-bottom:0}
 
 /* ------------------------------- the bars ------------------------------- */
-.mg .eg-ch{font-size:13px;font-weight:900;color:var(--mg-navy);margin:0 0 9px}
+.mg .eg-ch{font-size:12.5px;font-weight:900;color:var(--mg-navy);margin:0 0 7px}
 /* A label, a track and the count. The row IS the grid — without it the list
    falls back to bullets and every bar collapses to nothing, which is
    exactly what happened when this stylesheet was rewritten. */
-.mg .eg-bars{list-style:none;margin:0;padding:0;display:grid;gap:6px}
-.mg .eg-bars li{display:grid;grid-template-columns:7.2em minmax(0,1fr) 2.2em;
-  align-items:center;gap:10px}
-.mg .eg-bl{font-size:12.5px;font-weight:700;color:#3E4F6E;text-align:right;
+.mg .eg-bars{list-style:none;margin:0;padding:0;display:grid;gap:4px}
+/* The track is capped rather than elastic. A count of two says the same
+   thing in 230px as it does in 1100, and at full width the chart was
+   mostly the space between the label and the number. */
+.mg .eg-bars li{display:grid;grid-template-columns:7em minmax(0,230px) 1.9em;
+  align-items:center;gap:9px}
+.mg .eg-bl{font-size:12px;font-weight:700;color:#3E4F6E;text-align:right;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.mg .eg-bt{display:block;height:20px;background:#FFFDF6;
-  border:2px solid var(--mg-navy);border-radius:7px;overflow:hidden}
+.mg .eg-bt{display:block;height:16px;background:#FFFDF6;
+  border:2px solid var(--mg-navy);border-radius:6px;overflow:hidden}
 .mg .eg-bt i{display:block;height:100%;background:var(--mg-royal);
   border-radius:0 4px 4px 0;transition:width .4s cubic-bezier(.34,1.3,.64,1)}
 .mg .eg-bars li.lead .eg-bt i{background:var(--mg-leaf)}
-.mg .eg-bn{font-size:14px;font-weight:900;color:var(--mg-navy);
+.mg .eg-bn{font-size:13px;font-weight:900;color:var(--mg-navy);
   font-variant-numeric:tabular-nums}
 @media(prefers-reduced-motion:reduce){.mg .eg-bt i{transition:none}}
-.mg .eg-nn{font-size:12.5px;font-weight:700;color:#3E4F6E;margin:7px 0 0}
+.mg .eg-nn{font-size:12px;font-weight:700;color:#3E4F6E;margin:6px 0 0}
 .mg .eg-nn b{color:var(--mg-navy)}
 
 /* --------------------------- the big tap target ------------------------- */
@@ -425,7 +432,7 @@ export const MG_CSS = `
   .mg-body{margin:0 auto;padding:16px 22px 0}
   .mg .eg-sub{padding:14px 22px 0;max-width:1240px;margin:0 auto}
   .mg .eg-rules.eg-r4{grid-template-columns:repeat(4,minmax(0,1fr))}
-  .mg .eg-race-ch{height:152px}
+  .mg .eg-race-ch{height:112px}
 }
 
 /* ========================= layout ========================================
@@ -438,6 +445,7 @@ export const MG_CSS = `
 /* 配布 */
 .mg .eg-p2{display:grid}
 .mg .eg-p2-r{order:-1}           /* the chart first on a phone: it is the answer */
+.mg .eg-p2-news{order:9}         /* and the artwork last, under the useful part */
 .mg .eg-row2{display:grid;gap:13px}
 .mg .eg-acts{display:flex;gap:9px;flex-wrap:wrap;margin-top:13px}
 .mg .eg-req .fld{margin-top:12px}
@@ -450,11 +458,14 @@ export const MG_CSS = `
 .mg .eg-mine-note{flex:1 1 100%;margin:7px 0 0;font-size:13px;font-weight:500}
 .mg .eg-hist,.mg .eg-days,.mg .eg-mini,.mg .eg-hand,.mg .eg-offs,
 .mg .eg-notes,.mg .mg-print{list-style:none;margin:0;padding:0}
-.mg .eg-hist li{display:grid;grid-template-columns:5.6em minmax(0,1fr) 4.2em 6.6em;
+.mg .eg-hist li{display:grid;grid-template-columns:7em minmax(0,1fr) 4.2em 6.6em;
   align-items:center;gap:9px}
+.mg .eg-hist li>span:first-child{white-space:nowrap}
 .mg .eg-hist em{font-style:normal;text-align:right;color:#5B6B86}
 .mg .eg-mini li,.mg .eg-days li{display:flex;justify-content:space-between;gap:11px}
-.mg .eg-where{display:grid;gap:3px}
+.mg .eg-where{display:grid;gap:0;line-height:1.5}
+.mg .eg-where b{font-size:14px}
+.mg .eg-where span,.mg .eg-where em{font-size:12.5px}
 .mg .eg-shut{display:flex;align-items:center;gap:13px}
 .mg .eg-shut img{width:66px;height:66px;flex:none}
 .mg .eg-shut p{margin:0}
@@ -470,12 +481,32 @@ export const MG_CSS = `
   padding-top:14px;margin-top:4px;border-top:2px dotted #D9CFB0}
 .mg .eg-sv-go p{margin:0;order:2}
 .mg .eg-win{display:block;font-size:12.5px;font-weight:900;color:var(--mg-royal);margin-top:5px}
-.mg .mg-win{display:flex;align-items:center;gap:15px}
-.mg .mg-win-pic{width:96px;height:96px;flex:none;border-radius:12px;
-  border:2.5px solid var(--mg-navy)}
-.mg .mg-win b{font-size:16px;font-weight:900;display:block}
-.mg .mg-win p{margin:2px 0 0}
+.mg .mg-win{display:flex;align-items:center;gap:11px;padding:8px 11px}
+.mg .mg-win-pic{width:46px;height:46px;flex:none;border-radius:10px;
+  border:2px solid var(--mg-navy)}
+.mg .mg-win b{font-size:14px;font-weight:900}
+.mg .mg-win p{margin:0;display:inline}
+/* Title, what it is for and the dates on one line apiece rather than a
+   portrait and three stacked paragraphs. */
+.mg .mg-win>div{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 9px}
+.mg .mg-win .eg-win{margin-top:0}
 .mg .eg-two{display:grid;gap:6px}
+
+/* --------------------------- 需要調査, laid out -------------------------
+   Everything used to run the full width in one column: a bar standing for
+   a count of two, stretched across 1100px, under a heading of its own.
+   The answers are the wide thing, so they take the width; what you said
+   yourself and what everyone else wrote sit in a rail beside them. Placed
+   explicitly, so the stack on a phone still reads in the order it should:
+   your answer, then everyone's, then the comments.
+------------------------------------------------------------------------ */
+.mg .eg-svb{display:grid}
+@media(min-width:980px){
+  .mg .eg-svb{grid-template-columns:316px minmax(0,1fr);gap:0 18px;
+    align-items:start;grid-template-rows:min-content auto}
+  .mg .eg-svb .sv-side{grid-column:1}
+  .mg .eg-svb .sv-res{grid-column:2;grid-row:1/-1}
+}
 
 /* 丹波 */
 .mg .eg-farm{display:grid}
@@ -514,12 +545,15 @@ export const MG_CSS = `
   .mg .eg-p2{grid-template-columns:minmax(0,1fr) minmax(0,430px);
     align-items:start;column-gap:22px}
   .mg .eg-p2-r{order:0}
+  .mg .eg-p2-l{grid-row:1/span 2}
+  .mg .eg-p2-news{order:0;grid-column:2}
+  .mg .eg-p2-news .mg-pic{max-height:168px;width:auto}
   .mg .eg-row2{grid-template-columns:auto minmax(0,1fr);gap:24px}
   .mg .eg-fq-row{grid-template-columns:minmax(0,1.55fr) minmax(0,1fr);
     column-gap:24px;align-items:start}
   .mg .eg-two{grid-template-columns:repeat(2,minmax(0,1fr));column-gap:26px;
     align-items:start}
-  .mg .eg-two .eg-bars li{grid-template-columns:7.2em minmax(0,1fr) 2em}
+  .mg .eg-two .eg-bars li{grid-template-columns:7em minmax(0,230px) 1.9em}
   .mg .eg-off{grid-template-columns:minmax(0,340px) minmax(0,1fr);
     align-items:start;column-gap:22px}
   .mg .eg-adm{grid-template-columns:minmax(0,1fr) minmax(0,430px);

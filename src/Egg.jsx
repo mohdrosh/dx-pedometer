@@ -402,8 +402,15 @@ export default function EggTab({
           </>
         )}
 
+        {/* The answers are the wide thing on this screen, so they take the
+            width and the rest sits in a rail beside them. The sections are
+            placed by the grid rather than by their order here, so the
+            stack on a phone still reads: your answer, everyone's, then the
+            comments. */}
+        <div className="eg-svb">
+
         {answered && !editing && (
-          <>
+          <section className="sv-side">
             <div className="sechead"><span>{t('yours')}</span></div>
             <div className="card eg-mine">
               <span className="pill ok">{t('answered')}</span>
@@ -417,26 +424,27 @@ export default function EggTab({
               )}
               {d.mine.comment && <p className="eg-mine-note">{d.mine.comment}</p>}
             </div>
-          </>
+          </section>
         )}
 
         {!d.canAnswer && (
-          <>
+          <section className="sv-side">
             <div className="sechead"><span>{t('survey')}</span></div>
             <div className="card"><p className="muted sm">{t('notYours')}</p></div>
-          </>
+          </section>
         )}
 
         {d.canAnswer && !d.open && !answered && (
-          <>
+          <section className="sv-side">
             <div className="sechead"><span>{t('survey')}</span></div>
             <div className="card eg-shut">
               <img src={img('empty')} alt="" />
               <p className="muted sm">{d.window ? t('closed') : t('notYet')}</p>
             </div>
-          </>
+          </section>
         )}
 
+        <section className="sv-res">
         <div className="sechead">
           <span>{t('results')}</span>
           <span className="muted sm">{total} {t('answers')}</span>
@@ -478,17 +486,20 @@ export default function EggTab({
               </div>
             )}
         </div>
+        </section>
 
         {!!d.results?.comments?.length && (
-          <>
+          <section className="sv-side">
             <div className="sechead"><span>{t('commentsHead')}</span></div>
             <div className="card">
               <ul className="eg-notes">
                 {d.results.comments.map((c, i) => <li key={i}>{c}</li>)}
               </ul>
             </div>
-          </>
+          </section>
         )}
+
+        </div>
       </div>
        </>
       )}

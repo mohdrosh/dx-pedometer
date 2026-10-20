@@ -633,6 +633,12 @@ export default function EggPortal({ d, reload: load, lang, toast }) {
           </div>
         </div>
 
+      </div>
+
+      {/* News from the coop, and the only thing on this screen nobody is
+          here to do. On a phone it goes to the bottom, under the dates and
+          the request; beside them on a desk, where it costs nothing. */}
+      <div className="eg-p2-news">
         <div className="sechead"><span>{t('coopNews')}</span></div>
         <img src={img('coop-news')} alt="" className="mg-pic" />
       </div>
