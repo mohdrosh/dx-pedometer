@@ -409,6 +409,8 @@ const STR = {
   status: ['状態', 'Status'],
   bonusRule: ['対象期間中、毎日 5,000 歩以上で 2,000 円', '5,000+ steps every single day of the period → ¥2,000'],
   targetStatus: ['目標達成状況', 'Target status'],
+  prevMonth: ['前月', 'Prev'],
+  nextMonth: ['翌月', 'Next'],
   trialSignup: ['お試し登録（対象者以外の方）', 'Trial sign-up (non-participants)'],
   trialTitle: ['お試し登録', 'Trial sign-up'],
   trialNote: ['対象者以外の方が、お試しでご利用いただくための登録です。入力された記録は、健康対策推進活動の集計・完歩賞には含まれません。', 'For people outside the official participant list who would like to try the system. Trial records are excluded from the aggregation and the walking bonus.'],
@@ -1027,12 +1029,12 @@ function PeriodBar({ y, m, setPeriod, lang }) {
   });
   return (
     <div className="periodbar">
-      <button onClick={() => shift(-1)} aria-label="prev">‹</button>
+      <button onClick={() => shift(-1)} aria-label="prev">‹<b>{t('prevMonth')}</b></button>
       <div>
         <strong>{y}年 {m}月度</strong>
         <em>{fmtRange(y, m, lang)}</em>
       </div>
-      <button onClick={() => shift(1)} aria-label="next">›</button>
+      <button onClick={() => shift(1)} aria-label="next"><b>{t('nextMonth')}</b>›</button>
     </div>
   );
 }
@@ -1243,12 +1245,12 @@ function StepsTab({ user, cfg, holidays, y, m, setPeriod, toast }) {
   return (
     <div className="tabbody st-page">
       <div className="periodbar">
-        <button onClick={() => shift(-1)} aria-label="prev">‹</button>
+        <button onClick={() => shift(-1)} aria-label="prev">‹<b>{t('prevMonth')}</b></button>
         <div>
           <strong>{y}年 {m}月度</strong>
           <em>{fmtRange(y, m, lang)}</em>
         </div>
-        <button onClick={() => shift(1)} aria-label="next">›</button>
+        <button onClick={() => shift(1)} aria-label="next"><b>{t('nextMonth')}</b>›</button>
       </div>
 
       <div className={'banner ' + (locked ? 'ok' : 'warn')}>
@@ -1994,9 +1996,9 @@ function AdminTab({ cfg, setCfg, roster, setRoster, y, m, setPeriod, toast, holi
   return (
     <div className="tabbody ad-page">
       <div className="periodbar">
-        <button onClick={() => shift(-1)}>‹</button>
+        <button onClick={() => shift(-1)} aria-label="prev">‹<b>{t('prevMonth')}</b></button>
         <div><strong>{y}年 {m}月度</strong><em>{fmtRange(y, m, lang)} · {pk}</em></div>
-        <button onClick={() => shift(1)}>›</button>
+        <button onClick={() => shift(1)} aria-label="next"><b>{t('nextMonth')}</b>›</button>
       </div>
 
       <div className="seg tabs">
@@ -3380,14 +3382,34 @@ function Styles() {
 
 /* ---- structure --------------------------------------------------------- */
 .tabbody{padding:0}
-.periodbar{display:flex;align-items:stretch;border-bottom:1px solid var(--rule);background:#fff}
-.periodbar>div{flex:1;text-align:center;padding:11px 0;line-height:1.4}
-.periodbar strong{display:block;font-size:16.5px;font-weight:600}
-.periodbar em{font-style:normal;font-size:12.5px;color:var(--ink-2)}
-.periodbar button{width:48px;border:0;border-right:1px solid var(--hair);background:none;
-  font-size:19px;color:var(--ink-2)}
-.periodbar button:last-child{border-right:0;border-left:1px solid var(--hair)}
-.periodbar button:hover{background:var(--wash)}
+.periodbar{display:flex;align-items:center;justify-content:center;gap:12px;
+  padding:8px 12px;border-bottom:1px solid var(--rule);background:#fff}
+.periodbar>div{flex:0 1 auto;text-align:center;line-height:1.35;min-width:132px}
+.periodbar strong{display:block;font-size:15.5px;font-weight:600}
+.periodbar em{font-style:normal;font-size:12px;color:var(--ink-2)}
+/* These were two bare chevrons pinned to the far edges of a 1440px bar,
+   six hundred pixels from the month they moved. Somebody had to ask how to
+   get to last month, which is the whole answer: they are buttons now,
+   shaped like buttons, next to the thing they change, and they say what
+   they do. */
+.periodbar button{
+  display:inline-flex;align-items:center;gap:5px;flex:none;
+  min-height:34px;padding:0 13px;border:1px solid var(--rule-2);
+  border-radius:8px;background:#fff;color:var(--ink);
+  font-size:16px;font-weight:600;line-height:1;
+}
+.periodbar button b{font-size:12.5px;font-weight:600}
+.periodbar button:hover{background:var(--brand-wash);border-color:var(--brand);color:var(--brand)}
+.periodbar button:active{transform:translateY(1px)}
+/* On a phone the arrow alone has to carry it, so it keeps the box and
+   loses only the word. */
+@media(max-width:520px){
+  .periodbar{gap:10px;padding:7px 8px}
+  .periodbar button b{display:none}
+  /* Wider and taller without the word, not smaller: it is a thumb target
+     now rather than a glyph, and 33px square was the smaller of the two. */
+  .periodbar button{padding:0 18px;min-height:40px;font-size:18px}
+}
 .card{background:#fff;border-bottom:1px solid var(--rule);padding:16px 14px}
 .card.soft{background:var(--wash)}
 .cell.ahead{background:var(--wash);cursor:default}
@@ -3493,6 +3515,39 @@ function Styles() {
 .stat-v{font-size:19px;font-weight:600;line-height:1.3;letter-spacing:-.015em}
 .stat-v em{font-style:normal;font-size:12.5px;font-weight:400;color:var(--ink-2);margin-left:5px;letter-spacing:0}
 .stat.mark .stat-v em{color:rgba(255,255,255,.78)}
+
+/* --------------- the pedometer page, tightened ------------------------
+   目標達成状況 and 万歩計の設定 ran the full width at full size: three
+   statistics across 1400px to say "0" and "31", fields at 48px apiece,
+   and a consent panel with more padding than words. Scoped to .st-page so
+   the timesheet and the expense screens keep their own spacing.
+---------------------------------------------------------------------- */
+.st-page .sechead{padding-top:9px;padding-bottom:9px}
+.st-page .row3 .stat{padding:6px 13px}
+.st-page .stat-l{font-size:11px}
+.st-page .stat-v{font-size:16.5px}
+/* Three equal thirds stretched "0" and "31" across 1400px. On a wide
+   screen each takes the room its words need and the row stops; on a phone
+   thirds are right, and content widths only wrapped them onto two lines. */
+@media(min-width:720px){
+  .st-page .row3 .stat{flex:0 0 auto;min-width:140px}
+}
+
+.st-page .pf-card{padding:11px 14px 13px}
+.st-page .pf-card .fld{margin-bottom:11px}
+.st-page .pf-card .fld>span{font-size:12px;margin-bottom:3px}
+.st-page .pf-card .fld input,.st-page .pf-card .fld select{padding:8px 11px;border-radius:5px}
+/* A field is as wide as the longest thing that goes in it. 大阪 and 男 do
+   not need 560px, and a 560px box reads as though something longer were
+   expected. */
+.st-page .pf-card .fld input,.st-page .pf-card .fld select{max-width:300px}
+.st-page .pf-card .fld select{background-position:right 11px center}
+.st-page .consent{margin:2px 0 12px;padding:10px 12px;line-height:1.55}
+.st-page .consent>strong{font-size:13px;margin-bottom:2px}
+.st-page .consent li{line-height:1.5}
+.st-page .consent li+li{margin-top:3px}
+.st-page .consent-agree{margin-top:8px;padding-top:8px}
+.st-page .pf-card .btn.big{padding:9px 20px;font-size:14px}
 
 .banner{display:flex;align-items:center;gap:9px;flex-wrap:wrap;padding:12px 14px;
   font-size:14px;font-weight:600;border-bottom:1px solid var(--rule);border-left:4px solid var(--go)}
