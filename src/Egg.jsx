@@ -35,7 +35,12 @@ const L = {
     'Free eggs from our hens in Tamba, for full-time employees. First, tell us what you would like.'],
   survey: ['需要調査', 'Demand survey'],
   q1: ['問1　どこで受け取りたいですか', 'Q1  Where would you like to collect?'],
+  /* 佐野:「受取場所は毎回のリクエストで選べるようになったので、問1は参考まで」 */
+  q1Note: ['参考までの質問です。受け取り場所は毎回のリクエストで選べます。',
+    'For reference only — you can choose where to collect every time you request.'],
   q2: ['問2　卵が足りないときの配り方は', 'Q2  How should eggs be shared when there are not enough?'],
+  q2Note: ['こちらが本題です。みなさんの回答で配り方を決めます。',
+    'This is the one that matters: your answers decide how eggs are shared.'],
   notNow: ['今は不要', 'Not just now'],
   comment: ['ご意見（任意）', 'Anything you would like to add (optional)'],
   commentPh: ['例：2パック欲しい日があります／受取時間を遅めにしてほしい',
@@ -333,6 +338,10 @@ export default function EggTab({
 
               <div className="eg-fq">
                 <div className="eg-q">{t('q1')}</div>
+                {/* Where somebody collects is no longer settled here: it
+                    is picked with each week's request. Saying so on the
+                    question stops an answer being read as a commitment. */}
+                <p className="eg-qnote">{t('q1Note')}</p>
                 <div className="eg-opts">
                   {(d.offices || []).map((o) => (
                     <button
@@ -351,6 +360,7 @@ export default function EggTab({
 
               <div className="eg-fq">
                 <div className="eg-q">{t('q2')}</div>
+                <p className="eg-qnote lead">{t('q2Note')}</p>
                 {/* Nobody can vote on 前回落選者優先 without being told what
                     it means, so each rule carries its own one-line summary
                     and the trade-off the spec records for it. */}

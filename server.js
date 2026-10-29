@@ -621,7 +621,15 @@ const server = http.createServer(async (req, res) => {
        holidays by the client making the request. 設定 closures go over
        the top, so an office may shut on a day the nation works. */
     const eggCfgNow = async () => {
-      const cfg = { ...DEFAULT_CFG, ...((await getKey('cfg')) || {}) };
+      const stored = (await getKey('cfg')) || {};
+      /* egg is merged a level deeper than the rest. The spread is shallow,
+         so a stored cfg that carries any egg setting at all would
+         otherwise drop every default in it — including firstShip, whose
+         whole job is to be right without anybody setting it. */
+      const cfg = {
+        ...DEFAULT_CFG, ...stored,
+        egg: { ...DEFAULT_CFG.egg, ...(stored.egg || {}) },
+      };
       return { cfg, holidays: { ...PUBLIC_HOLIDAYS, ...closureMap(cfg, null) } };
     };
 

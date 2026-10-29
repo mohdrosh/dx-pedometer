@@ -91,6 +91,7 @@ const L = {
   /* 佐野の例:「最低パック数を超えたら『今週はこの事務所にタマゴが届きます！』、
      届かなかったら残念賞のメッセージ」 */
   comingTo: ['今週、{o}にタマゴが届きます！', 'Eggs are coming to {o} this week!'],
+  comingShort: ['届きます！', 'Delivery!'],
   comingSub: ['{n}パックの申請が集まりました。受け取りをお忘れなく。',
     '{n} packs requested. Don\u2019t forget to collect yours.'],
   almost: ['あと{n}パックで{o}に届きます', '{n} more packs and {o} gets a delivery'],
@@ -110,12 +111,30 @@ const L = {
   printThanksNote: ['おすそわけに添えて', 'To tuck in with a gift'],
 
   /* 合計と対決グラフ */
-  race: ['今週の収穫　対　来週の申請', "This week's harvest vs next week's requests"],
+  race: ['丹波の取れ高　対　みんなのリクエスト', "Tamba's harvest vs everyone's requests"],
+  harvestNow: ['今週の丹波の取れ高', "Tamba's harvest this week"],
+  raceHead: ['事務所対決', 'Office vs office'],
+  raceNote: ['リクエストが集まるほどバーが伸びます。最低パック数に届いた事務所に発送します。',
+    'The bars grow as requests come in. Offices that reach their minimum get a delivery.'],
+  minNeed: ['あと{n}パック', '{n} to go'],
+  noMin: ['最低数なし', 'no minimum'],
+  packsShort: ['{n}パック', '{n} packs'],
+  ofHarvest: ['取れ高の{n}%', '{n}% of the harvest'],
+  overHarvest: ['取れ高を超えています', 'More asked for than laid'],
+  schedHead: ['モラエッグの1週間', 'A week of Moraegg'],
+  stepDeadline: ['締切', 'Deadline'],
+  stepShip: ['発送', 'Ships'],
+  stepArrive: ['到着', 'Arrives'],
+  stepPickup: ['受け取り', 'Collect'],
+  monHoliday: ['月曜が祝日のため、1日後ろにずれています', 'The Monday is a holiday, so everything moves back a day'],
+  ruleLine: ['締切は毎週月曜の朝9時（月曜が祝日の場合は火曜の9時）',
+    'The deadline is 9:00 every Monday — Tuesday when the Monday is a holiday'],
   harvested: ['収穫', 'Harvested'],
   wanted: ['申請', 'Requested'],
   enough: ['足りています', 'Enough to go round'],
   short: ['あと{n}パック足りません', '{n} packs short'],
   exactly: ['ちょうど足ります', 'Exactly enough'],
+  byDay: ['日ごとの取れ高', 'Laid, day by day'],
   byPurpose: ['目的の内訳', 'By purpose'],
   byOffice: ['事務所の内訳', 'By office'],
   people: ['人', 'people'],
@@ -157,6 +176,9 @@ const L = {
   closedOffice: ['申請があるため、受付を止めました', 'It has requests, so it was closed instead'],
   rule: ['割当ルール', 'Allocation rule'],
   deadlineHour: ['締切時刻', 'Deadline hour'],
+  firstShip: ['初回発送週（月曜）', 'First shipping week (Monday)'],
+  firstShipNote: ['この日より前に出された申請は、すべて初回分として受け付けます。空欄なら通常どおり毎週。',
+    'Requests made before this date all count towards the first delivery. Leave blank for the ordinary weekly cycle.'],
   maxPacks: ['1人あたりの上限', 'Per-person cap'],
   draw: ['抽選を実行', 'Run the draw'],
   drawAgain: ['もう一度実行', 'Run it again'],
@@ -263,6 +285,82 @@ function Race({ harvest, week0, packs, want, today, lang, t, img }) {
           </span>
         )}
       </div>
+    </div>
+  );
+}
+
+/* ---------------------------------------------------------------------------
+   事務所対決 — the offices racing each other for the week's harvest.
+
+   佐野:「事務所ごとのリクエスト数と丹波の取れ高を、対決のように見せてほしい」.
+   One harvest, several offices wanting a share of it, and a minimum each
+   office has to reach before a van is worth sending: that is already a
+   race, it was just being reported as two lists of numbers.
+
+   Every bar is drawn against the same scale — the harvest, or the largest
+   request when that is bigger — because bars that each fill their own row
+   compare nothing. The minimum sits on the bar as a notch rather than in a
+   column beside it, so "how far is this office from a delivery" is a
+   distance you can see instead of a subtraction you have to do.
+--------------------------------------------------------------------------- */
+function OfficeRace({ offices, packs, lang, t, img }) {
+  const rows = (offices || []).map((o) => ({
+    name: o.name,
+    asked: Math.max(0, Number(o.asked) || 0),
+    min: Math.max(0, Number(o.minPacks) || 0),
+  }));
+  const harvest = Math.max(0, Number(packs) || 0);
+  /* The scale has to hold the harvest, every bar and every notch, or one of
+     them is drawn off the end of its track. */
+  const top = Math.max(1, harvest, ...rows.map((r) => Math.max(r.asked, r.min)));
+  const asked = rows.reduce((a, r) => a + r.asked, 0);
+  const pct = (n) => `${Math.min(100, (n / top) * 100)}%`;
+  /* Ranked, because a race with the leader in the middle is a list. Ties
+     keep the order the offices were registered in. */
+  const ranked = [...rows].sort((a, b) => b.asked - a.asked);
+
+  return (
+    <div className="eg-vs">
+      <div className="eg-vs-top">
+        <img src={img(harvest > 0 && asked > harvest ? 'cross' : 'basket')} alt="" />
+        <div>
+          <em>{t('harvestNow')}</em>
+          <b>{harvest}</b>
+          <span>{t('pack')}</span>
+        </div>
+        <p className={asked > harvest && harvest > 0 ? 'warn' : ''}>
+          {asked > harvest && harvest > 0
+            ? t('overHarvest')
+            : t('ofHarvest').replace('{n}', String(harvest ? Math.round((asked / harvest) * 100) : 0))}
+        </p>
+      </div>
+
+      <ul className="eg-vs-rows">
+        {ranked.map((r) => {
+          const met = r.min > 0 && r.asked >= r.min;
+          const state = r.min === 0 ? 'free' : met ? 'go' : r.asked > 0 ? 'wait' : 'miss';
+          return (
+            <li key={r.name} className={state}>
+              <span className="eg-vs-n">{r.name}</span>
+              <span className="eg-vs-t">
+                <i style={{ width: pct(r.asked) }} />
+                {/* The minimum, on the bar. A van is sent at this mark and
+                    not before, so it belongs where the eggs are counted. */}
+                {r.min > 0 && <u style={{ left: pct(r.min) }} aria-hidden="true" />}
+              </span>
+              <b className="eg-vs-v">{r.asked}</b>
+              <em className="eg-vs-s">
+                {r.min === 0
+                  ? t('noMin')
+                  : met ? t('comingShort')
+                    : t('minNeed').replace('{n}', String(r.min - r.asked))}
+              </em>
+            </li>
+          );
+        })}
+        {!ranked.length && <li className="muted"><span className="eg-vs-n">{t('noneYet')}</span></li>}
+      </ul>
+      <p className="eg-nn">{t('raceNote')}</p>
     </div>
   );
 }
@@ -397,17 +495,34 @@ export default function EggPortal({ d, reload: load, lang, toast }) {
         <img src={img('hens-well')} alt="" className="mg-pic mg-strip mg-opt" />
 
         {/* 「今週はこの事務所にタマゴが届きます！」 — the thing most people
-            open this page to find out, so it is the first thing on it. */}
-        {d.offices.filter((o) => o.minPacks > 0).map((o) => (
-          <Verdict key={o.name} office={o} lang={lang} t={t} img={img} />
-        ))}
+            open this page to find out, so it is the first thing on it.
 
-        <div className="card eg-wk">
-          <div><em>{t('ship')}</em><b>{md(d.week.ship, lang)}</b></div>
-          <div><em>{t('deadline')}</em>
-            <b>{md(d.week.deadline.date, lang)} {d.week.deadline.hour}:00</b>
-          </div>
-          <div><em>{t('pickupBy')}</em><b>{md(d.week.pickup, lang)}</b></div>
+            One card, not one per office. Every office used to get its own,
+            which made four stacked announcements of which three were about
+            somewhere the reader is not going. The 事務所対決 beside this
+            says how all of them are doing; this says how YOURS is. */}
+        {(() => {
+          const mineName = mine?.office || d.offices.find((o) => o.minPacks > 0)?.name;
+          const o = d.offices.find((x) => x.name === mineName);
+          return o ? <Verdict office={o} lang={lang} t={t} img={img} /> : null;
+        })()}
+
+        {/* 佐野:「毎週のルールをリクエストページに出してほしい」. It used to
+            read 発送日 / 申請締切 / 受取期限 as three loose dates, which told
+            you when but never what happens in between. Four steps in the
+            order they happen, each with this week's real date on it. */}
+        <div className="card eg-sched">
+          <ol className="eg-steps">
+            <li className="now">
+              <em>{t('stepDeadline')}</em>
+              <b>{md(d.week.deadline.date, lang)} {d.week.deadline.hour}:00</b>
+            </li>
+            <li><em>{t('stepShip')}</em><b>{md(d.week.shipDay, lang)}</b></li>
+            <li><em>{t('stepArrive')}</em><b>{md(d.week.arrive, lang)}</b></li>
+            <li><em>{t('stepPickup')}</em><b>{md(d.week.pickup, lang)}</b></li>
+          </ol>
+          <p className="eg-sched-r">{t('ruleLine')}</p>
+          {d.week.shifted && <p className="eg-sched-h">{t('monHoliday')}</p>}
         </div>
 
         {!d.consented && (
@@ -604,32 +719,34 @@ export default function EggPortal({ d, reload: load, lang, toast }) {
 
       {/* ------------------------------ right ----------------------------- */}
       <div className="eg-p2-r">
-        <div className="sechead"><span>{t('race')}</span></div>
+        {/* 佐野:「丹波の取れ高をもっと目立たせてほしい」 — her artwork is the
+            heading, so the harvest announces itself before any number is
+            read. Swappable like the rest: the file is what changes when
+            the schedule does, not this screen. */}
+        <img src={img('harvest-vs')} alt={t('race')} className="mg-pic mg-vs-pic" />
+        <div className="card">
+          <OfficeRace
+            offices={d.offices} packs={d.harvestPacks} lang={lang} t={t} img={img}
+          />
+        </div>
+
+        <div className="sechead"><span>{t('byDay')}</span></div>
         <div className="card">
           <Race
             harvest={d.harvest} week0={d.week0} packs={d.harvestPacks}
             want={d.totals.packs} today={d.today} lang={lang} t={t} img={img}
           />
-          <div className="eg-two">
-            <div>
-              <h3 className="eg-ch">{t('byPurpose')}</h3>
-              <ul className="eg-mini">
-                {d.totals.purposes.map((p) => (
-                  <li key={p.id}><span>{lang === 'ja' ? p.ja : p.en}</span><b>{p.count}</b></li>
-                ))}
-              </ul>
-            </div>
-            <div>
-              <h3 className="eg-ch">{t('byOffice')}</h3>
-              <ul className="eg-mini">
-                {d.totals.offices.filter((o) => o.count > 0).map((o) => (
-                  <li key={o.office}><span>{o.office}</span><b>{o.count}</b></li>
-                ))}
-                {!d.totals.offices.some((o) => o.count > 0) && (
-                  <li className="muted"><span>{t('noneYet')}</span><b>0</b></li>
-                )}
-              </ul>
-            </div>
+          {/* 事務所の内訳 used to sit beside this as a list of the same
+              numbers the 事務所対決 above now draws. Two places to read one
+              thing is one too many, so only 目的 stays — it is the one
+              nothing else reports. */}
+          <div>
+            <h3 className="eg-ch">{t('byPurpose')}</h3>
+            <ul className="eg-mini eg-mini2">
+              {d.totals.purposes.map((p) => (
+                <li key={p.id}><span>{lang === 'ja' ? p.ja : p.en}</span><b>{p.count}</b></li>
+              ))}
+            </ul>
           </div>
         </div>
 
@@ -1045,11 +1162,23 @@ export function EggAdmin({ lang, toast, cfg = {}, setCfg, people = [], rules = [
         </label>
         <label className="fld"><span>{t('deadlineHour')}</span>
           <select
-            value={String(cfg.egg?.deadlineHour ?? 17)}
+            value={String(cfg.egg?.deadlineHour ?? 9)}
             onChange={(e) => saveCfg({ deadlineHour: Number(e.target.value) })}
           >
             {Array.from({ length: 24 }, (_, h) => <option key={h} value={h}>{h}:00</option>)}
           </select>
+        </label>
+        {/* 佐野:「11/14から初回分の受付を開始、初回締切は11/24（火）朝9時」 —
+            two Mondays fall between those dates, and without this every
+            request made in the first ten days would be shipped on one of
+            them. Dated rather than a switch, so nobody has to remember to
+            turn it off: it stops mattering once the week arrives. */}
+        <label className="fld wide"><span>{t('firstShip')}</span>
+          <input
+            type="date" defaultValue={cfg.egg?.firstShip || ''}
+            onBlur={(e) => saveCfg({ firstShip: e.target.value || null })}
+          />
+          <small className="muted sm">{t('firstShipNote')}</small>
         </label>
         <label className="fld"><span>{t('maxPacks')}</span>
           <input

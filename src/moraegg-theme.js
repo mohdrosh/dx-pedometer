@@ -257,6 +257,11 @@ export const MG_CSS = `
   border-radius:12px;padding:9px 13px;margin:0 0 14px;
 }
 .mg .eg-q{font-size:13.5px;font-weight:900;color:var(--mg-navy);margin:0 0 9px}
+/* A line under a question that says what the answer is for. 問1 is
+   reference only now, 問2 is the one that decides the rule, and a survey
+   that does not say so reads as two equal questions. */
+.mg .eg-qnote{margin:-5px 0 9px;font-size:12px;font-weight:600;color:#5B6B86}
+.mg .eg-qnote.lead{color:var(--mg-green)}
 .mg .pill{
   border-radius:999px;font-size:11.5px;font-weight:900;padding:3px 11px 4px;
   border:2px solid var(--mg-navy);background:var(--mg-paper);color:var(--mg-navy);
@@ -297,6 +302,74 @@ export const MG_CSS = `
 .mg-verdict.go b{color:#0C5E06}
 .mg-verdict.wait{background:#FFF6DF}
 .mg-verdict.miss{background:var(--mg-sky)}
+
+/* ---------------------------- 事務所対決 --------------------------------
+   One scale for every bar, a notch where the van starts coming, and the
+   leader at the top. The colour says the same thing the words beside it
+   do: green once an office is getting a delivery, royal while it is still
+   collecting, grey when nobody there has asked.
+------------------------------------------------------------------------ */
+.mg .mg-vs-pic{margin-bottom:10px}
+.mg .eg-vs-top{display:flex;align-items:center;gap:11px;flex-wrap:wrap;margin-bottom:11px}
+.mg .eg-vs-top img{width:52px;height:52px;flex:none}
+.mg .eg-vs-top>div{display:flex;align-items:baseline;gap:5px}
+.mg .eg-vs-top em{font-style:normal;font-size:12px;font-weight:700;color:#5B6B86;
+  margin-right:4px}
+.mg .eg-vs-top b{font-size:30px;font-weight:900;line-height:1;color:var(--mg-navy)}
+.mg .eg-vs-top>div span{font-size:13px;font-weight:700;color:#5B6B86}
+.mg .eg-vs-top p{margin:0 0 0 auto;font-size:12.5px;font-weight:900;color:var(--mg-royal)}
+.mg .eg-vs-top p.warn{color:#B3261E}
+
+.mg .eg-vs-rows{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.mg .eg-vs-rows li{display:grid;grid-template-columns:5.6em minmax(0,1fr) 1.8em 6.4em;
+  align-items:center;gap:9px}
+.mg .eg-vs-n{font-size:12.5px;font-weight:900;color:var(--mg-navy);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mg .eg-vs-t{position:relative;display:block;height:18px;background:#FFFDF6;
+  border:2px solid var(--mg-navy);border-radius:7px;overflow:hidden}
+.mg .eg-vs-t i{display:block;height:100%;background:var(--mg-royal);
+  border-radius:0 4px 4px 0;transition:width .45s cubic-bezier(.34,1.3,.64,1)}
+/* The minimum, drawn ON the bar: the distance left to a delivery is then
+   something you see rather than a subtraction you do. */
+.mg .eg-vs-t u{position:absolute;top:-2px;bottom:-2px;width:3px;
+  background:var(--mg-navy);opacity:.55;text-decoration:none}
+.mg .eg-vs-rows li.go .eg-vs-t i{background:var(--mg-leaf)}
+.mg .eg-vs-rows li.miss .eg-vs-t i{background:#C3CCDA}
+.mg .eg-vs-v{font-size:14px;font-weight:900;color:var(--mg-navy);
+  font-variant-numeric:tabular-nums;text-align:right}
+.mg .eg-vs-s{font-style:normal;font-size:11.5px;font-weight:700;color:#5B6B86;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mg .eg-vs-rows li.go .eg-vs-s{color:var(--mg-leaf)}
+@media(max-width:560px){
+  .mg .eg-vs-rows li{grid-template-columns:4.6em minmax(0,1fr) 1.7em;
+    grid-template-areas:'n t v' 's s s';row-gap:1px}
+  .mg .eg-vs-n{grid-area:n} .mg .eg-vs-t{grid-area:t} .mg .eg-vs-v{grid-area:v}
+  .mg .eg-vs-s{grid-area:s;text-align:right;margin-bottom:3px}
+}
+@media(prefers-reduced-motion:reduce){.mg .eg-vs-t i{transition:none}}
+
+/* --------------------------- モラエッグの1週間 --------------------------
+   Four steps in the order they happen. Three loose dates told you when
+   but never what happens between them, and 佐野 asked for the rule itself
+   on the page — the week only makes sense as a sequence.
+------------------------------------------------------------------------ */
+.mg .eg-sched{padding:10px 12px}
+.mg .eg-steps{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.mg .eg-steps li{display:flex;align-items:baseline;gap:9px;
+  padding:5px 10px;border:2px solid var(--mg-navy);border-radius:9px;
+  background:var(--mg-paper)}
+.mg .eg-steps li.now{background:var(--mg-sun)}
+.mg .eg-steps em{font-style:normal;font-size:12px;font-weight:900;
+  color:var(--mg-navy);min-width:4.2em}
+.mg .eg-steps b{font-size:13.5px;font-weight:900;color:var(--mg-navy)}
+.mg .eg-sched-r{margin:9px 0 0;font-size:12px;font-weight:700;color:#5B6B86}
+.mg .eg-sched-h{margin:4px 0 0;font-size:12px;font-weight:900;color:var(--mg-royal)}
+@media(min-width:620px){
+  /* Across rather than down once there is room: the four steps are one
+     line of a week, not a list of four things. */
+  .mg .eg-steps{grid-template-columns:repeat(4,minmax(0,1fr));gap:7px}
+  .mg .eg-steps li{flex-direction:column;align-items:flex-start;gap:1px}
+}
 
 /* ------------------------------- the race ------------------------------- */
 .mg .eg-race-top{display:flex;align-items:center;gap:11px;margin-bottom:10px}
@@ -350,6 +423,9 @@ export const MG_CSS = `
 .mg .eg-mini li:first-child,.mg .eg-hand li:first-child,
 .mg .eg-offs li:first-child{border-top:0}
 .mg .eg-mini li,.mg .eg-hist li,.mg .eg-days li{font-size:13px;padding:6px 0}
+/* 目的の内訳 is two rows on its own now. Across rather than down, so it
+   does not read as the start of a longer list. */
+@media(min-width:620px){.mg .eg-mini2{grid-template-columns:1fr 1fr;display:grid;gap:0 20px}}
 .mg .eg-days li.on{color:var(--mg-royal)}
 .mg .eg-hand li.done .eg-hand-n{color:#8C96A8}
 .mg .eg-notes li{
@@ -544,9 +620,13 @@ export const MG_CSS = `
 @media(min-width:900px){
   .mg .eg-p2{grid-template-columns:minmax(0,1fr) minmax(0,430px);
     align-items:start;column-gap:22px}
-  .mg .eg-p2-r{order:0}
-  .mg .eg-p2-l{grid-row:1/span 2}
-  .mg .eg-p2-news{order:0;grid-column:2}
+  /* The harvest, the race and the day-by-day chart all live on the right
+     now, which left that column half as long again as the other. The
+     coop news moves under the request side, where there was room. */
+  .mg .eg-p2{grid-template-rows:min-content auto}
+  .mg .eg-p2-r{order:0;grid-column:2;grid-row:1/-1}
+  .mg .eg-p2-l{grid-column:1;grid-row:1}
+  .mg .eg-p2-news{order:0;grid-column:1;grid-row:2}
   .mg .eg-p2-news .mg-pic{max-height:168px;width:auto}
   .mg .eg-row2{grid-template-columns:auto minmax(0,1fr);gap:24px}
   .mg .eg-fq-row{grid-template-columns:minmax(0,1.55fr) minmax(0,1fr);

@@ -31,6 +31,17 @@ export const DEFAULT_CFG = {
      redeploy. A missing key means off, which is what every database written
      before this existed has. */
   modules: { timesheet: false, expense: false },
+  /* モラエッグ. The deadline is 9am on the shipping Monday — 佐野's rule
+     from 2026-11, replacing a 17:00 Friday one.
+
+     firstShip is the one-off that gets the service started: 「11/14から
+     初回分の受付を開始、初回締切は11/24（火）朝9:00」. Two Mondays fall
+     between those dates, and without this every request taken in the
+     first ten days would ship on one of them, before there are any eggs
+     to ship. It is a date rather than a switch so nobody has to remember
+     to turn it off — it simply stops applying once the week arrives, and
+     clearing it in 設定 returns the ordinary weekly cycle. */
+  egg: { deadlineHour: 9, firstShip: '2026-11-23' },
   /* 会社情報・就業条件・稼働カレンダー. Registered here for now, shaped so the
      core system can supply the same objects later — see src/company.js. */
   companies: [DEFAULT_COMPANY],
