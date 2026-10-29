@@ -353,6 +353,19 @@ export const MG_CSS = `
    but never what happens between them, and 佐野 asked for the rule itself
    on the page — the week only makes sense as a sequence.
 ------------------------------------------------------------------------ */
+/* Her schedule artwork above the live dates. Capped by height, because
+   the square card and the wide strip are very different shapes and a
+   width cap that suits one lets the other own the column. */
+.mg .mg-sched-pic{display:block;margin-bottom:10px}
+/* Big enough to read. Her 初回の受付スタート card has the dates printed
+   inside it, so shrinking it to a thumbnail turns a card people are meant
+   to read into decoration. */
+.mg .mg-sched-sq{max-height:340px;width:auto;max-width:100%;margin:0 auto 10px;display:block}
+@media(min-width:620px){.mg .mg-sched-sq{max-height:320px}}
+/* The wide weekly strip is a band, not a card — it has room at a third of
+   the height. */
+.mg .mg-sched-pic .mg-sched-sq{max-height:340px}
+@media(min-width:620px){.mg .mg-sched-pic .mg-sched-sq{max-height:140px;width:100%}}
 .mg .eg-sched{padding:10px 12px}
 .mg .eg-steps{list-style:none;margin:0;padding:0;display:grid;gap:6px}
 .mg .eg-steps li{display:flex;align-items:baseline;gap:9px;
@@ -362,6 +375,12 @@ export const MG_CSS = `
 .mg .eg-steps em{font-style:normal;font-size:12px;font-weight:900;
   color:var(--mg-navy);min-width:4.2em}
 .mg .eg-steps b{font-size:13.5px;font-weight:900;color:var(--mg-navy)}
+/* The same four dates as the picture above, in one line rather than four
+   boxes: here to be authoritative, not to be read twice. */
+.mg .eg-sched-one{display:flex;flex-wrap:wrap;gap:4px 14px;margin:0}
+.mg .eg-sched-one span{display:inline-flex;align-items:baseline;gap:5px}
+.mg .eg-sched-one em{font-style:normal;font-size:11.5px;font-weight:700;color:#5B6B86}
+.mg .eg-sched-one b{font-size:13px;font-weight:900;color:var(--mg-navy)}
 .mg .eg-sched-r{margin:9px 0 0;font-size:12px;font-weight:700;color:#5B6B86}
 .mg .eg-sched-h{margin:4px 0 0;font-size:12px;font-weight:900;color:var(--mg-royal)}
 @media(min-width:620px){

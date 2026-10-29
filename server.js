@@ -658,6 +658,9 @@ const server = http.createServer(async (req, res) => {
       return sendJson(res, 200, {
         today: now.stamp,
         week: weekInfo(ship, cfg, holidays),
+        /* Whether this is the very first shipment, so the screen can show
+           her 初回の受付スタート card instead of the ordinary weekly one. */
+        firstRound: !!cfg.egg?.firstShip && ship === String(cfg.egg.firstShip),
         open: requestsOpen(ship, now.stamp, now.h, cfg, holidays),
         /* Each office carries the minimum that makes a run to it worth
            making, and how many packs have been asked for so far — the two

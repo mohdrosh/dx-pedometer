@@ -491,8 +491,12 @@ export default function EggPortal({ d, reload: load, lang, toast }) {
       <div className="eg-p2-l">
 
         {/* Her artwork, shown whole. Each picture carries its own words and
-            its own background, so the page never crops one. */}
-        <img src={img('hens-well')} alt="" className="mg-pic mg-strip mg-opt" />
+            its own background, so the page never crops one.
+
+            Stood down while the 初回の受付スタート card is up: that one has
+            the dates in it and is the thing to read, and two pictures
+            stacked in one column make the reader choose between them. */}
+        {!d.firstRound && <img src={img('hens-well')} alt="" className="mg-pic mg-strip mg-opt" />}
 
         {/* 「今週はこの事務所にタマゴが届きます！」 — the thing most people
             open this page to find out, so it is the first thing on it.
@@ -511,16 +515,51 @@ export default function EggPortal({ d, reload: load, lang, toast }) {
             read 発送日 / 申請締切 / 受取期限 as three loose dates, which told
             you when but never what happens in between. Four steps in the
             order they happen, each with this week's real date on it. */}
+        {/* Her artwork says the rule; the steps under it say this week's
+            dates. Same pairing as the harvest — the picture is what people
+            look at, the live dates are what they act on, and swapping the
+            picture is how the rule changes when the schedule does.
+
+            初回の受付スタート while the first shipment is the one open, the
+            ordinary weekly card after that. Wide beside a desk, square on
+            a phone: the two are the same drawing laid out for the shape of
+            the screen, so neither is a crop of the other. */}
+        {d.firstRound ? (
+          /* 初回の受付スタート. She drew this one square only, so it is shown
+             square at every width rather than cropped into a banner — the
+             dates are inside the picture and a crop would take them. */
+          <img src={img('first-round')} alt={t('schedHead')} className="mg-pic mg-sched-sq" />
+        ) : (
+          <picture className="mg-sched-pic">
+            <source media="(min-width:620px)" srcSet={img('week-strip')} />
+            <img src={img('week-schedule')} alt={t('schedHead')} className="mg-pic mg-sched-sq" />
+          </picture>
+        )}
+
         <div className="card eg-sched">
-          <ol className="eg-steps">
-            <li className="now">
-              <em>{t('stepDeadline')}</em>
-              <b>{md(d.week.deadline.date, lang)} {d.week.deadline.hour}:00</b>
-            </li>
-            <li><em>{t('stepShip')}</em><b>{md(d.week.shipDay, lang)}</b></li>
-            <li><em>{t('stepArrive')}</em><b>{md(d.week.arrive, lang)}</b></li>
-            <li><em>{t('stepPickup')}</em><b>{md(d.week.pickup, lang)}</b></li>
-          </ol>
+          {/* Her 初回 card already prints 締切・発送・到着・受け取り, so the
+              four boxes under it would be the same four dates twice. One
+              line instead — and it is the computed one, so if the picture
+              is ever left behind by a change of schedule the dates beneath
+              it are still the ones the system will act on. */}
+          {d.firstRound ? (
+            <p className="eg-sched-one">
+              <span><em>{t('stepDeadline')}</em><b>{md(d.week.deadline.date, lang)} {d.week.deadline.hour}:00</b></span>
+              <span><em>{t('stepShip')}</em><b>{md(d.week.shipDay, lang)}</b></span>
+              <span><em>{t('stepArrive')}</em><b>{md(d.week.arrive, lang)}</b></span>
+              <span><em>{t('stepPickup')}</em><b>{md(d.week.pickup, lang)}</b></span>
+            </p>
+          ) : (
+            <ol className="eg-steps">
+              <li className="now">
+                <em>{t('stepDeadline')}</em>
+                <b>{md(d.week.deadline.date, lang)} {d.week.deadline.hour}:00</b>
+              </li>
+              <li><em>{t('stepShip')}</em><b>{md(d.week.shipDay, lang)}</b></li>
+              <li><em>{t('stepArrive')}</em><b>{md(d.week.arrive, lang)}</b></li>
+              <li><em>{t('stepPickup')}</em><b>{md(d.week.pickup, lang)}</b></li>
+            </ol>
+          )}
           <p className="eg-sched-r">{t('ruleLine')}</p>
           {d.week.shifted && <p className="eg-sched-h">{t('monHoliday')}</p>}
         </div>
