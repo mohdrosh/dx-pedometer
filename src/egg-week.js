@@ -1,13 +1,19 @@
 /* ============================================================================
    モラエッグ Phase 1 — 発送週と割当
 
-   佐野:「毎週月曜に丹波から受取事務所へ発送し、社員はその週のうちに事務所へ
-   取りに行く」「締切は前週の金曜17時」「受け取り期限はその週の金曜日（金曜が
-   休みの場合は木曜日）」
+   佐野:「締切は毎週月曜の朝9時（月曜が祝日の場合は火曜の9時）」「締切日に丹波
+   から発送し、翌日事務所に到着」「受け取りは基本その週の金曜まで」
 
    A week is named after the Monday the eggs ship. Everything else hangs off
-   that one date: the Friday before it is when requests close, the Friday
-   after it is when uncollected packs expire.
+   that one date: requests close at 9am on it, the eggs go out the same day,
+   they arrive the next, and the Friday of that week is when uncollected
+   packs expire.
+
+   This replaced an earlier rule — deadline the Friday BEFORE, at 17:00 —
+   and the change is sharper than it sounds. Under the old one the week
+   being requested for was always next week's; under this one, between
+   midnight and 9am on a Monday, it is today's, and the eggs somebody asks
+   for at 08:55 are on a van by lunchtime.
 
    Dates are plain YYYY-MM-DD strings, as they are in submission-window.js
    and for the same reason — the browser reads the laptop's clock and the
@@ -53,21 +59,74 @@ export function mondayOf(s) {
  * Monday, so from Saturday onwards the next Monday is already shipping and
  * the one being requested for is the one after.
  */
-export function nextShipMonday(todayIso) {
-  const thisMonday = mondayOf(todayIso);
-  const d = dowOf(todayIso);
-  /* Saturday and Sunday are past this week's deadline and before its
-     Monday, so they are already working on the week after next. */
-  return shift(thisMonday, d === 0 || d === 6 ? 14 : 7);
+/* The default hour, and the default day of the week eggs ship. Both are
+   settings, but a schedule with no answer when the setting is missing is
+   a schedule that silently picks midnight on a Sunday. */
+const DEFAULT_HOUR = 9;
+
+/** The configured deadline hour, or 9. */
+function hourOf(cfg) {
+  const h = Number(cfg?.egg?.deadlineHour);
+  return Number.isInteger(h) && h >= 0 && h <= 23 ? h : DEFAULT_HOUR;
 }
 
-/** 申請締切 — the Friday before the shipping Monday, at the configured hour. */
-export function requestDeadline(shipMonday, cfg) {
-  const h = Number(cfg?.egg?.deadlineHour);
-  return {
-    date: shift(shipMonday, -3),
-    hour: Number.isInteger(h) && h >= 0 && h <= 23 ? h : 17,
-  };
+/**
+ * 締切日 — the Monday of the shipping week, pushed to the Tuesday when
+ * that Monday is a holiday.
+ *
+ * 佐野:「締切は毎週月曜の朝9時（月曜が祝日の場合は火曜の9時）」, and
+ * 「祝日の月曜は、締切・発送・到着が1日後ろへ」 — so one shift moves all
+ * three, which is why they are all worked out from this one day rather
+ * than each from the Monday.
+ *
+ * Only the Monday is checked. A run of holidays from Monday would push
+ * further, but 振替休日 lands on a Monday after a Sunday holiday and the
+ * Tuesday is then a working day; a Monday AND Tuesday both closed is the
+ * new year shutdown, when nothing is being harvested anyway. An office
+ * that does shut can be given a 休業日 in 設定, which is merged in here.
+ */
+export function shipDay(shipMonday, holidays = {}) {
+  return holidays[shipMonday] ? shift(shipMonday, 1) : shipMonday;
+}
+
+/** 申請締切 — the shipping day, at the configured hour. */
+export function requestDeadline(shipMonday, cfg, holidays = {}) {
+  return { date: shipDay(shipMonday, holidays), hour: hourOf(cfg) };
+}
+
+/** 到着日 — 「丹波から発送、翌日事務所に到着」. */
+export function arrivalDay(shipMonday, holidays = {}) {
+  return shift(shipDay(shipMonday, holidays), 1);
+}
+
+/**
+ * The Monday naming the shipping week that is currently open for requests.
+ *
+ * The deadline used to fall on the Friday BEFORE the shipping Monday, so
+ * the week being requested for was always the next one. It is now the
+ * shipping Monday's own 9am, which means for the first hours of a Monday
+ * the open week is THIS week — the eggs being asked for go out the same
+ * morning. From 9am (or the Tuesday, when the Monday is a holiday) it
+ * rolls to the Monday after.
+ *
+ * `firstShip` pins the answer until that week arrives: before Moraegg
+ * starts, every request taken belongs to the first delivery, whatever
+ * Monday happens to be nearer.
+ */
+export function openShipMonday(todayIso, nowHour, cfg, holidays = {}, firstShip = null) {
+  const thisMonday = mondayOf(todayIso);
+  const open = requestsOpen(thisMonday, todayIso, nowHour, cfg, holidays)
+    ? thisMonday
+    : shift(thisMonday, 7);
+  const first = firstShip || cfg?.egg?.firstShip;
+  return first && open < String(first) ? String(first) : open;
+}
+
+/* The old name, kept because callers that do not know the hour still
+   want an answer. It reads the week after this one, which is what the
+   name always meant. */
+export function nextShipMonday(todayIso) {
+  return shift(mondayOf(todayIso), 7);
 }
 
 /**
@@ -76,8 +135,8 @@ export function requestDeadline(shipMonday, cfg) {
  * 「申請の変更・取り消しは締切まで可能」. The hour matters on the day itself
  * and nowhere else, so it is only consulted then.
  */
-export function requestsOpen(shipMonday, nowIso, nowHour, cfg) {
-  const { date, hour } = requestDeadline(shipMonday, cfg);
+export function requestsOpen(shipMonday, nowIso, nowHour, cfg, holidays = {}) {
+  const { date, hour } = requestDeadline(shipMonday, cfg, holidays);
   if (nowIso < date) return true;
   if (nowIso > date) return false;
   return Number(nowHour) < hour;
@@ -85,8 +144,10 @@ export function requestsOpen(shipMonday, nowIso, nowHour, cfg) {
 
 /**
  * 受け取り期限 — the Friday of the shipping week, or the Thursday when that
- * Friday is a holiday. `holidays` is the map the rest of the app already
- * carries, keyed by YYYY-MM-DD.
+ * Friday is a holiday. 佐野:「受け取りは基本その週の金曜まで」; a Monday that
+ * slipped to Tuesday does not move it, because the week still ends on the
+ * Friday. `holidays` is the map the rest of the app already carries,
+ * keyed by YYYY-MM-DD.
  */
 export function pickupDeadline(shipMonday, holidays = {}) {
   const friday = shift(shipMonday, 4);
@@ -97,8 +158,11 @@ export function pickupDeadline(shipMonday, holidays = {}) {
 export function weekInfo(shipMonday, cfg, holidays) {
   return {
     ship: shipMonday,
-    deadline: requestDeadline(shipMonday, cfg),
+    shipDay: shipDay(shipMonday, holidays),
+    arrive: arrivalDay(shipMonday, holidays),
+    deadline: requestDeadline(shipMonday, cfg, holidays),
     pickup: pickupDeadline(shipMonday, holidays),
+    shifted: shipDay(shipMonday, holidays) !== shipMonday,
   };
 }
 

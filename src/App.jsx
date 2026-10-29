@@ -8,6 +8,7 @@ import { inSubmissionWindow } from './submission-window.js';
 import { matches as fareMatches, parsePaste, mergeRows, cleanRow } from './fare-table';
 import { DEFAULT_RULES } from './kintai.js';
 import { companiesOf, cleanCompany } from './company.js';
+import { PUBLIC_HOLIDAYS } from './holidays.js';
 import {
   S, registerTrial, saveFeedback, fetchFeedback,
   IS_LOCAL, fetchBootstrap, apiLogin, apiLogout, apiMe, apiSaveMe, apiConsent, setLeaving,
@@ -29,29 +30,10 @@ import { reminderMail, companyEmail, deadlineTextJa, deadlineTextEn } from './ma
 
 
 
-/* --- Japanese public holidays: fallback table, refreshed from the web on load
-       (spec 9: 祝日情報は Web 上の日本の祝日データを参照) ------------------- */
-const HOLIDAYS_FALLBACK = {
-  '2025-01-01': '元日', '2025-01-13': '成人の日', '2025-02-11': '建国記念の日',
-  '2025-02-23': '天皇誕生日', '2025-02-24': '休日', '2025-03-20': '春分の日',
-  '2025-04-29': '昭和の日', '2025-05-03': '憲法記念日', '2025-05-04': 'みどりの日',
-  '2025-05-05': 'こどもの日', '2025-05-06': '休日', '2025-07-21': '海の日',
-  '2025-08-11': '山の日', '2025-09-15': '敬老の日', '2025-09-23': '秋分の日',
-  '2025-10-13': 'スポーツの日', '2025-11-03': '文化の日', '2025-11-23': '勤労感謝の日',
-  '2025-11-24': '休日',
-  '2026-01-01': '元日', '2026-01-12': '成人の日', '2026-02-11': '建国記念の日',
-  '2026-02-23': '天皇誕生日', '2026-03-20': '春分の日', '2026-04-29': '昭和の日',
-  '2026-05-03': '憲法記念日', '2026-05-04': 'みどりの日', '2026-05-05': 'こどもの日',
-  '2026-05-06': '休日', '2026-07-20': '海の日', '2026-08-11': '山の日',
-  '2026-09-21': '敬老の日', '2026-09-22': '国民の休日', '2026-09-23': '秋分の日',
-  '2026-10-12': 'スポーツの日', '2026-11-03': '文化の日', '2026-11-23': '勤労感謝の日',
-  '2027-01-01': '元日', '2027-01-11': '成人の日', '2027-02-11': '建国記念の日',
-  '2027-02-23': '天皇誕生日', '2027-03-21': '春分の日', '2027-03-22': '休日',
-  '2027-04-29': '昭和の日', '2027-05-03': '憲法記念日', '2027-05-04': 'みどりの日',
-  '2027-05-05': 'こどもの日', '2027-07-19': '海の日', '2027-08-11': '山の日',
-  '2027-09-20': '敬老の日', '2027-09-23': '秋分の日', '2027-10-11': 'スポーツの日',
-  '2027-11-03': '文化の日', '2027-11-23': '勤労感謝の日',
-};
+/* The table moved to holidays.js so the server reads the same one: the
+   egg deadline shifts when a Monday is a holiday, and the server is what
+   enforces it. Still refreshed from the web on load. */
+const HOLIDAYS_FALLBACK = PUBLIC_HOLIDAYS;
 
 /* --- Future modules plug in here ------------------------------------------ */
 const MODULES = [

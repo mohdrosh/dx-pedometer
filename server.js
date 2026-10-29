@@ -29,6 +29,7 @@ else if (fs.existsSync('.env')) dotenv.config();
 
 const nodemailer = (await import('nodemailer')).default;
 import { reminderMail, summaryMail, reminderRecipients } from './src/mail.js';
+import { PUBLIC_HOLIDAYS } from './src/holidays.js';
 import { buildTimesheet, timesheetFilename } from './src/kintai-xlsx.js';
 import { noticesFor, buildTodoke, todokeFilename } from './src/todoke.js';
 import { buildKoutsuuhi, koutsuuhiFilename } from './src/koutsuuhi.js';
@@ -45,8 +46,8 @@ import {
   EGG_PURPOSES,
 } from './src/egg.js';
 import {
-  mondayOf, nextShipMonday, requestDeadline, requestsOpen, pickupDeadline,
-  allocate, missedFrom, shiftDay, statusOf,
+  mondayOf, openShipMonday, requestDeadline, requestsOpen, pickupDeadline,
+  weekInfo, allocate, missedFrom, shiftDay, statusOf,
 } from './src/egg-week.js';
 import {
   REACTIONS, PHOTOS_MAX, PHOTO_BYTES, PHOTO_EDGE, THUMB_EDGE,
@@ -611,12 +612,17 @@ const server = http.createServer(async (req, res) => {
       };
     };
 
-    /* The pickup deadline moves to Thursday when the Friday is a company
-       休業日, so the closure list from 設定 is what decides it — the same
-       list the timesheet draws its grey days from. */
+    /* Two kinds of day off decide this schedule, and the server needs
+       both. 佐野's rule moves the deadline, the shipping day and the
+       arrival when the Monday is a 祝日, and it moves the pickup deadline
+       to Thursday when the Friday is a company 休業日. Public holidays
+       come from the shared table rather than the browser: the server is
+       what refuses a late request, so it cannot be told which Mondays are
+       holidays by the client making the request. 設定 closures go over
+       the top, so an office may shut on a day the nation works. */
     const eggCfgNow = async () => {
       const cfg = { ...DEFAULT_CFG, ...((await getKey('cfg')) || {}) };
-      return { cfg, holidays: closureMap(cfg, null) };
+      return { cfg, holidays: { ...PUBLIC_HOLIDAYS, ...closureMap(cfg, null) } };
     };
 
     if (url.pathname === '/api/egg/portal' && req.method === 'GET') {
@@ -626,25 +632,25 @@ const server = http.createServer(async (req, res) => {
 
       const { cfg, holidays } = await eggCfgNow();
       const now = tokyoNow();
-      const ship = nextShipMonday(now.stamp);
-      const thisMonday = mondayOf(now.stamp);
+      const ship = openShipMonday(now.stamp, now.h, cfg, holidays);
 
       const offices = await eggOfficeRows(true);
       const requests = await eggWeekRequests(ship);
       const consent = who.admin ? null : await eggConsent(sess.employeeId);
 
-      /* 「今週の収穫累計」 — Monday to Sunday of the week being laid now,
-         which ships on the Monday people are requesting for. */
-      const harvest = await eggHarvest(thisMonday, shiftDay(thisMonday, 6));
+      /* The eggs that go out on a shipping Monday were laid in the week
+         before it, so the harvest raced against a week's requests is that
+         week's, counted back from the shipment rather than forward from
+         today. The two were the same thing under the old Friday deadline;
+         they are not on a Monday morning, when the week open for requests
+         is this one and the eggs filling it were laid last week. */
+      const harvestFrom = shiftDay(ship, -7);
+      const harvest = await eggHarvest(harvestFrom, shiftDay(ship, -1));
 
       return sendJson(res, 200, {
         today: now.stamp,
-        week: {
-          ship,
-          deadline: requestDeadline(ship, cfg),
-          pickup: pickupDeadline(ship, holidays),
-        },
-        open: requestsOpen(ship, now.stamp, now.h, cfg),
+        week: weekInfo(ship, cfg, holidays),
+        open: requestsOpen(ship, now.stamp, now.h, cfg, holidays),
         /* Each office carries the minimum that makes a run to it worth
            making, and how many packs have been asked for so far — the two
            numbers the 「今週タマゴが届きます！」 verdict is made of. */
@@ -671,7 +677,7 @@ const server = http.createServer(async (req, res) => {
         totals: requestTotals(requests, offices.map((o) => o.name)),
         harvest,
         harvestPacks: harvest.reduce((a, d) => a + d.packs, 0),
-        week0: thisMonday,
+        week0: harvestFrom,
         drawn: await eggWeek(ship),
         role: { admin: who.admin, farm: who.farm, contactFor: who.contactFor },
       });
@@ -709,13 +715,13 @@ const server = http.createServer(async (req, res) => {
       const who = await eggWho();
       if (!who.egg) return deny(res, 403);
 
-      const { cfg } = await eggCfgNow();
+      const { cfg, holidays } = await eggCfgNow();
       const now = tokyoNow();
-      const ship = nextShipMonday(now.stamp);
+      const ship = openShipMonday(now.stamp, now.h, cfg, holidays);
       /* 「申請の変更・取り消しは締切まで可能」 — and after it, neither.
          Checked here because the screen is not a guard, and because the
-         draw has already run on what the table said at 17:00. */
-      if (!requestsOpen(ship, now.stamp, now.h, cfg)) return sendJson(res, 409, { error: 'closed' });
+         draw has already run on what the table said at the deadline. */
+      if (!requestsOpen(ship, now.stamp, now.h, cfg, holidays)) return sendJson(res, 409, { error: 'closed' });
 
       if (req.method === 'DELETE') {
         await eggRequestDrop(sess.employeeId, ship);
@@ -809,9 +815,9 @@ const server = http.createServer(async (req, res) => {
            pack the office's to deal with, but it only expires on the Friday
            — and on Monday "this week" moves on and takes it out of sight,
            which is precisely when they are deciding what to do with it. */
-        weeks: [shiftDay(mondayOf(now.stamp), -7), mondayOf(now.stamp), nextShipMonday(now.stamp)],
+        weeks: [shiftDay(mondayOf(now.stamp), -7), mondayOf(now.stamp), shiftDay(mondayOf(now.stamp), 7)],
         pickup: pickupDeadline(ship, holidays),
-        deadline: requestDeadline(ship, cfg),
+        deadline: requestDeadline(ship, cfg, holidays),
         arrival: (await eggWeekOffices(ship)).find((o) => o.office === office) || null,
         /* Only the people who actually won packs are on the list to hand to;
            a 落選 has nothing to collect and does not need their name read
@@ -905,11 +911,11 @@ const server = http.createServer(async (req, res) => {
       if (!sess?.isAdmin) return deny(res, 403);
       if (rateLimited(`egg:${sess.sid}`, 30, 60_000)) return sendJson(res, 429, { error: 'too_many' });
 
-      const { cfg } = await eggCfgNow();
+      const { cfg, holidays } = await eggCfgNow();
       const b = await readBody(req).catch(() => null);
       const now = tokyoNow();
       const ship = /^\d{4}-\d{2}-\d{2}$/.test(String(b?.ship || ''))
-        ? String(b.ship) : nextShipMonday(now.stamp);
+        ? String(b.ship) : openShipMonday(now.stamp, now.h, cfg, holidays);
 
       const already = await eggWeekRequests(ship);
       if (already.some((r) => r.pickedUpAt)) return sendJson(res, 409, { error: 'already_collected' });

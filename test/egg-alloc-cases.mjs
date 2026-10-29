@@ -6,7 +6,8 @@
    exceed the packs that were laid. */
 
 import {
-  dowOf, mondayOf, nextShipMonday, requestDeadline, requestsOpen,
+  dowOf, mondayOf, openShipMonday, shipDay, arrivalDay,
+  requestDeadline, requestsOpen,
   pickupDeadline, weekInfo, allocate, missedFrom, statusOf,
 } from '../src/egg-week.js';
 
@@ -34,52 +35,107 @@ is('Sunday belongs to the week that is ending', mondayOf('2026-10-25'), '2026-10
 is('across the new year', mondayOf('2027-01-01'), '2026-12-28');
 is('across a month end', mondayOf('2026-11-01'), '2026-10-26');
 
-/* 「来週月曜発送分」 — on any working day, the week being requested for is
-   next week's. */
-is('Monday requests for next Monday', nextShipMonday('2026-10-19'), '2026-10-26');
-is('Wednesday too', nextShipMonday('2026-10-21'), '2026-10-26');
-is('Friday too, right up to 17:00', nextShipMonday('2026-10-23'), '2026-10-26');
+/* --------------------- the week open for requests -----------------------
+   佐野's rule, from 2026-11: 「締切は毎週月曜の朝9時（月曜が祝日の場合は火曜
+   の9時）」. The old rule closed on the Friday BEFORE the shipment, so the
+   week being requested for was always next week's. Now it is the shipping
+   Monday's own 9am, so for the first nine hours of a Monday the open week
+   is THIS one.
 
-/* By Saturday the Friday deadline has passed and next Monday's packs are
-   already decided, so a request made then is for the Monday after. */
-is('Saturday has already missed next Monday', nextShipMonday('2026-10-24'), '2026-11-02');
-is('and so has Sunday', nextShipMonday('2026-10-25'), '2026-11-02');
+   2026-11-23 is 勤労感謝の日 and falls on a Monday, which is the case the
+   whole rule exists for — and the one Moraegg goes live on.
+------------------------------------------------------------------------ */
+const HOL = { '2026-11-23': '勤労感謝の日' };
+
+is('before 9 on a Monday, the eggs going out today are still open',
+  openShipMonday('2026-11-30', 8, null, {}), '2026-11-30');
+is('at 9 exactly it rolls to the Monday after',
+  openShipMonday('2026-11-30', 9, null, {}), '2026-12-07');
+is('and stays there for the rest of the week',
+  openShipMonday('2026-12-02', 10, null, {}), '2026-12-07');
+is('Saturday is the same week, not the one after',
+  openShipMonday('2026-12-05', 10, null, {}), '2026-12-07');
+is('and so is Sunday', openShipMonday('2026-12-06', 10, null, {}), '2026-12-07');
+
+/* A holiday Monday carries the whole week with it: the deadline is the
+   Tuesday, so Monday is not too late any more and neither is Tuesday
+   morning. */
+is('a holiday Monday leaves the week open through the Monday',
+  openShipMonday('2026-11-23', 14, null, HOL), '2026-11-23');
+is('and through the Tuesday morning',
+  openShipMonday('2026-11-24', 8, null, HOL), '2026-11-23');
+is('until 9 on the Tuesday',
+  openShipMonday('2026-11-24', 9, null, HOL), '2026-11-30');
+
+/* 「初回リクエストの締切 11/24（火）朝9:00」 — requests are taken from
+   Saturday the 14th, and every one of them is for the first delivery even
+   though two Mondays fall in between. */
+is('before the service starts, everything lands on the first shipment',
+  openShipMonday('2026-11-14', 10, null, HOL, '2026-11-23'), '2026-11-23');
+is('including a Monday that would otherwise be its own week',
+  openShipMonday('2026-11-16', 8, null, HOL, '2026-11-23'), '2026-11-23');
+is('and the pin lets go once the first week is reached',
+  openShipMonday('2026-11-24', 9, null, HOL, '2026-11-23'), '2026-11-30');
+is('the setting is read from cfg when not passed',
+  openShipMonday('2026-11-16', 8, { egg: { firstShip: '2026-11-23' } }, HOL), '2026-11-23');
+
+/* ------------------------- the day it all moves ------------------------- */
+
+is('eggs ship on the Monday', shipDay('2026-11-30', {}), '2026-11-30');
+is('or the Tuesday when the Monday is a holiday', shipDay('2026-11-23', HOL), '2026-11-24');
+is('and arrive the day after they ship', arrivalDay('2026-11-30', {}), '2026-12-01');
+is('which a holiday moves too', arrivalDay('2026-11-23', HOL), '2026-11-25');
 
 /* ---------------------------- the deadlines ------------------------------ */
 
-is('requests close the Friday before the shipment',
-  requestDeadline('2026-10-26'), { date: '2026-10-23', hour: 17 });
-is('17:00 unless 設定 says otherwise',
-  requestDeadline('2026-10-26', { egg: { deadlineHour: 15 } }),
-  { date: '2026-10-23', hour: 15 });
+is('requests close at 9 on the shipping Monday',
+  requestDeadline('2026-11-30', null, {}), { date: '2026-11-30', hour: 9 });
+is('and on the Tuesday when the Monday is a holiday',
+  requestDeadline('2026-11-23', null, HOL), { date: '2026-11-24', hour: 9 });
+is('9 unless 設定 says otherwise',
+  requestDeadline('2026-11-30', { egg: { deadlineHour: 15 } }, {}),
+  { date: '2026-11-30', hour: 15 });
 is('midnight is a real hour and is kept',
-  requestDeadline('2026-10-26', { egg: { deadlineHour: 0 } }).hour, 0);
-is('nonsense falls back to 17 rather than closing the window',
-  requestDeadline('2026-10-26', { egg: { deadlineHour: 99 } }).hour, 17);
+  requestDeadline('2026-11-30', { egg: { deadlineHour: 0 } }, {}).hour, 0);
+is('nonsense falls back to 9 rather than closing the window',
+  requestDeadline('2026-11-30', { egg: { deadlineHour: 99 } }, {}).hour, 9);
 is('so does a string that is not a number',
-  requestDeadline('2026-10-26', { egg: { deadlineHour: 'evening' } }).hour, 17);
+  requestDeadline('2026-11-30', { egg: { deadlineHour: 'morning' } }, {}).hour, 9);
 
-is('open all week before', requestsOpen('2026-10-26', '2026-10-20', 9), true);
-is('open on the deadline morning', requestsOpen('2026-10-26', '2026-10-23', 9), true);
-is('open at 16:59', requestsOpen('2026-10-26', '2026-10-23', 16), true);
-is('shut at 17:00 exactly', requestsOpen('2026-10-26', '2026-10-23', 17), false);
-is('shut after it', requestsOpen('2026-10-26', '2026-10-23', 18), false);
-is('shut on the Saturday', requestsOpen('2026-10-26', '2026-10-24', 9), false);
-is('shut on the shipping Monday itself', requestsOpen('2026-10-26', '2026-10-26', 9), false);
+is('open all the week before', requestsOpen('2026-11-30', '2026-11-26', 9, null, {}), true);
+is('open on the deadline morning', requestsOpen('2026-11-30', '2026-11-30', 8, null, {}), true);
+is('shut at 9 exactly', requestsOpen('2026-11-30', '2026-11-30', 9, null, {}), false);
+is('shut after it', requestsOpen('2026-11-30', '2026-11-30', 10, null, {}), false);
+is('shut on the Tuesday', requestsOpen('2026-11-30', '2026-12-01', 9, null, {}), false);
+is('a holiday Monday is still open all day',
+  requestsOpen('2026-11-23', '2026-11-23', 23, null, HOL), true);
+is('and shuts at 9 on the Tuesday',
+  requestsOpen('2026-11-23', '2026-11-24', 9, null, HOL), false);
 is('an earlier deadline shuts earlier',
-  requestsOpen('2026-10-26', '2026-10-23', 16, { egg: { deadlineHour: 15 } }), false);
+  requestsOpen('2026-11-30', '2026-11-30', 8, { egg: { deadlineHour: 7 } }, {}), false);
 
-/* 「受け取り期限はその週の金曜日。金曜が休みの場合は木曜日」 */
+/* 「受け取りは基本その週の金曜まで」; a Monday that slipped to Tuesday does
+   not move it, because the week still ends on the Friday. */
 is('collect by the Friday of the shipping week',
-  pickupDeadline('2026-10-26'), '2026-10-30');
+  pickupDeadline('2026-11-30'), '2026-12-04');
 is('or the Thursday when that Friday is a holiday',
-  pickupDeadline('2026-10-26', { '2026-10-30': '休' }), '2026-10-29');
+  pickupDeadline('2026-11-30', { '2026-12-04': '休' }), '2026-12-03');
 is('a holiday on another day changes nothing',
-  pickupDeadline('2026-10-26', { '2026-10-28': '休' }), '2026-10-30');
+  pickupDeadline('2026-11-30', { '2026-12-02': '休' }), '2026-12-04');
+is('a shifted shipping day does not shift the pickup',
+  pickupDeadline('2026-11-23', HOL), '2026-11-27');
 
-is('a week reads out whole',
-  weekInfo('2026-10-26', null, {}),
-  { ship: '2026-10-26', deadline: { date: '2026-10-23', hour: 17 }, pickup: '2026-10-30' });
+is('a normal week reads out whole',
+  weekInfo('2026-11-30', null, {}),
+  { ship: '2026-11-30', shipDay: '2026-11-30', arrive: '2026-12-01',
+    deadline: { date: '2026-11-30', hour: 9 }, pickup: '2026-12-04', shifted: false });
+
+/* The first delivery, exactly as her 初回の受付スタート！ card prints it:
+   締切 11/24（火）朝9:00, 発送 11/24, 到着 11/25, 受け取り期限 11/27. */
+is('and the first week matches the card she is handing out',
+  weekInfo('2026-11-23', null, HOL),
+  { ship: '2026-11-23', shipDay: '2026-11-24', arrive: '2026-11-25',
+    deadline: { date: '2026-11-24', hour: 9 }, pickup: '2026-11-27', shifted: true });
 
 /* ----------------------------- the draw --------------------------------- */
 
