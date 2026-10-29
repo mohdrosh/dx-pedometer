@@ -16,7 +16,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { S, setLeaving, apiFeatures } from './storage';
 import {
   computeMonth, splitHM, fmtHM, offUnit, overtimeAlert,
-  DEFAULT_RULES, STATUS_1, STATUS_2,
+  DEFAULT_RULES, STATUS_1, STATUS_2, STATUS_GROUPS, LEAVE, LEAVE_QUICK,
 } from './kintai';
 import { noticesFor } from './todoke-runs';
 import { rulesForPerson, closureMap } from './company.js';
@@ -69,6 +69,9 @@ const L = {
   todayNone: ['まだ入力がありません', 'Nothing entered yet'],
   todayOff: ['本日は所定休日です', 'Today is not a working day'],
   worked: ['実働', 'Worked'],
+  takeLeave: ['お休みにする', 'Book a day off'],
+  leaveNote: ['この日は「{k}」です。始業・終業は提出書類には出ません。',
+    'This day is {k}. Its start and end times are left off the submitted form.'],
   entryHead: ['日々の勤怠', 'Daily record'],
   start: ['始業', 'Start'],
   end: ['終業', 'End'],
@@ -233,12 +236,19 @@ function DayFields({ row, rules, locked, setDay, t, lang }) {
 
       <div className="kt-two">
         <label className="fld"><span>{t('status')}</span>
+          {/* Nine in a flat list mixed days off with late trains and
+              weekend work, so somebody booking leave read past most of it
+              to reach 有給休暇. Same nine, in the three kinds they are. */}
           <select
             value={row.status1 || ''} disabled={locked}
             onChange={(e) => setDay(iso, { status1: e.target.value })}
           >
             <option value="">{t('none')}</option>
-            {STATUS_1.map((x) => <option key={x}>{x}</option>)}
+            {STATUS_GROUPS.map((g) => (
+              <optgroup key={g.id} label={lang === 'ja' ? g.ja : g.en}>
+                {g.items.map((x) => <option key={x}>{x}</option>)}
+              </optgroup>
+            ))}
           </select>
         </label>
         <label className="fld"><span>{t('status2')}</span>
@@ -618,6 +628,37 @@ export default function KintaiTab({ user, cfg = {}, y, m, days, holidays, lang, 
               </div>
             )}
 
+            {/* 休みにする — the other thing a month is made of.
+
+                This screen could only clock in and out; a day off meant
+                finding 勤怠状況 among nine entries in a panel you had to
+                open first. Booking leave is half of what people come here
+                to do, and on any day rather than only today: the date
+                picker above loads next Thursday as readily as this
+                morning, so a day can be taken in advance.
+
+                Tapping the one already set clears it, because the common
+                correction is undoing yesterday's wrong tap. */}
+            {!locked && cardRow.inH == null && (
+              <div className="kt-leave">
+                <span className="kt-leave-l">{t('takeLeave')}</span>
+                <div className="kt-leave-b">
+                  {LEAVE_QUICK.map((kind) => (
+                    <button
+                      key={kind} type="button"
+                      className={`btn sm${cardRow.status1 === kind ? ' primary' : ''}`}
+                      onClick={() => setDay(cardRow.iso, {
+                        status1: cardRow.status1 === kind ? '' : kind,
+                      })}
+                    >{kind}</button>
+                  ))}
+                </div>
+              </div>
+            )}
+            {cardRow.status1 && LEAVE.includes(cardRow.status1) && (
+              <p className="kt-leave-n">{t('leaveNote').replace('{k}', cardRow.status1)}</p>
+            )}
+
             {/* and everything else about the day, open, not behind a dialog */}
             {isToday && (
               <button
@@ -866,6 +907,14 @@ export const KINTAI_CSS = `
 .kt-today-none{font-size:15px;color:var(--faint)}
 .kt-today-b:empty{display:none}
 .kt-today-b{display:flex;gap:9px}
+/* Booking a day off. Sits under 出勤/退勤 because it is the other half of
+   what a month is made of, not a setting tucked inside a panel. */
+.kt-leave{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:10px;
+  padding-top:10px;border-top:1px solid var(--hair)}
+.kt-leave-l{font-size:12.5px;font-weight:600;color:var(--ink-2);flex:none}
+.kt-leave-b{display:flex;gap:6px;flex-wrap:wrap}
+.kt-leave-b .btn{padding:6px 11px;font-size:12.5px}
+.kt-leave-n{margin:8px 0 0;font-size:12.5px;font-weight:600;color:var(--brand)}
 .kt-today-b .grow{flex:1}
 .kt-today-b .btn{padding:13px 14px;font-size:14.5px}
 .kt-today-more{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;

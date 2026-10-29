@@ -30,6 +30,27 @@ export const STATUS_2 = ['直帰', '早退'];
 /** The ones that mean "not at work", which zero the day's times (BI). */
 export const LEAVE = ['有給休暇', '欠勤', '振替休日', '特別休暇'];
 
+/* 勤怠状況 is one flat list of nine on the form, which mixes three
+   different kinds of day: ones you are away for, ones you worked but not
+   to the usual shape, and ones you worked when you should not have had
+   to. A person booking a day off was reading past 直行 and 遅刻（電車遅延）
+   to find 有給休暇. Grouped here, for a screen to show as groups.
+
+   The four in `leave` are also the four the company's own form counts:
+   業務報告書 tallies them with COUNTIF($AJ$9:$AO$39,"有給休暇") and three
+   like it. A status outside that set is written into the row and counted
+   in none of the boxes — which is why 病欠 is not quietly added here. A
+   separate sick-leave category needs a box on the form first; until then
+   illness is taken as 有給休暇, as it is on paper today. */
+export const STATUS_GROUPS = [
+  { id: 'leave', ja: '休み', en: 'Away', items: ['有給休暇', '特別休暇', '振替休日', '欠勤'] },
+  { id: 'shifted', ja: '勤務のずれ', en: 'Shifted hours', items: ['直行', '遅刻', '遅刻（電車遅延）'] },
+  { id: 'holiday', ja: '休日の出勤', en: 'Worked a day off', items: ['休日出勤', '振替予定休日出勤'] },
+];
+
+/** The leave kinds offered as one tap, in the order people use them. */
+export const LEAVE_QUICK = ['有給休暇', '特別休暇', '振替休日', '欠勤'];
+
 /* The defaults are モラブ阪神's, read off the 就業時間 panel of the sheet
    (AW16/AZ16, AW24, AW27 and the 平日/休憩/深夜/早朝 block at BE3:BG7). A
    client site with different hours gets its own copy of this. */

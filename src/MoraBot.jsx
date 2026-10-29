@@ -81,7 +81,16 @@ export default function MoraBot({ pose = 'idle', title, style }) {
           </g>
 
           <rect x="630" y="869" width="340" height="194" rx="70" fill="#138708" />
-          <circle cx="800" cy="966" r="50" fill="none" stroke="#FFFFFF" strokeWidth="8" />
+          {/* モラブ's M, on the body. Her first drawings had a plain ring
+              here; she redrew them with the letter and asked for it. Drawn
+              as one stroked path rather than a glyph so it needs no font
+              and keeps its weight at every size the bot is used at. */}
+          <path
+            className="mb-mark"
+            d="M750 1004 L750 930 L800 980 L850 930 L850 1004"
+            fill="none" stroke="#FFFFFF" strokeWidth="22"
+            strokeLinecap="round" strokeLinejoin="round"
+          />
 
           <g className="mb-head">
             <g className="mb-antenna">
