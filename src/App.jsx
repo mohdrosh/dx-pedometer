@@ -1005,6 +1005,11 @@ function Login({ onLogin, onTrial, lang, setLang, notice }) {
 /* The 21st-to-20th period switcher. Shared, because every module that keeps
    a monthly record needs the same one in the same place. */
 function PeriodBar({ y, m, setPeriod, lang }) {
+  /* Its own, because this one is rendered by the shell rather than from
+     inside a tab: 勤怠 and 旅費精算 mount it as a sibling, so there is no
+     tab's t() in scope here. Labelling the arrows found that out the hard
+     way — it threw on every screen but the pedometer, which has one. */
+  const t = useT();
   const shift = (d) => setPeriod(({ y: cy, m: cm }) => {
     const n = cm + d;
     return n < 1 ? { y: cy - 1, m: 12 } : n > 12 ? { y: cy + 1, m: 1 } : { y: cy, m: n };
