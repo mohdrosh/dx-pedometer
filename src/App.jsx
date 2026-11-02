@@ -400,8 +400,11 @@ const STR = {
   /* メンテナンス */
   mtHead: ['サーバメンテナンスのお知らせ', 'Scheduled maintenance'],
   mtNow: ['ただいまメンテナンス中です', 'Maintenance is under way'],
-  mtBody: ['下記の時間帯は、万歩計アプリをご利用いただけません。',
-    'The pedometer app will be unavailable during the times below.'],
+  /* 上記, not 下記 — the times sit above this line in the banner, not
+     below it. And 状況によって延びる場合があります: the end time is a plan,
+     and saying so up front is cheaper than explaining it at 14:05. */
+  mtBody: ['上記の時間帯は、万歩計アプリをご利用いただけません。状況によって延びる場合があります。',
+    'The pedometer app will be unavailable during the times above. This may run on depending on how the work goes.'],
   mtBodyNow: ['作業が終わるまで、記録の保存ができないことがあります。',
     'Your entries may fail to save until the work is finished.'],
   mtUntil: ['終了予定', 'Expected back'],
