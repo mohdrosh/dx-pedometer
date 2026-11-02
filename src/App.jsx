@@ -9,6 +9,7 @@ import { matches as fareMatches, parsePaste, mergeRows, cleanRow } from './fare-
 import { DEFAULT_RULES } from './kintai.js';
 import { companiesOf, cleanCompany } from './company.js';
 import { PUBLIC_HOLIDAYS } from './holidays.js';
+import { maintenanceState, windowText } from './maintenance.js';
 import {
   S, registerTrial, saveFeedback, fetchFeedback,
   IS_LOCAL, fetchBootstrap, apiLogin, apiLogout, apiMe, apiSaveMe, apiConsent, setLeaving,
@@ -396,6 +397,21 @@ const STR = {
     'Not submitted: the submission window has closed. Please contact 健康対策委員会.'],
   subFailed: ['提出できませんでした。通信状況をご確認のうえ、もう一度お試しください。',
     'Could not submit. Check your connection and try again.'],
+  /* メンテナンス */
+  mtHead: ['サーバメンテナンスのお知らせ', 'Scheduled maintenance'],
+  mtNow: ['ただいまメンテナンス中です', 'Maintenance is under way'],
+  mtBody: ['下記の時間帯は、万歩計アプリをご利用いただけません。',
+    'The pedometer app will be unavailable during the times below.'],
+  mtBodyNow: ['作業が終わるまで、記録の保存ができないことがあります。',
+    'Your entries may fail to save until the work is finished.'],
+  mtUntil: ['終了予定', 'Expected back'],
+  mtAdmin: ['メンテナンスのお知らせ', 'Maintenance notice'],
+  mtOn: ['お知らせを表示する', 'Show the notice'],
+  mtFrom: ['開始', 'From'],
+  mtTo: ['終了予定', 'Until'],
+  mtNote: ['ひとこと（任意）', 'Extra line (optional)'],
+  mtHelp: ['開始前は予告、時間内は「メンテナンス中」、終了予定を過ぎると自動で消えます。延びたときは終了予定を直してください（再公開は不要です）。',
+    'Before it starts this is a heads-up; during the window it says maintenance is under way; past the end time it disappears by itself. If the work runs over, change the end time — no redeploy needed.'],
   targetStatus: ['目標達成状況', 'Target status'],
   prevMonth: ['前月', 'Prev'],
   nextMonth: ['翌月', 'Next'],
@@ -948,7 +964,34 @@ function ConsentGate({ onAnswer, lang, setLang }) {
 }
 
 /* ============================ Login screen ================================ */
-function Login({ onLogin, onTrial, lang, setLang, notice }) {
+/* 佐野:「ログイン画面やトップ画面にお知らせを出してください」. One component
+   on both, because a notice that is on one screen and not the other is a
+   notice half the people never see. Red once the work has started, amber
+   while it is still ahead. */
+function MaintenanceBanner({ cfg }) {
+  const t = useT(); const lang = useLang();
+  const now = useMemo(() => {
+    /* Tokyo, not the laptop — the same reason the egg weeks are strings. */
+    const p = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Tokyo', year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', hour12: false,
+    }).formatToParts(new Date()).reduce((a, x) => { a[x.type] = x.value; return a; }, {});
+    return `${p.year}-${p.month}-${p.day}T${p.hour}:${p.minute}`;
+  }, []);
+  const m = maintenanceState(cfg, now);
+  if (m.state === 'none') return null;
+  const during = m.state === 'during';
+  return (
+    <div className={'mt-bar' + (during ? ' now' : '')} role="status">
+      <b>{during ? t('mtNow') : t('mtHead')}</b>
+      <span className="mt-when">{windowText(m.from, m.to, lang)}</span>
+      <em>{during ? t('mtBodyNow') : t('mtBody')}</em>
+      {m.note && <em className="mt-note">{m.note}</em>}
+    </div>
+  );
+}
+
+function Login({ onLogin, onTrial, lang, setLang, notice, cfg }) {
   const t = useT();
   const [id, setId] = useState('');
   const [err, setErr] = useState('');
@@ -972,6 +1015,8 @@ function Login({ onLogin, onTrial, lang, setLang, notice }) {
             {lang === 'ja' ? 'EN' : '日本語'}
           </button>
         </div>
+
+        <MaintenanceBanner cfg={cfg} />
 
         <div className="login-hello">
           <MoraBot pose="hello" title={t('botAlt')} />
@@ -2881,6 +2926,41 @@ function SettingsAdmin({ cfg, setCfg, toast, onDemo, onWipe }) {
         </label>
         <p className="muted sm">{t('fareLookupOnlyNote')}</p>
 
+        {/* 佐野:「作業が延びそうな場合は、表示している終了時刻をすぐ直して
+            ください」. Which is why the window is here and not in the code:
+            the one moment it needs changing is the one moment nobody can
+            wait for a build. Saving it is enough — the screens read it on
+            their next load. */}
+        <div className="sechead"><span>{t('mtAdmin')}</span></div>
+        <label className="check">
+          <input
+            type="checkbox" checked={!!cfg.maintenance?.on}
+            onChange={(e) => upd({ maintenance: { ...(cfg.maintenance || {}), on: e.target.checked } })}
+          />
+          <span>{t('mtOn')}</span>
+        </label>
+        <div className="row2-f">
+          <label className="fld"><span>{t('mtFrom')}</span>
+            <input
+              type="datetime-local" value={cfg.maintenance?.from || ''}
+              onChange={(e) => upd({ maintenance: { ...(cfg.maintenance || {}), from: e.target.value } })}
+            />
+          </label>
+          <label className="fld"><span>{t('mtTo')}</span>
+            <input
+              type="datetime-local" value={cfg.maintenance?.to || ''}
+              onChange={(e) => upd({ maintenance: { ...(cfg.maintenance || {}), to: e.target.value } })}
+            />
+          </label>
+        </div>
+        <label className="fld"><span>{t('mtNote')}</span>
+          <input
+            value={cfg.maintenance?.note || ''} maxLength={120}
+            onChange={(e) => upd({ maintenance: { ...(cfg.maintenance || {}), note: e.target.value } })}
+          />
+        </label>
+        <p className="muted sm">{t('mtHelp')}</p>
+
         <CompanyPanel cfg={cfg} upd={upd} t={t} />
 
         <label className="check">
@@ -3066,7 +3146,7 @@ export default function App() {
           <Login
             onTrial={() => setShowTrial(true)}
             lang={lang} setLang={setLang}
-            onLogin={signIn}
+            onLogin={signIn} cfg={cfg}
             notice={expired ? 'expired' : null}
           />
         </div>
@@ -3139,6 +3219,9 @@ export default function App() {
         </header>
 
         <main className="main">
+          {/* Above the tabs rather than inside one, so it is there whichever
+              screen somebody landed on. */}
+          <MaintenanceBanner cfg={cfg} />
           {!user.admin && tab === 'profile' ? (
             <ProfileTab
               user={me} cfg={cfg} roster={roster} setRoster={setRoster} toast={toast}
@@ -3834,6 +3917,24 @@ a.btn{text-decoration:none;text-align:center;display:inline-block}
 .fld textarea:focus{border-color:var(--brand);background:#fff}
 .fld-note{display:block;font-style:normal;font-size:12px;color:var(--dim);margin-top:5px}
 .fld-note.warn{color:var(--warn)}
+/* メンテナンスのお知らせ. Amber while it is still ahead, red once the work
+   has started — and never a colour on its own: the heading says which of
+   the two it is in words. */
+.mt-bar{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 12px;
+  padding:11px 14px;margin:0 0 2px;border-left:4px solid #B8860B;
+  background:#FFF8E1;color:#5B4708;font-size:13px;line-height:1.55}
+.mt-bar b{font-size:13.5px;font-weight:700;color:#7A5B00}
+.mt-bar .mt-when{font-size:14px;font-weight:700;font-variant-numeric:tabular-nums;
+  color:#3A2D00;background:#FFE9A8;border-radius:5px;padding:1px 8px}
+.mt-bar em{font-style:normal;flex:1 1 100%;font-size:12.5px}
+.mt-bar.now{border-left-color:#B3261E;background:#FDECEA;color:#6B1D17}
+.mt-bar.now b{color:#B3261E}
+.mt-bar.now .mt-when{background:#F7CFCA;color:#5A1712}
+.mt-note{font-weight:600}
+.row2-f{display:grid;gap:0 16px}
+@media(min-width:620px){.row2-f{grid-template-columns:1fr 1fr}}
+.login .mt-bar{margin:0 0 18px;border-radius:8px;border-left-width:4px}
+
 .trial-cta{width:100%;margin-top:20px;border-color:var(--brand);color:var(--brand)}
 .trial-cta:hover{background:var(--brand-wash)}
 /* a removed participant, shown only when 削除済みを表示 is ticked */

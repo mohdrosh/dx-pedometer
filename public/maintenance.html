@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>メンテナンス中 — 万歩計実績表</title>
+<!--
+  Served by nginx when the app itself is not answering, so it cannot ask
+  the server anything: no script, no fonts, no images from the app, no
+  stylesheet. Everything it needs is in this file, because the moment it
+  is needed is the moment nothing else is there.
+
+  The times are written in the markup on purpose. A page that fetched
+  them would be blank exactly when it matters. Raturi edits the two
+  <b> elements below if the window moves.
+-->
+<style>
+  :root{ --navy:#0B2A6B; --ink:#3A4A63; --amber:#B3261E; }
+  *{box-sizing:border-box}
+  body{
+    margin:0; min-height:100vh; display:flex; align-items:center;
+    justify-content:center; padding:24px;
+    background:#F4F6F8; color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Hiragino Kaku Gothic ProN",
+      "Yu Gothic","Meiryo",system-ui,sans-serif;
+    line-height:1.7;
+  }
+  .card{
+    width:100%; max-width:460px; background:#fff; border-radius:14px;
+    padding:30px 26px; box-shadow:0 2px 14px rgba(11,42,107,.09);
+    border-top:5px solid var(--amber);
+  }
+  h1{margin:0 0 4px; font-size:19px; color:var(--navy); letter-spacing:.01em}
+  .sub{margin:0 0 18px; font-size:13px; color:#7A869A}
+  .when{
+    background:#F7F9FC; border:1px solid #E1E7EF; border-radius:9px;
+    padding:13px 15px; margin:0 0 18px;
+  }
+  .when span{display:block; font-size:12px; color:#7A869A; margin-bottom:2px}
+  .when b{font-size:18px; color:var(--navy); font-variant-numeric:tabular-nums}
+  p{margin:0 0 10px; font-size:13.5px}
+  p:last-child{margin-bottom:0}
+  .en{margin-top:18px; padding-top:16px; border-top:1px solid #EDF1F5; color:#7A869A; font-size:12.5px}
+  .en b{color:var(--ink)}
+  /* The mark, drawn rather than loaded — an <img> would be one more
+     request to a server that is not answering. */
+  .dot{
+    width:42px; height:42px; border-radius:11px; background:var(--navy);
+    display:flex; align-items:center; justify-content:center;
+    color:#fff; font-weight:800; font-size:20px; margin:0 0 14px;
+  }
+  @media (prefers-color-scheme: dark){
+    body{background:#11161D; color:#C6D0DC}
+    .card{background:#1A212B; box-shadow:none}
+    h1,.when b{color:#D9E3F0}
+    .when{background:#151C25; border-color:#2A3340}
+  }
+</style>
+</head>
+<body>
+  <main class="card">
+    <div class="dot">M</div>
+    <h1>サーバメンテナンス中です</h1>
+    <p class="sub">万歩計実績表</p>
+
+    <div class="when">
+      <span>メンテナンス時間</span>
+      <b>11月4日（水） 11:00 〜 14:00</b>
+    </div>
+
+    <p>ただいまサーバのメンテナンスを行っております。</p>
+    <p>ご不便をおかけしますが、終了までしばらくお待ちください。作業が延びる場合があります。</p>
+    <p>お急ぎの場合は健康対策委員会までご連絡ください。</p>
+
+    <div class="en">
+      <p><b>The pedometer app is down for scheduled maintenance.</b></p>
+      <p>4 November, 11:00–14:00 JST. Please try again after that.</p>
+    </div>
+  </main>
+</body>
+</html>

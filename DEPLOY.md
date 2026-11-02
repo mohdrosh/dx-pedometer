@@ -298,3 +298,60 @@ FROM entry_days d JOIN employees e ON e.id = d.employee_id
 WHERE d.period = '2608'
 GROUP BY e.name ORDER BY total DESC;
 ```
+
+## メンテナンス時の表示 (2026-11)
+
+佐野:「メンテナンス中にもメッセージを出せるなら設定してください。サーバ自体
+が止まっている間はアプリが何も表示できないので、ラトリさんと相談を」.
+
+Two separate things, because they fail at different moments.
+
+**The advance notice** is in the app, in 設定 → メンテナンスのお知らせ:
+a switch, a start, an end, and an optional line. Before the start it shows
+as a heads-up on the sign-in screen and the top screen; between the two
+times it turns red and says the work is under way; past the end time it
+disappears by itself. **If the work runs over, change 終了予定 in 設定 and
+save — no redeploy.** That is the whole reason the window is a setting.
+
+**While the app is actually down** nothing in the app can speak, so nginx
+has to answer instead. `public/maintenance.html` is standalone — no
+script, no fonts, no stylesheet, no images — because the moment it is
+needed is the moment nothing else is being served.
+
+Add this inside the `/pedometer/` location in
+`/etc/nginx/conf.d/pedometer.conf`:
+
+```nginx
+location ^~ /pedometer/ {
+    proxy_pass http://127.0.0.1:8787/;
+    # ... existing proxy_set_header lines ...
+
+    # When Node is not answering, serve the static page instead of
+    # nginx's own 502. intercept_errors is what lets us replace it.
+    proxy_intercept_errors on;
+    error_page 502 503 504 = @maintenance;
+}
+
+location @maintenance {
+    root /opt/apps/pedometer/dist;
+    try_files /maintenance.html =503;
+    # 503 + Retry-After, so a crawler or a monitor understands this is
+    # temporary rather than the page having moved.
+    add_header Retry-After 3600 always;
+    default_type text/html;
+    charset utf-8;
+}
+```
+
+Then `nginx -t && systemctl reload nginx`.
+
+Caveats worth saying out loud:
+
+- This covers **Node being stopped** while nginx keeps running — which is
+  what a deploy or an app restart looks like. If the whole EC2 instance is
+  stopped, or nginx is stopped too, nothing on the box can answer and only
+  the advance notice will have done its job.
+- The dates in `maintenance.html` are written into the markup. A page that
+  fetched them would be blank exactly when it is needed. If the window
+  moves, edit the two bold lines in that file and redeploy — or, if the
+  app is up, the in-app notice is the one people will see anyway.
