@@ -390,6 +390,12 @@ const STR = {
   saveProfile: ['プロフィールを保存', 'Save profile'],
   status: ['状態', 'Status'],
   bonusRule: ['対象期間中、毎日 5,000 歩以上で 2,000 円', '5,000+ steps every single day of the period → ¥2,000'],
+  subIncomplete: ['未入力の日が残っているため提出できませんでした。すべての日を入力してください。',
+    'Not submitted: some days are still blank. Please fill in every day first.'],
+  subClosed: ['提出期間が終了しているため提出できませんでした。健康対策委員会にご連絡ください。',
+    'Not submitted: the submission window has closed. Please contact 健康対策委員会.'],
+  subFailed: ['提出できませんでした。通信状況をご確認のうえ、もう一度お試しください。',
+    'Could not submit. Check your connection and try again.'],
   targetStatus: ['目標達成状況', 'Target status'],
   prevMonth: ['前月', 'Prev'],
   nextMonth: ['翌月', 'Next'],
@@ -1162,9 +1168,28 @@ function StepsTab({ user, cfg, holidays, y, m, setPeriod, toast }) {
   const todayIso = isoOf(new Date());
   const isFuture = (iso) => iso > todayIso;
 
+  /* 伊藤:「提出したが未提出の連絡がきている」.
+     This said 提出しました whatever the server did with it. The server
+     turns a submission away when a day in the period is still blank, and
+     again when the window has closed after the 1st — and both refusals
+     arrived here as a green toast and a closed dialog, so the record was
+     never stored and the reminder on the 26th was right to go out. The
+     result is read now, the dialog stays open on a refusal, and the
+     message says which refusal it was. */
   const doSubmit = async () => {
     const base = latest.current || entry;
-    await persist({ ...base, submitted: true, submittedAt: Date.now() }, true);
+    const ok = await persist({ ...base, submitted: true, submittedAt: Date.now() }, true);
+    if (ok === false) {
+      const why = S.lastError;
+      toast(t(why === 'incomplete' ? 'subIncomplete'
+        : why === 'window_closed' ? 'subClosed'
+          : 'subFailed'));
+      /* Not submitted, so the record must not look as though it were. */
+      const back = { ...base };
+      delete back.submitted; delete back.submittedAt;
+      setEntry(back); latest.current = back;
+      return;
+    }
     setAskSubmit(false); toast(t('submitted'));
   };
 

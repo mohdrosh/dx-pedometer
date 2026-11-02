@@ -83,7 +83,17 @@ async function call(path, options = {}) {
     credentials: 'same-origin',
     ...options,
   }), path);
-  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+  if (!res.ok) {
+    /* Carry the server's own reason up with the failure. A refused save
+       used to arrive as "400 Bad Request" and nothing else, so the only
+       honest thing a screen could say was "it did not save" — and the two
+       refusals that actually happen, a blank day and a closed window, are
+       both things the person can act on once they are told which. */
+    const err = new Error(`${res.status} ${res.statusText}`);
+    err.status = res.status;
+    try { err.code = (await res.json())?.error || null; } catch { err.code = null; }
+    throw err;
+  }
   return res.json();
 }
 
@@ -115,9 +125,20 @@ export const S = {
     try { return await backend.get(key); }
     catch (e) { console.warn('storage.get failed', key, e); return null; }
   },
+  /* false when the save was refused, and `code` on this object says why —
+     read it right after the call that failed. A boolean alone cannot tell
+     a screen whether to say "finish the blank days" or "the window has
+     closed", and saying neither is how somebody came to be told their
+     record was in when the server had turned it away. */
+  lastError: null,
   async set(key, value) {
+    this.lastError = null;
     try { return await backend.set(key, value); }
-    catch (e) { console.warn('storage.set failed', key, e); return false; }
+    catch (e) {
+      this.lastError = e?.code || 'failed';
+      console.warn('storage.set failed', key, e);
+      return false;
+    }
   },
   async del(key) {
     try { return await backend.del(key); }
