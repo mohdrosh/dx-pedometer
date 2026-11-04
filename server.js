@@ -43,7 +43,7 @@ import { xlsxToPdf, pdfReady } from './src/topdf.js';
 import {
   cleanVote, eggOpen, eggWindow, eggOffices, tally, EGG_RULES, EGG_NAMES,
   cleanRequest, eggMaxPacks, eggTerms, consentOk, requestTotals,
-  EGG_PURPOSES, EGG_OFFICES,
+  EGG_PURPOSES, EGG_OFFICES, HQ_OFFICE, TOKYO_OFFICE,
 } from './src/egg.js';
 import {
   mondayOf, openShipMonday, requestDeadline, requestsOpen, pickupDeadline,
@@ -665,6 +665,10 @@ const server = http.createServer(async (req, res) => {
         /* 参加登録. Null until somebody registers, which is what puts the
            sign-up screen in front of them instead of the four tabs. */
         signup: who.admin ? null : await eggSignup(sess.employeeId),
+        /* マイ設定 shows the work address and the date the terms were
+           agreed; both come from the record, never from the browser. */
+        me: who.person ? { email: who.person.email || '' } : null,
+        consentAt: consent?.agreedAt || null,
         /* The launch dates, so the screens can say when rather than
            having them written into the markup twice. */
         dates: {
@@ -817,14 +821,32 @@ const server = http.createServer(async (req, res) => {
         return sendJson(res, 403, { error: 'no_consent' });
       }
 
+      /* 仕様書 4.3:「受取場所はマイ設定の登録先を表示する」. The office is
+         read off the registration, never off the request — a body that
+         carried one would be choosing a destination the screen does not
+         offer, and 配布ルール 3 says there is one registered place and no
+         second choice. */
+      const reg = await eggSignup(sess.employeeId);
+      if (!reg) return sendJson(res, 409, { error: 'not_registered' });
+
       const open = (await eggOfficeRows(true)).map((o) => o.name);
       if (!open.length) return sendJson(res, 409, { error: 'no_office' });
+      /* The registered office still has to be one that is running. An
+         office can be closed in 設定 after people have registered at it,
+         and taking their request anyway would be promising a delivery
+         nobody is making — they are sent to マイ設定 to pick another. */
+      if (!open.includes(reg.office)) return sendJson(res, 409, { error: 'office_closed' });
 
       const b = await readBody(req).catch(() => null);
-      const parsed = cleanRequest(b, open, cfg);
+      const parsed = cleanRequest({ ...b, office: reg.office }, [reg.office], cfg);
       if (!parsed.ok) return sendJson(res, 400, { error: `bad_${parsed.error}` });
 
-      await eggRequestSave(sess.employeeId, ship, parsed.value);
+      await eggRequestSave(sess.employeeId, ship, {
+        ...parsed.value,
+        /* Head Office cannot fall back to itself, and Tokyo has its own
+           rule — so the flag is only ever stored where it can be used. */
+        hqOk: b?.hqOk === true && reg.office !== HQ_OFFICE && reg.office !== TOKYO_OFFICE,
+      });
       return sendJson(res, 200, { mine: await eggMyRequest(sess.employeeId, ship) });
     }
 

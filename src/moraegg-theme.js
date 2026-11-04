@@ -159,6 +159,27 @@ export const MG_CSS = `
 .mg .mg-reg-done p{margin:0 auto 18px;max-width:420px;font-size:13px;
   line-height:1.8;color:#4A5A74}
 
+/* The registered office, reported rather than asked for. */
+.mg .eg-req-at{display:flex;align-items:baseline;gap:11px;flex-wrap:wrap;
+  margin:0 0 14px;padding:9px 13px;background:var(--mg-sky);
+  border:2px solid var(--mg-royal);border-radius:11px}
+.mg .eg-req-at b{font-size:16px;font-weight:900;color:var(--mg-navy)}
+.mg .eg-hq{margin-top:12px}
+/* 東京の特例: a request for help, so it reads as a sentence rather than
+   as a warning about something going wrong. */
+.mg .eg-tokyo-note{margin:11px 0 0;padding:10px 13px;font-size:12.5px;
+  line-height:1.7;font-weight:600;color:var(--mg-navy);
+  background:#FFF6DF;border:2px solid var(--mg-sun);border-radius:11px}
+
+/* ------------------------------ マイ設定 -------------------------------- */
+.mg .mg-set{max-width:680px}
+.mg .mg-set-by{display:inline-block;margin:0 0 9px;font-size:12px;font-weight:900;
+  color:var(--mg-navy);background:var(--mg-sun);border-radius:999px;padding:3px 12px}
+.mg .mg-set-agreed{margin:0 0 9px;font-size:13px;font-weight:900;color:var(--mg-green)}
+.mg .mg-set-terms{margin-top:11px}
+.mg .mg-set-go{position:sticky;bottom:0;padding:11px 0;background:linear-gradient(
+  to bottom, rgba(254,246,223,0) 0%, var(--mg-cream) 38%)}
+
 /* ------------------------------- the tabs ------------------------------- */
 .mg .eg-sub{
   display:flex;gap:8px;padding:12px 16px 0;background:none;border:0;

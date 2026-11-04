@@ -17,6 +17,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { S, apiRoot } from './storage';
 import EggSignup from './EggSignup';
+import EggSettings from './EggSettings';
 import { NOT_NOW } from './egg.js';
 import { MG_CSS } from './moraegg-theme';
 import EggPortal, { EggFarm, EggOffice, EggAdmin } from './EggPortal';
@@ -88,7 +89,11 @@ const L = {
   /* sub-tabs. Phase 0 asked one question and was one screen; Phase 1 is
      four jobs done by four different sorts of people, and a person only
      ever sees the ones that are theirs. */
-  v_portal: ['配布', 'Eggs'],
+  /* 仕様書 3 の 4 つのタブ. 配布 became 配布状況 and gave up the request
+     form to a tab of its own, which is what the four are. */
+  v_portal: ['配布状況', 'Distribution'],
+  v_req: ['リクエスト', 'Request'],
+  v_set: ['マイ設定', 'My settings'],
   v_dish: ['みんなの料理', 'Dishes'],
   v_farm: ['丹波', 'Harvest'],
   v_office: ['事務所', 'Office'],
@@ -221,14 +226,31 @@ export default function EggTab({
      to, and the only part that is different every week. 配布 is the job
      you came to do, so it is next. The survey answers one question once
      and then sits there, so it goes to the back. */
+  /* 仕様書 3:「登録後は4つのタブで画面を切り替える」 — 配布状況、リクエスト、
+     みんなの料理、マイ設定. In that order, because it is the order of a
+     week: see what is happening, say what you want, show what you cooked,
+     and only then change a setting. The role screens (丹波, 事務所, 管理)
+     are not among the four; they belong to the people who have them.
+
+     需要調査 is gone from the employees' strip. The company settled the
+     allocation rules instead of the survey, so it no longer decides
+     anything — the answers are still worth reading, so the screen stays
+     and the route to it moves to 管理, where the committee is. */
+  const mine4 = p1 && p1.signup;
   const views = [
+    ...(mine4 ? [['portal', t('v_portal')]] : []),
+    ...(mine4 ? [['request', t('v_req')]] : []),
     ...(p1 ? [['dish', t('v_dish')]] : []),
-    ...(p1 ? [['portal', t('v_portal')]] : []),
+    ...(mine4 ? [['settings', t('v_set')]] : []),
     ...(p1?.role?.farm ? [['farm', t('v_farm')]] : []),
     ...(p1?.role?.contactFor?.length || user?.admin ? [['office', t('v_office')]] : []),
-    ['survey', t('v_survey')],
     ...(user?.admin ? [['admin', t('v_admin')]] : []),
+    /* 需要調査 is the committee's to look at now, not a tab everybody
+       carries: the answers are still worth reading, the question is not
+       still being asked. */
+    ...(user?.admin ? [['survey', t('v_survey')]] : []),
   ];
+  if (!views.length) views.push(['dish', t('v_dish')]);
   const at = views.some(([k]) => k === view) ? view : views[0][0];
 
   return (
@@ -308,7 +330,11 @@ export default function EggTab({
       )}
 
       <div className="mg-body">
-      {at === 'portal' && <EggPortal d={p1} reload={loadP1} lang={lang} toast={toast} />}
+      {at === 'portal' && <EggPortal d={p1} reload={loadP1} lang={lang} toast={toast} screen="status" />}
+      {at === 'request' && <EggPortal d={p1} reload={loadP1} lang={lang} toast={toast} screen="request" />}
+      {at === 'settings' && (
+        <EggSettings d={p1} reload={loadP1} lang={lang} toast={toast} img={img} />
+      )}
       {at === 'dish' && <EggDish lang={lang} toast={toast} />}
       {at === 'farm' && <EggFarm lang={lang} toast={toast} />}
       {at === 'office' && <EggOffice lang={lang} toast={toast} />}

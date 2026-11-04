@@ -386,6 +386,15 @@ export async function initSchema() {
 
      points is 優先ポイント (配布ルール 9) — carried by the person, so it
      survives a change of office, and 0 for anybody with no row. */
+  /* 配布ルール 5:「お届けが決まらなかった場合は本社（神戸）で受け取る」.
+     Per request rather than per person: whether somebody is willing to
+     travel to Kobe is a decision about this week's packs, and the answer
+     can reasonably differ between a box for a customer and one for
+     themselves. */
+  await pool.query(
+    'ALTER TABLE egg_requests ADD COLUMN IF NOT EXISTS hq_ok BOOLEAN NOT NULL DEFAULT FALSE',
+  );
+
   await pool.query(`
     CREATE TABLE IF NOT EXISTS egg_signup (
       employee_id  TEXT PRIMARY KEY REFERENCES employees(id) ON DELETE CASCADE,
@@ -1011,14 +1020,16 @@ export async function eggHarvestSet(day, packs, employeeId) {
    and a draw that re-runs orders ties the same way both times. */
 const reqId = (ship, employeeId) => `${ship}:${employeeId}`;
 
-export async function eggRequestSave(employeeId, ship, { office, packs, purpose, reason }) {
+export async function eggRequestSave(employeeId, ship, { office, packs, purpose, reason, hqOk }) {
   await pool.query(
-    `INSERT INTO egg_requests (id, employee_id, ship, office, packs, purpose, reason)
-     VALUES ($1, $2, $3, $4, $5, $6, $7)
+    `INSERT INTO egg_requests (id, employee_id, ship, office, packs, purpose, reason, hq_ok)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
      ON CONFLICT (id) DO UPDATE
        SET office = EXCLUDED.office, packs = EXCLUDED.packs,
-           purpose = EXCLUDED.purpose, reason = EXCLUDED.reason, updated_at = NOW()`,
-    [reqId(ship, employeeId), String(employeeId), ship, office, packs, purpose, reason || null],
+           purpose = EXCLUDED.purpose, reason = EXCLUDED.reason,
+           hq_ok = EXCLUDED.hq_ok, updated_at = NOW()`,
+    [reqId(ship, employeeId), String(employeeId), ship, office, packs, purpose,
+      reason || null, !!hqOk],
   );
   return true;
 }
@@ -1035,7 +1046,7 @@ export async function eggRequestDrop(employeeId, ship) {
 /** This person's own request for a week, and nobody else's. */
 export async function eggMyRequest(employeeId, ship) {
   const { rows } = await pool.query(
-    `SELECT id, ship, office, packs, purpose, reason, got,
+    `SELECT id, ship, office, packs, purpose, reason, got, hq_ok AS "hqOk",
             drawn_at AS "drawnAt", picked_up_at AS "pickedUpAt"
        FROM egg_requests WHERE employee_id = $1 AND ship = $2`,
     [String(employeeId), ship],
@@ -1064,7 +1075,7 @@ export async function eggMyRequests(employeeId, limit = 12) {
 export async function eggWeekRequests(ship, office = null) {
   const { rows } = await pool.query(
     `SELECT r.id, r.employee_id AS "employeeId", e.name, r.office, r.packs,
-            r.purpose, r.reason, r.created_at AS "at", r.got,
+            r.purpose, r.reason, r.created_at AS "at", r.got, r.hq_ok AS "hqOk",
             r.drawn_at AS "drawnAt", r.picked_up_at AS "pickedUpAt"
        FROM egg_requests r
        LEFT JOIN employees e ON e.id = r.employee_id

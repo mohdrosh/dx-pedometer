@@ -21,7 +21,8 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { S, apiRoot } from './storage';
-import { EGG_TERMS_JA } from './egg.js';
+import { EGG_TERMS_JA, HQ_OFFICE, TOKYO_OFFICE } from './egg.js';
+import { mg } from './moraegg-text.js';
 
 const L = {
   /* 週 */
@@ -405,7 +406,16 @@ function Verdict({ office, lang, t, img }) {
 /* The portal read is owned by the tab above, because the roles it carries
    decide which screens exist at all — fetching it a second time here would
    ask the same question twice to draw one of its own answers. */
-export default function EggPortal({ d, reload: load, lang, toast }) {
+/* 仕様書 3 splits what used to be one 配布 screen into two tabs: 配布状況
+   is what is happening, リクエスト is what you do about it. They share
+   every bit of state — the week, the offices, your own row — so they stay
+   one component and this says which half to draw rather than the two
+   fetching and deriving the same thing twice. */
+export default function EggPortal({ d, reload: load, lang, toast, screen = 'all' }) {
+  /* Her dictionary, for the lines 仕様書 6 says to use verbatim. The
+     older L table in this file still carries the rest; the two are kept
+     apart so it is obvious which text she owns. */
+  const mgs = (k, vars) => mg(k, lang, vars);
   /* 6.2.1 asks for a tick before the button, so agreeing is a deliberate
      act rather than the thing that happens when you press the only button
      on the screen. */
@@ -484,8 +494,11 @@ export default function EggPortal({ d, reload: load, lang, toast }) {
   const showForm = d.open && (!mine || editing);
   const needReason = form.packs >= 2 && !form.reason.trim();
 
+  const onStatus = screen === 'all' || screen === 'status';
+  const onRequest = screen === 'all' || screen === 'request';
+
   return (
-    <div className="eg-p2">
+    <div className={`eg-p2${screen !== 'all' ? ` eg-p2-${screen}` : ''}`}>
 
       {/* ------------------------------ left ------------------------------ */}
       <div className="eg-p2-l">
@@ -496,7 +509,7 @@ export default function EggPortal({ d, reload: load, lang, toast }) {
             Stood down while the 初回の受付スタート card is up: that one has
             the dates in it and is the thing to read, and two pictures
             stacked in one column make the reader choose between them. */}
-        {!d.firstRound && <img src={img('hens-well')} alt="" className="mg-pic mg-strip mg-opt" />}
+        {onStatus && !d.firstRound && <img src={img('hens-well')} alt="" className="mg-pic mg-strip mg-opt" />}
 
         {/* 「今週はこの事務所にタマゴが届きます！」 — the thing most people
             open this page to find out, so it is the first thing on it.
@@ -564,7 +577,7 @@ export default function EggPortal({ d, reload: load, lang, toast }) {
           {d.week.shifted && <p className="eg-sched-h">{t('monHoliday')}</p>}
         </div>
 
-        {!d.consented && (
+        {onRequest && !d.consented && (
           <>
             <div className="sechead"><span>{t('terms')}</span></div>
             <div className="card eg-terms">
@@ -588,11 +601,11 @@ export default function EggPortal({ d, reload: load, lang, toast }) {
           </>
         )}
 
-        {d.consented && !d.offices.length && (
+        {onRequest && d.consented && !d.offices.length && (
           <div className="card"><p className="muted sm">{t('noOffice')}</p></div>
         )}
 
-        {d.consented && !!d.offices.length && !d.open && !mine && (
+        {onRequest && d.consented && !!d.offices.length && !d.open && !mine && (
           <div className="card eg-shut">
             <img src={img('empty')} alt="" />
             <div>
@@ -602,22 +615,18 @@ export default function EggPortal({ d, reload: load, lang, toast }) {
           </div>
         )}
 
-        {d.consented && !!d.offices.length && showForm && (
+        {onRequest && d.consented && !!d.offices.length && showForm && (
           <>
             <div className="sechead"><span>{t('request')}</span></div>
             <div className="card eg-req">
-              <div className="eg-q">{t('where')}</div>
-              <div className="eg-opts">
-                {d.offices.map((o) => (
-                  <button
-                    key={o.name} type="button"
-                    className={`eg-opt${form.office === o.name ? ' on' : ''}`}
-                    onClick={() => setForm({ ...form, office: o.name })}
-                  >
-                    {o.name}
-                    {o.address && <small>{o.address}</small>}
-                  </button>
-                ))}
+              {/* 仕様書 4.3:「受取場所はマイ設定の登録先を表示する。変更は
+                  マイ設定で行う」. It used to be eight buttons here and a
+                  different answer every week; the company settled on one
+                  registered office, so this reports it rather than asks. */}
+              <div className="eg-q">{t('pickup')}</div>
+              <div className="eg-req-at">
+                <b>{d.signup?.office || '—'}</b>
+                <span className="muted sm">{mgs('locChange')}</span>
               </div>
 
               <div className="eg-row2">
@@ -663,9 +672,31 @@ export default function EggPortal({ d, reload: load, lang, toast }) {
                 </label>
               )}
 
+              {/* 配布ルール 5:「本社受け取りにチェックした人：本社で受け取る
+                  分に回す」. Not offered at Head Office itself, and not at
+                  Tokyo — Tokyo has its own rule and is too far to walk to
+                  Kobe from. */}
+              {d.signup?.office && d.signup.office !== HQ_OFFICE
+                && d.signup.office !== TOKYO_OFFICE && (
+                <label className="check mg-tick eg-hq">
+                  <input
+                    type="checkbox" checked={!!form.hqOk}
+                    onChange={(e) => setForm({ ...form, hqOk: e.target.checked })}
+                  />
+                  <span>{mgs('hqOk')}</span>
+                </label>
+              )}
+
+              {/* 配布ルール 6.1:「東京で仕事用を申請する人には、周りの人にも
+                  声をかけるようお願いする」 — shown when both are true, since
+                  it is asking for something only they can do. */}
+              {d.signup?.office === TOKYO_OFFICE && form.purpose === 'work' && (
+                <p className="eg-tokyo-note">{mgs('tokyoWork')}</p>
+              )}
+
               <div className="eg-acts">
                 <button
-                  className="btn primary" disabled={busy || !form.office || needReason}
+                  className="btn primary" disabled={busy || needReason}
                   onClick={sendRequest}
                 >{busy ? t('sending') : mine ? t('update') : t('send')}</button>
                 {mine && <button className="btn ghost" disabled={busy} onClick={dropRequest}>{t('cancel')}</button>}
@@ -676,7 +707,7 @@ export default function EggPortal({ d, reload: load, lang, toast }) {
           </>
         )}
 
-        {mine && !editing && (
+        {onRequest && mine && !editing && (
           <>
             <div className="sechead"><span>{t('mine')}</span></div>
             <div className="card eg-mystat">
@@ -722,7 +753,7 @@ export default function EggPortal({ d, reload: load, lang, toast }) {
         {/* Once there are packs waiting, where to walk to is the next thing
             this person needs — and the left of the screen is otherwise a
             card and a lot of nothing. */}
-        {(status === 'confirmed' || status === 'picked') && (() => {
+        {onRequest && (status === 'confirmed' || status === 'picked') && (() => {
           const o = d.offices.find((x) => x.name === mine.office);
           return o && (o.address || o.contactName) ? (
             <>
@@ -737,7 +768,7 @@ export default function EggPortal({ d, reload: load, lang, toast }) {
           ) : null;
         })()}
 
-        {!!d.history?.length && (
+        {onRequest && !!d.history?.length && (
           <>
             <div className="sechead"><span>{t('history')}</span></div>
             <div className="card">
@@ -757,6 +788,7 @@ export default function EggPortal({ d, reload: load, lang, toast }) {
       </div>
 
       {/* ------------------------------ right ----------------------------- */}
+      {onStatus && (
       <div className="eg-p2-r">
         {/* 佐野:「丹波の取れ高をもっと目立たせてほしい」 — her artwork is the
             heading, so the harvest announces itself before any number is
@@ -791,13 +823,17 @@ export default function EggPortal({ d, reload: load, lang, toast }) {
 
       </div>
 
+      )}
+
       {/* News from the coop, and the only thing on this screen nobody is
           here to do. On a phone it goes to the bottom, under the dates and
           the request; beside them on a desk, where it costs nothing. */}
+      {onStatus && (
       <div className="eg-p2-news">
         <div className="sechead"><span>{t('coopNews')}</span></div>
         <img src={img('coop-news')} alt="" className="mg-pic" />
       </div>
+      )}
     </div>
   );
 }
