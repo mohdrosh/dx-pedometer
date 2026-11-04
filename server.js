@@ -43,7 +43,7 @@ import { xlsxToPdf, pdfReady } from './src/topdf.js';
 import {
   cleanVote, eggOpen, eggWindow, eggOffices, tally, EGG_RULES, EGG_NAMES,
   cleanRequest, eggMaxPacks, eggTerms, consentOk, requestTotals,
-  EGG_PURPOSES,
+  EGG_PURPOSES, EGG_OFFICES,
 } from './src/egg.js';
 import {
   mondayOf, openShipMonday, requestDeadline, requestsOpen, pickupDeadline,
@@ -72,6 +72,7 @@ const {
   eggRequestSave, eggRequestDrop, eggMyRequest, eggMyRequests,
   eggWeekRequests, eggMissed, eggWeek, eggDrawSave, eggWeekOffices,
   eggArrived, eggPickup, eggConsent, eggConsentSave, eggRequestById,
+  eggSignup, eggSignupSave, eggSignups, eggPoints, eggPointsSave,
   dishFeed, dishPost, dishCreate, dishEdit, dishDelete, dishHide,
   dishPhotoAdd, dishPhotoThumb, dishPhoto, dishPhotoCount,
   dishReact, dishComments, dishCommentAdd, dishCommentDelete, dishCommentHide,
@@ -661,6 +662,17 @@ const server = http.createServer(async (req, res) => {
         /* Whether this is the very first shipment, so the screen can show
            her 初回の受付スタート card instead of the ordinary weekly one. */
         firstRound: !!cfg.egg?.firstShip && ship === String(cfg.egg.firstShip),
+        /* 参加登録. Null until somebody registers, which is what puts the
+           sign-up screen in front of them instead of the four tabs. */
+        signup: who.admin ? null : await eggSignup(sess.employeeId),
+        /* The launch dates, so the screens can say when rather than
+           having them written into the markup twice. */
+        dates: {
+          signupFrom: cfg.egg?.signupFrom || null,
+          locDeadline: cfg.egg?.locDeadline || null,
+          requestsFrom: cfg.egg?.requestsFrom || null,
+        },
+        offices8: EGG_OFFICES,
         open: requestsOpen(ship, now.stamp, now.h, cfg, holidays),
         /* Each office carries the minimum that makes a run to it worth
            making, and how many packs have been asked for so far — the two
@@ -692,6 +704,66 @@ const server = http.createServer(async (req, res) => {
         drawn: await eggWeek(ship),
         role: { admin: who.admin, farm: who.farm, contactFor: who.contactFor },
       });
+    }
+
+    /* ----------------------------- 参加登録 ------------------------------ */
+
+    /* 配布ルール 3. One screen writes all three answers at once, because
+       they are one decision: 「受け取りの条件への同意、いつもの受取場所、
+       お知らせの送り先を登録する」. Saving the office without the
+       agreement, or the other way round, would leave somebody half
+       registered and the screens have no state for that. */
+    if (url.pathname === '/api/egg/signup' && req.method === 'POST') {
+      if (!sess) return deny(res);
+      if (sess.isAdmin) return deny(res, 403);
+      if (rateLimited(`egg:${sess.sid}`, 30, 60_000)) return sendJson(res, 429, { error: 'too_many' });
+
+      const { cfg } = await eggCfgNow();
+      const b = await readBody(req).catch(() => null);
+      const office = String(b?.office || '').trim();
+      if (!EGG_OFFICES.includes(office)) return sendJson(res, 400, { error: 'bad_office' });
+      if (b?.agree !== true) return sendJson(res, 400, { error: 'need_agree' });
+
+      /* 「会社のメールアドレスは変更できない」 — it comes from the record,
+         never from the browser, so only the optional private one is read
+         off the request at all. */
+      const priv = String(b?.privateMail || '').trim().slice(0, 120);
+      if (priv && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(priv)) {
+        return sendJson(res, 400, { error: 'bad_mail' });
+      }
+
+      const live = eggTerms(cfg);
+      await eggConsentSave(sess.employeeId, live.version);
+      await eggSignupSave(sess.employeeId, {
+        office, privateMail: priv || null, notifyPriv: priv ? b?.notifyPriv === true : false,
+      });
+      return sendJson(res, 200, { signup: await eggSignup(sess.employeeId) });
+    }
+
+    /* マイ設定. The same three answers, changed afterwards — 「受取場所を
+       変えたい人は、リクエストの前にマイ設定で変更する」. */
+    if (url.pathname === '/api/egg/signup' && req.method === 'PUT') {
+      if (!sess) return deny(res);
+      if (sess.isAdmin) return deny(res, 403);
+      if (rateLimited(`egg:${sess.sid}`, 30, 60_000)) return sendJson(res, 429, { error: 'too_many' });
+
+      const now = await eggSignup(sess.employeeId);
+      if (!now) return sendJson(res, 409, { error: 'not_registered' });
+      const b = await readBody(req).catch(() => null);
+      const office = b?.office === undefined ? now.office : String(b.office || '').trim();
+      if (!EGG_OFFICES.includes(office)) return sendJson(res, 400, { error: 'bad_office' });
+      const priv = b?.privateMail === undefined
+        ? now.privateMail
+        : String(b.privateMail || '').trim().slice(0, 120);
+      if (priv && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(priv)) {
+        return sendJson(res, 400, { error: 'bad_mail' });
+      }
+      await eggSignupSave(sess.employeeId, {
+        office,
+        privateMail: priv || null,
+        notifyPriv: priv ? (b?.notifyPriv === undefined ? now.notifyPriv : b.notifyPriv === true) : false,
+      });
+      return sendJson(res, 200, { signup: await eggSignup(sess.employeeId) });
     }
 
     /* ------------------------------ 同意 --------------------------------- */

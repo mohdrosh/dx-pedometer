@@ -371,6 +371,33 @@ export async function initSchema() {
     );
   `);
 
+  /* 参加登録 — 配布ルール 3.
+
+     The pickup office moved here from the weekly request. It used to be
+     chosen every time; the company settled on 「いつもの受取場所」 set once
+     and changed in マイ設定 before requesting, with no second choice. A
+     request now reads this rather than carrying an office of its own.
+
+     Separate from egg_consents because the two answer different
+     questions: that table records that somebody agreed to the terms and
+     when, which the settings screen has to keep showing, and this one
+     records what they chose. Someone can re-agree to a new version of the
+     terms without re-picking an office.
+
+     points is 優先ポイント (配布ルール 9) — carried by the person, so it
+     survives a change of office, and 0 for anybody with no row. */
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS egg_signup (
+      employee_id  TEXT PRIMARY KEY REFERENCES employees(id) ON DELETE CASCADE,
+      office       TEXT NOT NULL,
+      private_mail TEXT,
+      notify_priv  BOOLEAN NOT NULL DEFAULT FALSE,
+      points       INTEGER NOT NULL DEFAULT 0,
+      joined_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `);
+
   /* The consent used to be a checkbox on the sign-in screen, and signing in
      without noticing it recorded a "no". That is not an answer, so everyone
      it happened to is marked unasked again and is put through the consent
@@ -1193,6 +1220,69 @@ export async function eggConsentSave(employeeId, version) {
      VALUES ($1, $2, NOW())
      ON CONFLICT (employee_id) DO UPDATE SET version = EXCLUDED.version, agreed_at = NOW()`,
     [String(employeeId), String(version)],
+  );
+  return true;
+}
+
+/* ------------------------------ 参加登録 -------------------------------- */
+
+export async function eggSignup(employeeId) {
+  const { rows } = await pool.query(
+    `SELECT office, private_mail AS "privateMail", notify_priv AS "notifyPriv",
+            points, joined_at AS "joinedAt"
+       FROM egg_signup WHERE employee_id = $1`,
+    [String(employeeId)],
+  );
+  return rows[0] || null;
+}
+
+export async function eggSignupSave(employeeId, { office, privateMail, notifyPriv }) {
+  await pool.query(
+    `INSERT INTO egg_signup (employee_id, office, private_mail, notify_priv)
+     VALUES ($1, $2, $3, $4)
+     ON CONFLICT (employee_id) DO UPDATE SET
+       office = EXCLUDED.office,
+       private_mail = EXCLUDED.private_mail,
+       notify_priv = EXCLUDED.notify_priv,
+       updated_at = NOW()`,
+    [String(employeeId), String(office), privateMail || null, !!notifyPriv],
+  );
+  return true;
+}
+
+/** Everyone registered, for the allocation and the admin's list. */
+export async function eggSignups() {
+  const { rows } = await pool.query(
+    `SELECT s.employee_id AS "employeeId", s.office, s.points,
+            s.private_mail AS "privateMail", s.notify_priv AS "notifyPriv",
+            e.name
+       FROM egg_signup s JOIN employees e ON e.id = s.employee_id
+      WHERE e.active IS NOT FALSE
+      ORDER BY s.employee_id`,
+  );
+  return rows;
+}
+
+/** 優先ポイント as a plain map, which is what the allocation wants. */
+export async function eggPoints() {
+  const { rows } = await pool.query(
+    'SELECT employee_id AS id, points FROM egg_signup WHERE points > 0',
+  );
+  return Object.fromEntries(rows.map((r) => [String(r.id), Number(r.points) || 0]));
+}
+
+/* Written back in one statement after a draw rather than a row at a time:
+   the allocation is one decision, and a half-applied points table would
+   let the next week's draw run on a mixture of before and after. */
+export async function eggPointsSave(points) {
+  const ids = Object.keys(points || {});
+  await pool.query('UPDATE egg_signup SET points = 0 WHERE points > 0');
+  if (!ids.length) return true;
+  await pool.query(
+    `UPDATE egg_signup AS s SET points = v.p
+       FROM (SELECT unnest($1::text[]) AS id, unnest($2::int[]) AS p) AS v
+      WHERE s.employee_id = v.id`,
+    [ids, ids.map((k) => Math.max(0, Number(points[k]) || 0))],
   );
   return true;
 }

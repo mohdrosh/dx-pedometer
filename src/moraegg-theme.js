@@ -105,6 +105,60 @@ export const MG_CSS = `
   .mg-mini{padding:5px 8px;font-size:11px}
 }
 
+/* ----------------------------- 参加登録 ---------------------------------
+   The gate. Wider than a form and narrower than the page: three steps
+   that are each one decision, so the column is sized to the longest of
+   them rather than to the screen.
+------------------------------------------------------------------------ */
+.mg .mg-reg{max-width:620px;margin:0 auto;padding:4px 0 28px}
+.mg .mg-reg-top{text-align:center;margin-bottom:16px}
+.mg .mg-reg-top h2{margin:0 0 6px;font-size:20px;font-weight:900;color:var(--mg-navy)}
+.mg .mg-reg-top p{margin:0;font-size:13px;line-height:1.7;color:#4A5A74}
+.mg .mg-reg-by{margin-top:7px!important;display:inline-block;font-size:12.5px;
+  font-weight:900;color:var(--mg-navy);background:var(--mg-sun);
+  border-radius:999px;padding:3px 13px}
+
+/* 1 2 3, because a gate with no end in sight is the one people abandon. */
+.mg .mg-steps3{list-style:none;display:flex;gap:7px;margin:0 0 14px;padding:0}
+.mg .mg-steps3 li{flex:1;display:flex;align-items:center;gap:7px;
+  padding:7px 10px;border:2px solid var(--mg-navy);border-radius:999px;
+  background:var(--mg-paper);font-size:12px;font-weight:700;color:#6B7A92}
+.mg .mg-steps3 li b{display:inline-flex;align-items:center;justify-content:center;
+  width:20px;height:20px;flex:none;border-radius:999px;
+  background:#D7DEEA;color:var(--mg-navy);font-size:11.5px;font-weight:900}
+.mg .mg-steps3 li.on{background:var(--mg-sun);color:var(--mg-navy)}
+.mg .mg-steps3 li.on b{background:var(--mg-navy);color:#fff}
+.mg .mg-steps3 li.did b{background:var(--mg-leaf);color:#fff}
+.mg .mg-steps3 li.did{color:var(--mg-navy)}
+@media(max-width:560px){
+  .mg .mg-steps3 li span{display:none}
+  .mg .mg-steps3 li{flex:0 0 auto;justify-content:center;padding:7px}
+}
+
+.mg .mg-reg-card{padding:15px 16px}
+.mg .mg-reg-lead{margin:0 0 10px;font-size:12.5px;color:#4A5A74;line-height:1.7}
+/* The terms are the one thing on this screen to actually read, so they
+   are a list with room, not a paragraph of small print. */
+.mg .mg-terms{list-style:none;margin:0 0 14px;padding:0;display:grid;gap:7px}
+.mg .mg-terms li{position:relative;padding:9px 12px 9px 30px;
+  background:var(--mg-cream);border:2px solid var(--mg-navy);border-radius:11px;
+  font-size:12.5px;line-height:1.65;color:var(--mg-ink)}
+.mg .mg-terms li::before{content:'✓';position:absolute;left:11px;top:9px;
+  font-weight:900;color:var(--mg-green)}
+.mg .mg-reg-offs{margin-bottom:12px}
+.mg .mg-reg-offs .eg-opt small{display:block;margin-top:2px;font-size:11px;
+  font-weight:600;color:#6B7A92}
+.mg .mg-reg-mail{margin:0 0 2px}
+.mg .mg-reg-go{display:flex;gap:9px;flex-wrap:wrap;margin-top:14px;
+  padding-top:13px;border-top:2px dotted #D9CFB0}
+.mg .mg-reg-go .btn.primary{margin-left:auto}
+
+.mg .mg-reg-done{text-align:center;padding-top:22px}
+.mg .mg-reg-done img{width:120px;height:120px;margin-bottom:10px}
+.mg .mg-reg-done h2{margin:0 0 8px;font-size:19px;font-weight:900;color:var(--mg-navy)}
+.mg .mg-reg-done p{margin:0 auto 18px;max-width:420px;font-size:13px;
+  line-height:1.8;color:#4A5A74}
+
 /* ------------------------------- the tabs ------------------------------- */
 .mg .eg-sub{
   display:flex;gap:8px;padding:12px 16px 0;background:none;border:0;

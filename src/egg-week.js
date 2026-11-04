@@ -136,6 +136,11 @@ export function nextShipMonday(todayIso) {
  * and nowhere else, so it is only consulted then.
  */
 export function requestsOpen(shipMonday, nowIso, nowHour, cfg, holidays = {}) {
+  /* 「11/21（土）初回リクエストの受付開始」 — sign-up opens a week before
+     requests do, so being registered is not the same as being able to
+     ask. Before that date nothing is open, whatever the deadline says. */
+  const from = cfg?.egg?.requestsFrom;
+  if (from && nowIso && String(nowIso) < String(from)) return false;
   const { date, hour } = requestDeadline(shipMonday, cfg, holidays);
   if (nowIso < date) return true;
   if (nowIso > date) return false;

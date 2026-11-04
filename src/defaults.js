@@ -41,7 +41,28 @@ export const DEFAULT_CFG = {
      to ship. It is a date rather than a switch so nobody has to remember
      to turn it off — it simply stops applying once the week arrives, and
      clearing it in 設定 returns the ordinary weekly cycle. */
-  egg: { deadlineHour: 9, firstShip: '2026-11-23' },
+  /* 初回のスケジュール（配布ルール 2.1）. One date used to cover the whole
+     launch; the company's timetable splits it into three, and they are
+     ten days apart:
+
+       11/14（土）  本番稼働、参加登録の受付開始（従業員総会）
+       11/17（火）  受取場所の登録締切
+       11/21（土）  初回リクエストの受付開始
+       11/23（月）  初回の発送週（祝日なので締切・発送は 11/24）
+
+     signupFrom and requestsFrom are separate gates because sign-up is
+     open for a week before anybody may request — without that, somebody
+     registering at the meeting on the 14th could file a request there and
+     then, against a shipment nine days away with no harvest behind it. */
+  egg: {
+    deadlineHour: 9,
+    signupFrom: '2026-11-14',
+    locDeadline: '2026-11-17',
+    requestsFrom: '2026-11-21',
+    firstShip: '2026-11-23',
+    minPacks: 3,      /* 暫定。3 か 5 を会社に確認中 */
+    tokyoRule: true,  /* 暫定。仕事用なら1パックでも宅急便 */
+  },
   /* 会社情報・就業条件・稼働カレンダー. Registered here for now, shaped so the
      core system can supply the same objects later — see src/company.js. */
   companies: [DEFAULT_COMPANY],

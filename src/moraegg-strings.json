@@ -1,0 +1,696 @@
+{
+  "adminApp": {
+    "ja": "モラエッグ 管理",
+    "en": "Moraegg Admin"
+  },
+  "tabSched": {
+    "ja": "スケジュール設定",
+    "en": "Schedule"
+  },
+  "tabResult": {
+    "ja": "今週の結果",
+    "en": "This week’s results"
+  },
+  "schTitle": {
+    "ja": "スケジュール設定",
+    "en": "Schedule settings"
+  },
+  "schLead": {
+    "ja": "通常は毎週自動で「月曜9時締切」になります。祝日やお休みの週だけ、ここで変更してください。",
+    "en": "Normally, every week is set automatically with a Monday 9:00 AM deadline. Change only holiday weeks or weeks off here."
+  },
+  "schWeek": {
+    "ja": "週",
+    "en": "Week"
+  },
+  "schType": {
+    "ja": "種類",
+    "en": "Type"
+  },
+  "schNormal": {
+    "ja": "通常",
+    "en": "Normal"
+  },
+  "schChanged": {
+    "ja": "日付を変更",
+    "en": "Change dates"
+  },
+  "schOff": {
+    "ja": "お休み",
+    "en": "Week off"
+  },
+  "schComment": {
+    "ja": "お知らせ（みんなの画面に表示）",
+    "en": "Notice (shown to everyone)"
+  },
+  "schCommentPh": {
+    "ja": "例：年末年始のため、今週はお休みです。",
+    "en": "e.g. No delivery this week due to the New Year holidays."
+  },
+  "schAuto": {
+    "ja": "祝日のため自動で変更",
+    "en": "Changed automatically for a holiday"
+  },
+  "schOffShow": {
+    "ja": "この週は発送しません",
+    "en": "No shipment this week"
+  },
+  "weekOf": {
+    "ja": "{n}の週",
+    "en": "Week of {n}"
+  },
+  "offTitle": {
+    "ja": "今週はお休みです",
+    "en": "No delivery this week"
+  },
+  "resTitle": {
+    "ja": "今週の確定結果",
+    "en": "This week’s final results"
+  },
+  "resLead": {
+    "ja": "締切の時点で確定した、事業所ごとの発送数です。",
+    "en": "The number of packs going to each office, as confirmed at the deadline."
+  },
+  "resOffice": {
+    "ja": "事業所",
+    "en": "Office"
+  },
+  "resPacks": {
+    "ja": "発送するパック数",
+    "en": "Packs to ship"
+  },
+  "resNote": {
+    "ja": "内訳",
+    "en": "Breakdown"
+  },
+  "resHq": {
+    "ja": "リクエスト{a}＋余り{b}",
+    "en": "{a} requested + {b} extra"
+  },
+  "resTokyo": {
+    "ja": "仕事用のため宅急便で発送",
+    "en": "Sent by courier for business use"
+  },
+  "resSkip": {
+    "ja": "見送り（3パックに届かず）",
+    "en": "Skipped (under 3 packs)"
+  },
+  "resTotal": {
+    "ja": "合計",
+    "en": "Total"
+  },
+  "resHarvest": {
+    "ja": "丹波の取れ高",
+    "en": "Tamba’s harvest"
+  },
+  "resMine": {
+    "ja": "あなたの結果",
+    "en": "Your result"
+  },
+  "resMineText": {
+    "ja": "{a}で{b}パック受け取り",
+    "en": "Pick up {b} packs at {a}"
+  },
+  "adminList": {
+    "ja": "受け取る人の一覧",
+    "en": "Who’s picking up"
+  },
+  "adminWho": {
+    "ja": "名前",
+    "en": "Name"
+  },
+  "adminPurpose": {
+    "ja": "用途",
+    "en": "Purpose"
+  },
+  "confirmed": {
+    "ja": "確定",
+    "en": "Final"
+  },
+  "app": {
+    "ja": "モラエッグ",
+    "en": "Moraegg"
+  },
+  "tambaApp": {
+    "ja": "モラエッグ 丹波",
+    "en": "Moraegg Tamba"
+  },
+  "back": {
+    "ja": "マイページに戻る",
+    "en": "Back to My Page"
+  },
+  "logout": {
+    "ja": "ログアウト",
+    "en": "Log out"
+  },
+  "lang": {
+    "ja": "EN",
+    "en": "日本語"
+  },
+  "tabHome": {
+    "ja": "配布状況",
+    "en": "Distribution"
+  },
+  "tabReq": {
+    "ja": "リクエスト",
+    "en": "Request"
+  },
+  "tabRecipe": {
+    "ja": "みんなの料理",
+    "en": "Everyone’s dishes"
+  },
+  "tabSet": {
+    "ja": "マイ設定",
+    "en": "My settings"
+  },
+  "regTitle": {
+    "ja": "モラエッグ参加登録",
+    "en": "Moraegg sign-up"
+  },
+  "regLead": {
+    "ja": "丹波の鶏の卵を、正社員のみなさんに無料でお配りします。参加する方は、次の3つを登録してください。",
+    "en": "We share eggs from our hens in Tamba with full-time employees, free of charge. To join, please set up the three items below."
+  },
+  "regDeadline": {
+    "ja": "受取場所の登録締切：11月17日（火）",
+    "en": "Pickup location deadline: Tue, Nov 17"
+  },
+  "regLater": {
+    "ja": "登録した内容は、あとから「マイ設定」で変更できます。",
+    "en": "You can change these later in My settings."
+  },
+  "st1": {
+    "ja": "受け取りの条件",
+    "en": "Pickup terms"
+  },
+  "st2": {
+    "ja": "受取場所",
+    "en": "Pickup location"
+  },
+  "st3": {
+    "ja": "お知らせの送り先",
+    "en": "Notifications"
+  },
+  "termsLead": {
+    "ja": "お申し込みの前に、下記をご確認ください。",
+    "en": "Please read the following before you sign up."
+  },
+  "t1": {
+    "ja": "受け取りは、登録した事業所でお願いします。移動の費用は各自のご負担となります。",
+    "en": "Please pick up your eggs at the office you chose. Travel costs are your own."
+  },
+  "t2": {
+    "ja": "割れ・ヒビのある卵について、交換や返金はできません。",
+    "en": "We can’t replace or refund cracked or broken eggs."
+  },
+  "t3": {
+    "ja": "生ものですので、受け取り後の保管・調理・飲食は自己責任でお願いします。",
+    "en": "Eggs are fresh food. Once you pick them up, storing, cooking and eating them is at your own risk."
+  },
+  "t4": {
+    "ja": "発送した週の金曜日までに受け取ってください。",
+    "en": "Please pick them up by Friday of the week they’re shipped."
+  },
+  "agree": {
+    "ja": "上記の条件に同意します",
+    "en": "I agree to the terms above"
+  },
+  "agreeErr": {
+    "ja": "条件への同意が必要です。",
+    "en": "You need to agree to the terms."
+  },
+  "next": {
+    "ja": "次へ",
+    "en": "Next"
+  },
+  "backStep": {
+    "ja": "戻る",
+    "en": "Back"
+  },
+  "notNow": {
+    "ja": "今は参加しない",
+    "en": "Not now"
+  },
+  "locTitle": {
+    "ja": "いつもの受取場所",
+    "en": "Your usual pickup location"
+  },
+  "locLead": {
+    "ja": "毎週のリクエストは、ここで選んだ事業所に届きます。",
+    "en": "Your weekly requests are delivered to the office you choose here."
+  },
+  "locErr": {
+    "ja": "受取場所を選んでください。",
+    "en": "Please choose a pickup location."
+  },
+  "tokyoNote": {
+    "ja": "東京へは宅急便でお届けします。",
+    "en": "Eggs for Tokyo are sent by courier."
+  },
+  "mailTitle": {
+    "ja": "お知らせの送り先",
+    "en": "Where to send notices"
+  },
+  "mailLead": {
+    "ja": "モラエッグからのお知らせを、次のアドレスに送ります。",
+    "en": "We’ll send Moraegg notices to the address below."
+  },
+  "workMail": {
+    "ja": "会社のメールアドレス",
+    "en": "Work email"
+  },
+  "mailFixed": {
+    "ja": "会社のメールアドレスは変更できません。",
+    "en": "Your work email can’t be changed."
+  },
+  "addPrivate": {
+    "ja": "プライベートのメールアドレスにも送る",
+    "en": "Also send to my personal email"
+  },
+  "privMail": {
+    "ja": "プライベートのメールアドレス",
+    "en": "Personal email"
+  },
+  "privPh": {
+    "ja": "例：taro@example.com",
+    "en": "e.g. taro@example.com"
+  },
+  "mailErr": {
+    "ja": "メールアドレスを入力してください。",
+    "en": "Please enter an email address."
+  },
+  "doReg": {
+    "ja": "登録する",
+    "en": "Sign up"
+  },
+  "doneTitle": {
+    "ja": "登録が完了しました",
+    "en": "You’re signed up!"
+  },
+  "doneText": {
+    "ja": "初回のリクエストは11月21日（土）から受け付けます。締切は11月24日（火）朝9時です。",
+    "en": "Requests for the first delivery open on Sat, Nov 21. The deadline is Tue, Nov 24, 9:00 AM."
+  },
+  "toHome": {
+    "ja": "配布状況を見る",
+    "en": "See distribution"
+  },
+  "notNowTitle": {
+    "ja": "今回は参加しない設定にしました",
+    "en": "You’ve chosen not to join for now"
+  },
+  "notNowText": {
+    "ja": "参加したくなったら、いつでもこのページから登録できます。",
+    "en": "If you change your mind, you can sign up from this page any time."
+  },
+  "regAgain": {
+    "ja": "参加登録する",
+    "en": "Sign up"
+  },
+  "sched": {
+    "ja": "今週のスケジュール",
+    "en": "This week’s schedule"
+  },
+  "sDeadline": {
+    "ja": "締切",
+    "en": "Deadline"
+  },
+  "sShip": {
+    "ja": "発送",
+    "en": "Ships"
+  },
+  "sArrive": {
+    "ja": "到着",
+    "en": "Arrives"
+  },
+  "sPick": {
+    "ja": "受け取り",
+    "en": "Pickup"
+  },
+  "holiday": {
+    "ja": "月曜が祝日のため、締切・発送・到着が1日後ろにずれています。",
+    "en": "Monday is a holiday, so the deadline, shipping and arrival move back one day."
+  },
+  "battle": {
+    "ja": "丹波の取れ高 vs みんなのリクエスト",
+    "en": "Tamba’s harvest vs. everyone’s requests"
+  },
+  "harvest": {
+    "ja": "丹波の取れ高",
+    "en": "Tamba’s harvest"
+  },
+  "reqTotal": {
+    "ja": "リクエスト合計",
+    "en": "Total requests"
+  },
+  "pack": {
+    "ja": "パック",
+    "en": "packs"
+  },
+  "spare": {
+    "ja": "あと{n}パック余裕があります",
+    "en": "{n} packs to spare"
+  },
+  "even": {
+    "ja": "取れ高とリクエストがぴったり同じです",
+    "en": "Harvest and requests match exactly"
+  },
+  "short": {
+    "ja": "{n}パック足りません。仕事用を優先し、次に前回受け取れなかった人から配ります。",
+    "en": "{n} packs short. Business requests come first, then people who missed out last time."
+  },
+  "byOffice": {
+    "ja": "事業所ごとのリクエスト",
+    "en": "Requests by office"
+  },
+  "minNote": {
+    "ja": "合計{n}パック以上集まった事業所に届けます（線がお届けライン）",
+    "en": "Offices with {n} or more packs get a delivery (the line marks the minimum)"
+  },
+  "cSkip": {
+    "ja": "見送り",
+    "en": "Skipped"
+  },
+  "cGo": {
+    "ja": "お届け決定",
+    "en": "Delivery confirmed"
+  },
+  "cNear": {
+    "ja": "あと{n}パックでお届け",
+    "en": "{n} more for delivery"
+  },
+  "cSp": {
+    "ja": "仕事用のため発送",
+    "en": "Shipping for business use"
+  },
+  "cNone": {
+    "ja": "リクエストなし",
+    "en": "No requests"
+  },
+  "daily": {
+    "ja": "日ごとの取れ高",
+    "en": "Daily harvest"
+  },
+  "news": {
+    "ja": "丹波の鶏舎だより",
+    "en": "News from the Tamba henhouse"
+  },
+  "goReq": {
+    "ja": "今週のリクエストをする",
+    "en": "Make this week’s request"
+  },
+  "homeBubble": {
+    "ja": "あと少しで届く事業所があるよ！周りの人にも声をかけてね",
+    "en": "Some offices are almost there! Ask your colleagues to join in."
+  },
+  "reqTitle": {
+    "ja": "今週のリクエスト",
+    "en": "This week’s request"
+  },
+  "open": {
+    "ja": "受付中",
+    "en": "Open"
+  },
+  "rules": {
+    "ja": "毎週のルール",
+    "en": "Weekly rules"
+  },
+  "r1": {
+    "ja": "締切は毎週月曜日の朝9時です（月曜が祝日の場合は火曜日の朝9時）。",
+    "en": "The deadline is every Monday at 9:00 AM (Tuesday at 9:00 AM if Monday is a holiday)."
+  },
+  "r2": {
+    "ja": "締切日に丹波から発送し、翌日に事業所へ届きます。",
+    "en": "Eggs ship from Tamba on the deadline day and arrive at the office the next day."
+  },
+  "r3": {
+    "ja": "受け取りは、その週の金曜日までにお願いします。",
+    "en": "Please pick them up by Friday that week."
+  },
+  "r4": {
+    "ja": "卵が足りないときは、仕事用を優先し、次に前回受け取れなかった人から配ります。",
+    "en": "If there aren’t enough eggs, business requests come first, then people who missed out last time."
+  },
+  "pickup": {
+    "ja": "受取場所",
+    "en": "Pickup location"
+  },
+  "change": {
+    "ja": "変更する",
+    "en": "Change"
+  },
+  "packs": {
+    "ja": "パック数",
+    "en": "Packs"
+  },
+  "packHint": {
+    "ja": "1パック＝10個",
+    "en": "1 pack = 10 eggs"
+  },
+  "purpose": {
+    "ja": "用途",
+    "en": "Purpose"
+  },
+  "pPersonal": {
+    "ja": "私用",
+    "en": "Personal"
+  },
+  "pWork": {
+    "ja": "仕事用（お客様用）",
+    "en": "Business (for customers)"
+  },
+  "reason": {
+    "ja": "理由",
+    "en": "Reason"
+  },
+  "reasonReq": {
+    "ja": "（仕事用、または2パック以上のときは必須）",
+    "en": "(required for business use or 2+ packs)"
+  },
+  "reasonPh": {
+    "ja": "例：11/26 来社のお客様への手土産",
+    "en": "e.g. A gift for a customer visiting on Nov 26"
+  },
+  "reasonErr": {
+    "ja": "理由を入力してください。",
+    "en": "Please enter a reason."
+  },
+  "hqOk": {
+    "ja": "受取場所でお届けが決まらなかった場合は、本社（神戸）で受け取ります",
+    "en": "If my office doesn’t get a delivery, I’ll pick up at Head Office (Kobe)"
+  },
+  "tokyoWork": {
+    "ja": "東京へは宅急便でお届けします。できるだけ周りの方にも声をかけて、合計3パック以上になるようご協力をお願いします。",
+    "en": "Eggs for Tokyo are sent by courier. Please ask colleagues to join so the total reaches 3 packs or more."
+  },
+  "send": {
+    "ja": "リクエストする",
+    "en": "Send request"
+  },
+  "sentTitle": {
+    "ja": "リクエストを受け付けました",
+    "en": "Request received"
+  },
+  "sentText": {
+    "ja": "締切までは変更・取り消しができます。結果は締切後にこのページでお知らせします。",
+    "en": "You can change or cancel until the deadline. We’ll show your result here after the deadline."
+  },
+  "edit": {
+    "ja": "変更する",
+    "en": "Change"
+  },
+  "cancel": {
+    "ja": "取り消す",
+    "en": "Cancel request"
+  },
+  "canceled": {
+    "ja": "リクエストを取り消しました",
+    "en": "Request canceled"
+  },
+  "sumLine": {
+    "ja": "{office}／{n}パック／{purpose}",
+    "en": "{office} / {n} packs / {purpose}"
+  },
+  "recTitle": {
+    "ja": "みんなの料理",
+    "en": "Everyone’s dishes"
+  },
+  "recLead": {
+    "ja": "もらった卵で作った料理を見せてください。投稿は任意です。",
+    "en": "Show us what you made with your eggs. Posting is optional."
+  },
+  "post": {
+    "ja": "投稿する",
+    "en": "Post"
+  },
+  "like": {
+    "ja": "いいね",
+    "en": "Like"
+  },
+  "want": {
+    "ja": "作ってみたい！",
+    "en": "I want to try this!"
+  },
+  "askRecipe": {
+    "ja": "レシピを教えて！",
+    "en": "Share the recipe!"
+  },
+  "seeRecipe": {
+    "ja": "レシピを見る",
+    "en": "See recipe"
+  },
+  "sample": {
+    "ja": "サンプル写真",
+    "en": "Sample photo"
+  },
+  "pTitle": {
+    "ja": "料理を投稿する",
+    "en": "Post a dish"
+  },
+  "pPhoto": {
+    "ja": "料理の写真",
+    "en": "Photo"
+  },
+  "pName": {
+    "ja": "料理名",
+    "en": "Dish name"
+  },
+  "pComment": {
+    "ja": "コメント",
+    "en": "Comment"
+  },
+  "pRecipe": {
+    "ja": "レシピ（任意）",
+    "en": "Recipe (optional)"
+  },
+  "pNote": {
+    "ja": "お客様など、社外の方が写らないようにしてください。",
+    "en": "Please make sure no customers or other outside people appear in your photo."
+  },
+  "pCancel": {
+    "ja": "キャンセル",
+    "en": "Cancel"
+  },
+  "posted": {
+    "ja": "投稿しました",
+    "en": "Posted"
+  },
+  "setTitle": {
+    "ja": "マイ設定",
+    "en": "My settings"
+  },
+  "locChange": {
+    "ja": "変更すると、次のリクエストから反映されます。",
+    "en": "Changes apply from your next request."
+  },
+  "termsSet": {
+    "ja": "受け取りの条件",
+    "en": "Pickup terms"
+  },
+  "agreed": {
+    "ja": "同意済み（2026年11月14日）",
+    "en": "Agreed (Nov 14, 2026)"
+  },
+  "showTerms": {
+    "ja": "条件を見る",
+    "en": "View terms"
+  },
+  "hideTerms": {
+    "ja": "閉じる",
+    "en": "Close"
+  },
+  "save": {
+    "ja": "保存する",
+    "en": "Save"
+  },
+  "saved": {
+    "ja": "保存しました",
+    "en": "Saved"
+  },
+  "tToday": {
+    "ja": "今日の取れ高",
+    "en": "Today’s harvest"
+  },
+  "tHint": {
+    "ja": "10個詰めるごとに「＋1パック」を押してください。",
+    "en": "Tap “+1 pack” each time you fill a pack of 10 eggs."
+  },
+  "tPlus": {
+    "ja": "＋1パック",
+    "en": "+1 pack"
+  },
+  "tMinus": {
+    "ja": "−1",
+    "en": "−1"
+  },
+  "tWeek": {
+    "ja": "今週の取れ高",
+    "en": "This week’s harvest"
+  },
+  "tTotal": {
+    "ja": "今週の合計",
+    "en": "This week’s total"
+  },
+  "tReq": {
+    "ja": "今週のリクエスト合計",
+    "en": "Total requests this week"
+  },
+  "tFix": {
+    "ja": "ほかの日を修正する",
+    "en": "Fix another day"
+  },
+  "tFixNote": {
+    "ja": "日付を選ぶと、その日のパック数を直せます。",
+    "en": "Choose a date to correct that day’s count."
+  },
+  "tAdmin": {
+    "ja": "発送する数は、締切後に管理者が確定します。",
+    "en": "An admin confirms how many packs to ship after the deadline."
+  },
+  "tBubble": {
+    "ja": "今日もありがとう！",
+    "en": "Thanks for today!"
+  },
+  "wd": {
+    "ja": [
+      "月",
+      "火",
+      "水",
+      "木",
+      "金",
+      "土",
+      "日"
+    ],
+    "en": [
+      "Mon",
+      "Tue",
+      "Wed",
+      "Thu",
+      "Fri",
+      "Sat",
+      "Sun"
+    ]
+  },
+  "offices": {
+    "ja": {
+      "hq": "本社（神戸）",
+      "tokyo": "東京",
+      "osaka": "大阪",
+      "sanda": "三田",
+      "himeji": "姫路",
+      "kyoto": "京都",
+      "nagata": "新長田",
+      "ama": "尼崎技術研修所"
+    },
+    "en": {
+      "hq": "Head Office (Kobe)",
+      "tokyo": "Tokyo",
+      "osaka": "Osaka",
+      "sanda": "Sanda",
+      "himeji": "Himeji",
+      "kyoto": "Kyoto",
+      "nagata": "Shin-Nagata",
+      "ama": "Amagasaki Technical Training Center"
+    }
+  }
+}

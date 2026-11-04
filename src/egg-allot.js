@@ -30,15 +30,14 @@
    answer the only way the committee can ever check one.
    ========================================================================= */
 
-import { hashText } from './egg.js';
+import { hashText, EGG_OFFICES, HQ_OFFICE, TOKYO_OFFICE } from './egg.js';
 
-export const HQ = '本社（神戸）';
-export const TOKYO = '東京';
-
-/** The eight, in the order 佐野's dictionary lists them. */
-export const OFFICES = [
-  HQ, TOKYO, '大阪', '三田', '姫路', '京都', '新長田', '尼崎技術研修所',
-];
+/* One list, defined in egg.js. Head Office is matched by name when the
+   leftovers are added to it, so a second copy that drifted by one
+   character would quietly lose every spare egg. */
+export const HQ = HQ_OFFICE;
+export const TOKYO = TOKYO_OFFICE;
+export const OFFICES = EGG_OFFICES;
 
 export const MIN_PACKS = 3;     /* 暫定。会社に確認中 — 3 か 5 */
 

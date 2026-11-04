@@ -114,6 +114,20 @@ is('and shuts at 9 on the Tuesday',
 is('an earlier deadline shuts earlier',
   requestsOpen('2026-11-30', '2026-11-30', 8, { egg: { deadlineHour: 7 } }, {}), false);
 
+/* 「11/14 参加登録の受付開始、11/21 初回リクエストの受付開始」 — a week
+   apart, so being signed up is not the same as being able to ask. */
+const LAUNCH = { egg: { requestsFrom: '2026-11-21', deadlineHour: 9 } };
+is('nothing is open before requests start, whatever the deadline says',
+  requestsOpen('2026-11-23', '2026-11-14', 10, LAUNCH, HOL), false);
+is('not on the day before either',
+  requestsOpen('2026-11-23', '2026-11-20', 23, LAUNCH, HOL), false);
+is('open on the day requests start',
+  requestsOpen('2026-11-23', '2026-11-21', 0, LAUNCH, HOL), true);
+is('and the deadline still closes it',
+  requestsOpen('2026-11-23', '2026-11-24', 9, LAUNCH, HOL), false);
+is('with no start date set, only the deadline decides',
+  requestsOpen('2026-11-23', '2026-11-14', 10, { egg: { deadlineHour: 9 } }, HOL), true);
+
 /* 「受け取りは基本その週の金曜まで」; a Monday that slipped to Tuesday does
    not move it, because the week still ends on the Friday. */
 is('collect by the Friday of the shipping week',

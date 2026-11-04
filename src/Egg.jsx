@@ -16,6 +16,7 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { S, apiRoot } from './storage';
+import EggSignup from './EggSignup';
 import { NOT_NOW } from './egg.js';
 import { MG_CSS } from './moraegg-theme';
 import EggPortal, { EggFarm, EggOffice, EggAdmin } from './EggPortal';
@@ -262,6 +263,39 @@ export default function EggTab({
         </div>
       </header>
 
+      {/* 仕様書 4.1:「社員は、参加登録が済むまで参加登録の画面だけを見る」.
+          A gate, not a tab — until somebody registers there is nothing
+          else here for them, so the tab strip is not drawn either.
+
+          Only for people the eggs are for. An administrator, a 丹波
+          registrar and an office contact all reach this page to do a job
+          that has nothing to do with collecting a pack, and sending them
+          through a sign-up for themselves would stop them doing it. */}
+      {p1 && !p1.signup && !user?.admin && !p1.role?.farm
+        && !p1.role?.contactFor?.length ? (
+          <div className="mg-body">
+            <EggSignup
+              lang={lang} user={user} dates={p1.dates} img={img}
+              api={async (path, method, body) => {
+                try {
+                  const res = await fetch(`${apiRoot()}/egg${path}`, {
+                    method,
+                    headers: { 'content-type': 'application/json' },
+                    credentials: 'same-origin',
+                    body: body ? JSON.stringify(body) : undefined,
+                  });
+                  return await res.json();
+                } catch { return { error: 'failed' }; }
+              }}
+              /* Only on the way out. Reloading the portal the moment the
+                 save lands lifts the gate, unmounts this component and
+                 throws away 「登録が完了しました」 — which is the screen
+                 that tells people requests open on the 21st. */
+              onDone={(signup, go) => { if (go) { loadP1(); setView('portal'); } }}
+            />
+          </div>
+        ) : (
+        <>
       {views.length > 1 && (
         <nav className="eg-sub">
           {views.map(([k, label]) => (
@@ -514,6 +548,8 @@ export default function EggTab({
        </>
       )}
       </div>
+        </>
+      )}
     </div>
   );
 }

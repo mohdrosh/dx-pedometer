@@ -87,7 +87,7 @@ is('an empty list falls back rather than offering nothing',
 const rows = [
   { employeeId: '2407036', office: '大阪', rule: 'lottery' },
   { employeeId: '0208', office: '大阪', rule: 'lottery' },
-  { employeeId: '1011009', office: '本社', rule: 'lottery' },
+  { employeeId: '1011009', office: '本社（神戸）', rule: 'lottery' },
   { employeeId: '2407039', office: '新長田', rule: 'onEach' },
   { employeeId: '2510004', office: NOT_NOW, rule: 'fcfs' },
 ];
@@ -98,7 +98,7 @@ is('今は不要 is counted', t.notNow, 1);
 
 is('offices rank by how many want them',
   t.offices.slice(0, 3).map((o) => `${o.office}:${o.count}`),
-  ['大阪:2', '本社:1', '新長田:1']);
+  ['大阪:2', '本社（神戸）:1', '新長田:1']);
 
 is('an office nobody chose is still in the chart',
   t.offices.find((o) => o.office === '姫路'), { office: '姫路', count: 0 });
@@ -129,7 +129,7 @@ is('an answer with no name is still valid',
 
 const named = tally([
   { employeeId: 'a', office: '大阪', rule: 'fcfs', name: 'moratama' },
-  { employeeId: 'b', office: '本社', rule: 'fcfs', name: 'moratama' },
+  { employeeId: 'b', office: '本社（神戸）', rule: 'fcfs', name: 'moratama' },
   { employeeId: 'c', office: '東京', rule: 'lottery', name: 'moraeggbin' },
   { employeeId: 'd', office: '京都', rule: 'lottery' },
 ]);
@@ -172,7 +172,7 @@ is('a comment cannot rescue an invalid answer',
 const withNotes = tally([
   { employeeId: 'a', office: '大阪', rule: 'fcfs', comment: '2パック欲しい' },
   { employeeId: 'b', office: '姫路', rule: 'lottery' },
-  { employeeId: 'c', office: '本社', rule: 'fcfs', comment: '受取時間を遅めに' },
+  { employeeId: 'c', office: '本社（神戸）', rule: 'fcfs', comment: '受取時間を遅めに' },
 ]);
 is('comments are collected', withNotes.comments, ['2パック欲しい', '受取時間を遅めに']);
 is('and answers without one are not counted as blank comments',
@@ -321,7 +321,7 @@ is('blank config falls back to the spec text rather than to nothing',
 const asked = [
   { employeeId: 'e1', office: '大阪', packs: 1, purpose: 'private' },
   { employeeId: 'e2', office: '大阪', packs: 3, purpose: 'work' },
-  { employeeId: 'e3', office: '本社', packs: 2, purpose: 'private' },
+  { employeeId: 'e3', office: '本社（神戸）', packs: 2, purpose: 'private' },
 ];
 const tot = requestTotals(asked);
 
@@ -331,7 +331,7 @@ is('and the people are counted too', tot.people, 3);
    office contacts read down every week, and rows that swap places between
    loads are harder to read than rows that do not. */
 is('split by office, in a fixed order',
-  tot.offices.filter((o) => o.count).map((o) => `${o.office}:${o.count}`), ['本社:2', '大阪:4']);
+  tot.offices.filter((o) => o.count).map((o) => `${o.office}:${o.count}`), ['本社（神戸）:2', '大阪:4']);
 is('every office stays in the table even on nought',
   tot.offices.length, EGG_OFFICES.length);
 is('split by purpose',
