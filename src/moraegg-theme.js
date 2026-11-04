@@ -708,6 +708,16 @@ export const MG_CSS = `
 .mg .eg-draw{display:flex;align-items:center;gap:13px;flex-wrap:wrap}
 .mg .eg-draw-r{margin:0;font-size:12.5px;font-weight:700}
 .mg .eg-draw>p.muted{flex:1 1 100%;margin:0}
+/* 今週の結果: one line per office, the number set apart so the column of
+   them reads down without the eye hunting for it. */
+.mg .eg-res-l{list-style:none;margin:0 0 10px;padding:0;display:grid;gap:6px}
+.mg .eg-res-l li{display:grid;grid-template-columns:1fr auto;align-items:baseline;
+  gap:4px 10px;padding:7px 10px;border-radius:10px;background:var(--mg-sky)}
+.mg .eg-res-l li.warn{background:#FDECEA;box-shadow:inset 0 0 0 1px rgba(179,38,30,.35)}
+.mg .eg-res-l b{font-size:13px}
+.mg .eg-res-n{font-size:13px;font-weight:800;font-variant-numeric:tabular-nums}
+.mg .eg-res-l small{grid-column:1/-1;font-size:11.5px;color:#5B6B86}
+.mg .eg-res>p.muted{margin:0 0 4px}
 .mg .ad-set,.mg .eg-admin{display:grid;gap:4px}
 .mg .eg-admin{align-items:end}
 

@@ -341,7 +341,7 @@ export default function EggTab({
       {at === 'admin' && (
         <EggAdmin
           lang={lang} toast={toast} cfg={cfg} setCfg={setCfg}
-          people={people} rules={d.rules || []} onDone={loadP1}
+          people={people} onDone={loadP1}
         />
       )}
 

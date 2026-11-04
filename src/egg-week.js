@@ -25,13 +25,12 @@
    enough: about 210 eggs a week against however many people ask, so most
    weeks somebody is told no. Which somebody is decided here, and it has to
    be decidable twice — the same inputs must always produce the same result,
-   or nobody can check a draw after the fact and 「抽選」 becomes something
-   people have to take on trust. So the lottery is seeded on the shipping
-   week rather than on Math.random, and running it again a month later
-   reproduces it exactly.
+   or nobody can check a draw after the fact. The allocation itself moved
+   to src/egg-allot.js on 2026/11/03, when the company settled its own
+   rules; what is left here is the calendar those rules run on — which
+   Monday ships, when requests close, and when an uncollected pack
+   expires.
    ========================================================================= */
-
-import { hashText } from './egg.js';
 
 const DAY = 86400000;
 const iso = (d) => d.toISOString().slice(0, 10);
@@ -92,6 +91,31 @@ export function shipDay(shipMonday, holidays = {}) {
 /** 申請締切 — the shipping day, at the configured hour. */
 export function requestDeadline(shipMonday, cfg, holidays = {}) {
   return { date: shipDay(shipMonday, holidays), hour: hourOf(cfg) };
+}
+
+/**
+ * The shipping week whose request deadline has just passed, or null.
+ *
+ * 仕様書 5「締切後に配分を確定する」 is a job for the clock, and the clock
+ * cannot ask openShipMonday which week to decide: by the time the deadline
+ * has passed that has already rolled on to the next one, which is the
+ * whole point of it. So the question is asked the other way round — of the
+ * three Mondays this day could possibly be a deadline for, which one is
+ * it? Three, because a public holiday moves a deadline by a day in either
+ * direction, and a Monday holiday pushes the first week's deadline into
+ * the Tuesday that belongs to the same shipping Monday.
+ *
+ * `firstShip` keeps it quiet before Moraegg starts: there is no week to
+ * decide until the first one.
+ */
+export function dueShip(todayIso, nowHour, cfg, holidays = {}, firstShip = null) {
+  const monday = mondayOf(todayIso);
+  for (const ship of [shift(monday, -7), monday, shift(monday, 7)]) {
+    if (firstShip && ship < String(firstShip)) continue;
+    const due = requestDeadline(ship, cfg, holidays);
+    if (due.date === todayIso && Number(nowHour) >= due.hour) return ship;
+  }
+  return null;
 }
 
 /** 到着日 — 「丹波から発送、翌日事務所に到着」. */
@@ -171,98 +195,12 @@ export function weekInfo(shipMonday, cfg, holidays) {
   };
 }
 
-/* ------------------------------ the draw -------------------------------- */
-
-/* A lottery nobody can check is not a lottery, it is an assurance. Seeding
-   it on the shipping week means the same week always draws the same way:
-   re-run it in a month and it comes out as it did, which is what lets
-   somebody ask why they missed out and be shown. */
-function rng(seed) {
-  let a = parseInt(hashText(seed), 36) || 1;
-  return () => {
-    a |= 0; a = (a + 0x6D2B79F5) | 0;
-    let t = Math.imul(a ^ (a >>> 15), 1 | a);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
-function shuffled(list, seed) {
-  const out = [...list];
-  const rand = rng(seed);
-  for (let i = out.length - 1; i > 0; i -= 1) {
-    const j = Math.floor(rand() * (i + 1));
-    [out[i], out[j]] = [out[j], out[i]];
-  }
-  return out;
-}
-
-/* Ties are broken by request id, never by the order rows came back from the
-   database — two runs must not differ because a query planner changed. */
-const byTime = (a, b) => String(a.at).localeCompare(String(b.at))
-  || String(a.id).localeCompare(String(b.id));
-
-/**
- * Hand out `packs` between `requests` under one of the four rules.
- *
- * Each request is {id, employeeId, want, at}; the result is the same list
- * with `got` on it, so a caller can write the outcome back without having
- * to match anything up again. Nobody is given more than they asked for, the
- * total handed out never exceeds what was harvested, and a request that
- * gets nothing is still in the result with got:0 — 落選 is an answer and
- * somebody has to be told it.
- *
- *   fcfs         申請が早い順に確定
- *   onEach       まず全員に1パック、余りを2パック目以降へ
- *   lottery      締切後にランダムで確定（週でシード、再現できる）
- *   missedFirst  前週に落選した人を優先
- */
-export function allocate({ requests = [], packs = 0, rule = 'fcfs', missedLastWeek = [], seed = '' }) {
-  const rows = requests
-    .map((r) => ({ ...r, want: Math.max(0, Math.floor(Number(r.want) || 0)), got: 0 }))
-    .filter((r) => r.want > 0);
-
-  let left = Math.max(0, Math.floor(Number(packs) || 0));
-  if (!rows.length || left <= 0) return rows;
-
-  if (rule === 'onEach') {
-    /* Round by round: one pack to everybody who still wants one, then round
-       again. 公平感が高い, and the cost 佐野 noted is real — somebody asking
-       for three for a customer waits through two rounds to get them. */
-    const order = [...rows].sort(byTime);
-    let gave = true;
-    while (left > 0 && gave) {
-      gave = false;
-      for (const r of order) {
-        if (left <= 0) break;
-        if (r.got < r.want) { r.got += 1; left -= 1; gave = true; }
-      }
-    }
-    return rows;
-  }
-
-  let order;
-  if (rule === 'lottery') {
-    order = shuffled([...rows].sort(byTime), seed);
-  } else if (rule === 'missedFirst') {
-    const missed = new Set((missedLastWeek || []).map(String));
-    const first = rows.filter((r) => missed.has(String(r.employeeId))).sort(byTime);
-    const rest = rows.filter((r) => !missed.has(String(r.employeeId))).sort(byTime);
-    order = [...first, ...rest];
-  } else {
-    order = [...rows].sort(byTime);
-  }
-
-  /* Filled in order, and the person the eggs run out on takes what is left
-     rather than nothing — a half-filled request is closer to what they
-     asked for than a refusal, and it wastes no packs. */
-  for (const r of order) {
-    if (left <= 0) break;
-    const give = Math.min(r.want, left);
-    r.got = give;
-    left -= give;
-  }
-  return rows;
-}
+/* allocate() lived here until 2026/11/03: four rules (先着順 / 1人1パック
+   優先 / 抽選 / 前回落選者優先) that the 需要調査 was going to choose
+   between. The company settled the question itself, and what they settled
+   is none of the four but a sequence — 仕事用 in full, then one personal
+   pack each in 優先ポイント order, then second packs. That lives in
+   src/egg-allot.js, and this is the note saying where it went. */
 
 /** Who asked and got nothing — next week's 前回落選者, by employee. */
 export function missedFrom(allocated) {

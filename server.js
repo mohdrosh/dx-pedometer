@@ -47,8 +47,9 @@ import {
 } from './src/egg.js';
 import {
   mondayOf, openShipMonday, requestDeadline, requestsOpen, pickupDeadline,
-  weekInfo, allocate, missedFrom, shiftDay, statusOf,
+  weekInfo, shiftDay, statusOf, dueShip,
 } from './src/egg-week.js';
+import { allot } from './src/egg-allot.js';
 import {
   REACTIONS, PHOTOS_MAX, PHOTO_BYTES, PHOTO_EDGE, THUMB_EDGE,
   cleanPost, cleanComment, cleanReaction, photoOk, badgeFor, topDish, postCounts,
@@ -280,8 +281,130 @@ async function autoSubmit(y, m) {
   return done;
 }
 
+/* ----------------------- モラエッグ：配分の確定 -------------------------- */
+
+/* The stored settings, with egg merged a level deeper than the rest: the
+   spread is shallow, so a stored cfg carrying any egg setting at all would
+   otherwise drop every default in it — including firstShip, whose whole
+   job is to be right without anybody setting it. */
+async function eggCfg() {
+  const stored = (await getKey('cfg')) || {};
+  const cfg = {
+    ...DEFAULT_CFG, ...stored,
+    egg: { ...DEFAULT_CFG.egg, ...(stored.egg || {}) },
+  };
+  return { cfg, holidays: { ...PUBLIC_HOLIDAYS, ...closureMap(cfg, null) } };
+}
+
+/**
+ * Decide one shipping week by 配布ルール 5–9 and write the answer down.
+ *
+ * The administrator's button and the Monday deadline both call this, so
+ * pressing it early shows exactly what the clock would have done — the
+ * committee can never be surprised by the automatic run, because they
+ * have already seen it.
+ *
+ * Re-running a week is allowed up to the moment somebody collects a pack.
+ * After that the answer is out in the world: a second draw would take a
+ * pack off a person who already has it in their hands.
+ */
+async function runAllot(ship, { packs = null, by = null } = {}) {
+  const { cfg } = await eggCfg();
+  const already = await eggWeekRequests(ship);
+  if (already.some((r) => r.pickedUpAt)) return { error: 'already_collected' };
+
+  /* The harvest that ships on this Monday is the week before it. */
+  const harvested = (await eggHarvest(shiftDay(ship, -7), shiftDay(ship, -1)))
+    .reduce((a, d) => a + d.packs, 0);
+  const harvest = Number.isInteger(packs) && packs >= 0 ? packs : harvested;
+
+  /* The points this week is decided on are the ones it was first decided
+     on: a re-run reads the snapshot rather than the live table, which its
+     own earlier run has already rewritten. */
+  const week = await eggWeek(ship);
+  const points = week?.pointsBefore || await eggPoints();
+
+  const rows = await eggOfficeRows(true);
+  const open = rows.map((o) => o.name);
+  const out = allot({
+    requests: already.map((r) => ({
+      id: r.id, employeeId: r.employeeId, office: r.office,
+      packs: r.packs, purpose: r.purpose, hqOk: r.hqOk,
+    })),
+    harvest,
+    minPacks: cfg.egg?.minPacks,
+    tokyoRule: cfg.egg?.tokyoRule !== false,
+    points,
+    seed: ship,
+    /* An office's own 最低パック数 beats the company's, which is how 本社
+       ships whatever it has:「0なら毎週発送」. */
+    officeMin: Object.fromEntries(rows.map((o) => [o.name, o.minPacks])),
+    ...(open.length ? { offices: open } : {}),
+  });
+
+  /* allot drops any row asking for nothing, so every request is written
+     back from this map and not from its result rows — otherwise somebody
+     it filtered out would sit at 受付済 for a week already decided. */
+  const byId = new Map(out.rows.map((r) => [r.id, r]));
+  const full = already.map((r) => {
+    const x = byId.get(r.id);
+    return { id: r.id, office: r.office, got: x?.got ?? 0, at: x?.at ?? r.office };
+  });
+
+  await eggDrawSave(
+    ship,
+    { packs: harvest, rule: 'company', seed: ship, by, extra: out.extra },
+    full,
+    { lines: out.lines, points: out.points, pointsBefore: points },
+  );
+
+  return {
+    ship,
+    rule: 'company',
+    packs: harvest,
+    harvested,
+    minPacks: out.minPacks,
+    extra: out.extra,
+    shipped: out.shipped,
+    lines: out.lines,
+    /* 「配分の結果、成立していた事業所が3パックを下回った場合」ほか: a week
+       that wants a person to look at it says so rather than waiting to be
+       noticed. */
+    needsAdmin: out.needsAdmin,
+    moved: out.rows.filter((r) => r.moved && r.got > 0).length,
+    missed: out.rows.filter((r) => r.purpose !== 'work' && r.got <= 0).length,
+    offices: await eggWeekOffices(ship),
+  };
+}
+
+/* 仕様書 5「締切後に配分を確定する」. Nobody has to be at a desk on Monday
+   morning for the week to be decided — and because the committee can run
+   the same thing early from 管理, what this does at the deadline is what
+   they have already seen.
+
+   The week it closes is found from the deadline rather than from the
+   clock's own idea of which week is open: openShipMonday has already
+   rolled on to the next one by the time this runs, which is the point of
+   it. Three candidates, because a public holiday moves a deadline by a
+   day in either direction. */
+async function eggTick(now) {
+  const { cfg, holidays } = await eggCfg();
+  const ship = dueShip(now.stamp, now.h, cfg, holidays, cfg.egg?.firstShip || null);
+  if (!ship) return;
+  if ((await getKey('job:egg')) === ship) return;
+  /* Written before the run, not after: a run that throws half way must not
+     be started again by the next tick fifteen minutes later, when a person
+     needs to look at why it failed. */
+  await setKey('job:egg', ship);
+  const out = await runAllot(ship, { by: null });
+  console.log(out.error
+    ? `  egg: ${ship} not decided — ${out.error}`
+    : `  egg: ${ship} decided — ${out.shipped}/${out.packs} packs${out.needsAdmin ? ', needs an administrator' : ''}`);
+}
+
 async function tick() {
   const now = tokyoNow();
+  await eggTick(now).catch(console.error);
   if (now.h !== 9) return;
   if (now.d === 26 && (await getKey('job:reminder')) !== now.stamp) {
     await setKey('job:reminder', now.stamp);
@@ -621,18 +744,10 @@ const server = http.createServer(async (req, res) => {
        what refuses a late request, so it cannot be told which Mondays are
        holidays by the client making the request. 設定 closures go over
        the top, so an office may shut on a day the nation works. */
-    const eggCfgNow = async () => {
-      const stored = (await getKey('cfg')) || {};
-      /* egg is merged a level deeper than the rest. The spread is shallow,
-         so a stored cfg that carries any egg setting at all would
-         otherwise drop every default in it — including firstShip, whose
-         whole job is to be right without anybody setting it. */
-      const cfg = {
-        ...DEFAULT_CFG, ...stored,
-        egg: { ...DEFAULT_CFG.egg, ...(stored.egg || {}) },
-      };
-      return { cfg, holidays: { ...PUBLIC_HOLIDAYS, ...closureMap(cfg, null) } };
-    };
+    /* One reading of the settings for the routes and for the clock: the
+       deadline the screens show has to be the deadline the automatic run
+       obeys, and two copies of this merge would eventually disagree. */
+    const eggCfgNow = eggCfg;
 
     if (url.pathname === '/api/egg/portal' && req.method === 'GET') {
       if (!sess) return deny(res);
@@ -655,6 +770,16 @@ const server = http.createServer(async (req, res) => {
          is this one and the eggs filling it were laid last week. */
       const harvestFrom = shiftDay(ship, -7);
       const harvest = await eggHarvest(harvestFrom, shiftDay(ship, -1));
+
+      /* Once the week has been decided, every screen stops showing what
+         was asked for and starts showing what is coming — the same
+         numbers the office contacts are given, so nobody is comparing two
+         accounts of the same Monday. */
+      const week = await eggWeek(ship);
+      const decided = !!week?.drawnAt;
+      const sent = decided
+        ? Object.fromEntries((await eggWeekOffices(ship)).map((o) => [o.office, o]))
+        : {};
 
       return sendJson(res, 200, {
         today: now.stamp,
@@ -686,6 +811,10 @@ const server = http.createServer(async (req, res) => {
           note: o.note || '', minPacks: o.minPacks || 0,
           asked: requests.filter((r) => r.office === o.name)
             .reduce((a, r) => a + (r.packs || 0), 0),
+          /* Null until the week is decided, so a screen can tell "none
+             yet" from "none at all" without being told twice. */
+          sent: decided ? (sent[o.name]?.packs ?? 0) : null,
+          spare: decided ? (sent[o.name]?.extra ?? 0) : null,
         })),
         purposes: EGG_PURPOSES,
         maxPacks: eggMaxPacks(cfg),
@@ -705,7 +834,8 @@ const server = http.createServer(async (req, res) => {
         harvest,
         harvestPacks: harvest.reduce((a, d) => a + d.packs, 0),
         week0: harvestFrom,
-        drawn: await eggWeek(ship),
+        drawn: week,
+        decided,
         role: { admin: who.admin, farm: who.farm, contactFor: who.contactFor },
       });
     }
@@ -963,7 +1093,10 @@ const server = http.createServer(async (req, res) => {
       const row = await eggRequestById(id);
       if (!row) return deny(res, 404);
       const ownIt = row.employeeId === sess.employeeId;
-      const contact = who.contactFor.includes(row.office);
+      /* The contact who hands it over is the one at the office it is
+         collected from — 本社 for somebody moved there, not the office
+         they asked at, whose contact never sees the pack. */
+      const contact = who.contactFor.includes(row.collectAt || row.office);
       if (!ownIt && !contact) return deny(res, 403);
       /* Undoing somebody else's collection is the contact's to do; undoing
          your own is only sensible if you pressed it by mistake. */
@@ -1012,6 +1145,12 @@ const server = http.createServer(async (req, res) => {
      * a correction to the harvest after a bad count should be able to put
      * the right answer in, and the seed makes the redraw deterministic too.
      */
+    /* 配分の確定. 仕様書 5「締切後に配分を確定する」.
+
+       One route, two callers: an administrator pressing the button, and
+       the clock at the Monday deadline. Both land in runAllot below, so
+       what the committee sees when they press it early is what would
+       have happened on its own. */
     if (url.pathname === '/api/egg/draw' && req.method === 'POST') {
       if (!sess?.isAdmin) return deny(res, 403);
       if (rateLimited(`egg:${sess.sid}`, 30, 60_000)) return sendJson(res, 429, { error: 'too_many' });
@@ -1022,38 +1161,12 @@ const server = http.createServer(async (req, res) => {
       const ship = /^\d{4}-\d{2}-\d{2}$/.test(String(b?.ship || ''))
         ? String(b.ship) : openShipMonday(now.stamp, now.h, cfg, holidays);
 
-      const already = await eggWeekRequests(ship);
-      if (already.some((r) => r.pickedUpAt)) return sendJson(res, 409, { error: 'already_collected' });
-
-      /* The harvest that ships on this Monday is the week before it. */
-      const from = shiftDay(ship, -7);
-      const harvested = (await eggHarvest(from, shiftDay(ship, -1)))
-        .reduce((a, d) => a + d.packs, 0);
-      const packs = Number.isInteger(b?.packs) && b.packs >= 0 ? b.packs : harvested;
-
-      const rule = String(b?.rule || cfg?.egg?.rule || 'fcfs');
-      const allocated = allocate({
-        requests: already.map((r) => ({ id: r.id, employeeId: r.employeeId, want: r.packs, at: r.at })),
-        packs,
-        rule,
-        missedLastWeek: await eggMissed(shiftDay(ship, -7)),
-        seed: ship,
+      const out = await runAllot(ship, {
+        packs: Number.isInteger(b?.packs) && b.packs >= 0 ? b.packs : null,
+        by: sess.employeeId,
       });
-      /* allocate drops zero-pack rows, so anybody whose request it filtered
-         out still needs a nought written against them — otherwise their
-         status would sit at 受付済 for a week that has already been decided. */
-      const byId = new Map(allocated.map((r) => [r.id, r.got]));
-      const full = already.map((r) => ({ id: r.id, office: r.office, got: byId.get(r.id) ?? 0 }));
-
-      await eggDrawSave(ship, { packs, rule, seed: ship, by: sess.employeeId }, full);
-      return sendJson(res, 200, {
-        ship,
-        packs,
-        rule,
-        harvested,
-        missed: missedFrom(full.map((r, i) => ({ ...r, employeeId: already[i].employeeId }))).length,
-        offices: await eggWeekOffices(ship),
-      });
+      if (out.error) return sendJson(res, 409, { error: out.error });
+      return sendJson(res, 200, out);
     }
 
     /* ==================== Phase 2：料理写真の投稿 =======================
@@ -1649,6 +1762,7 @@ initSchema()
       console.log(`  Static   : ${SERVE_STATIC ? 'serving dist/' : 'API only (run vite separately)'}`);
       console.log(`  Mail     : ${DRY_RUN ? 'DRY RUN (no SMTP_HOST — nothing is sent)' : `${MAIL_FROM} via ${process.env.SMTP_HOST}`}`);
       console.log(`  Jobs     : reminder on the 26th, auto-submit on the 2nd, 09:00 JST`);
+      console.log(`  Eggs     : the week is decided at its request deadline`);
       console.log(`  Auth     : session cookie required for /api (${SESSION_DAYS}-day sessions)\n`);
     });
     setInterval(() => {

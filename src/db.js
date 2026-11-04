@@ -395,6 +395,40 @@ export async function initSchema() {
     'ALTER TABLE egg_requests ADD COLUMN IF NOT EXISTS hq_ok BOOLEAN NOT NULL DEFAULT FALSE',
   );
 
+  /* Where the pack is actually collected, once the allocation has run.
+     Null means「申請した事業所」 — only somebody moved to 本社 because their
+     own office fell short of the minimum has a value here, so a request
+     that was never moved cannot drift away from the office it was made
+     at. It is written by the draw and read by the office contact's list,
+     which is why it is a column and not worked out again on each read:
+     the week has been decided, and a later change to the office rows must
+     not move a pack that is already on a van. */
+  await pool.query(
+    'ALTER TABLE egg_requests ADD COLUMN IF NOT EXISTS at_office TEXT',
+  );
+
+  /* 配布ルール 8「余った分は本社に送り、ご自由にどうぞとする」. Kept apart
+     from the packs people asked for, because 今週の結果 says them
+     separately —「リクエスト{a}＋余り{b}」— and a single total cannot be
+     taken back apart afterwards. */
+  await pool.query(
+    'ALTER TABLE egg_weeks ADD COLUMN IF NOT EXISTS extra INTEGER NOT NULL DEFAULT 0',
+  );
+  await pool.query(
+    'ALTER TABLE egg_week_offices ADD COLUMN IF NOT EXISTS extra INTEGER NOT NULL DEFAULT 0',
+  );
+
+  /* 優先ポイント as they stood before this week was decided.
+     Re-running a week is allowed until somebody collects, and the points
+     are the one input a run destroys: the second run would read the table
+     its own first run had already zeroed, and punish the people it had
+     just served. Keeping the input means a week always replays to the
+     same answer, which is also the only way the committee can ever check
+     one —「抽選の対象になったことは個別に知らせない」. */
+  await pool.query(
+    'ALTER TABLE egg_weeks ADD COLUMN IF NOT EXISTS points_before JSONB',
+  );
+
   await pool.query(`
     CREATE TABLE IF NOT EXISTS egg_signup (
       employee_id  TEXT PRIMARY KEY REFERENCES employees(id) ON DELETE CASCADE,
@@ -1047,6 +1081,7 @@ export async function eggRequestDrop(employeeId, ship) {
 export async function eggMyRequest(employeeId, ship) {
   const { rows } = await pool.query(
     `SELECT id, ship, office, packs, purpose, reason, got, hq_ok AS "hqOk",
+            at_office AS "atOffice",
             drawn_at AS "drawnAt", picked_up_at AS "pickedUpAt"
        FROM egg_requests WHERE employee_id = $1 AND ship = $2`,
     [String(employeeId), ship],
@@ -1058,7 +1093,7 @@ export async function eggMyRequest(employeeId, ship) {
 /** This person's own history, newest week first. */
 export async function eggMyRequests(employeeId, limit = 12) {
   const { rows } = await pool.query(
-    `SELECT ship, office, packs, purpose, got,
+    `SELECT ship, office, packs, purpose, got, at_office AS "atOffice",
             drawn_at AS "drawnAt", picked_up_at AS "pickedUpAt"
        FROM egg_requests WHERE employee_id = $1 ORDER BY ship DESC LIMIT $2`,
     [String(employeeId), Math.min(60, Math.max(1, limit))],
@@ -1076,10 +1111,16 @@ export async function eggWeekRequests(ship, office = null) {
   const { rows } = await pool.query(
     `SELECT r.id, r.employee_id AS "employeeId", e.name, r.office, r.packs,
             r.purpose, r.reason, r.created_at AS "at", r.got, r.hq_ok AS "hqOk",
+            r.at_office AS "atOffice", COALESCE(r.at_office, r.office) AS "collectAt",
             r.drawn_at AS "drawnAt", r.picked_up_at AS "pickedUpAt"
        FROM egg_requests r
        LEFT JOIN employees e ON e.id = r.employee_id
-      WHERE r.ship = $1 ${office ? 'AND r.office = $2' : ''}
+      /* Asked for by office, answered by where it is collected: somebody
+         moved to 本社 because their own office fell short is on 本社's
+         list and not on their own, which is the only list that can hand
+         them the pack. Before a draw at_office is null everywhere, so
+         this is the office they asked at. */
+      WHERE r.ship = $1 ${office ? 'AND COALESCE(r.at_office, r.office) = $2' : ''}
       ORDER BY r.created_at, r.id`,
     office ? [ship, office] : [ship],
   );
@@ -1097,6 +1138,7 @@ export async function eggWeekRequests(ship, office = null) {
 export async function eggRequestById(id) {
   const { rows } = await pool.query(
     `SELECT id, employee_id AS "employeeId", ship, office, packs, got,
+            COALESCE(at_office, office) AS "collectAt",
             picked_up_at AS "pickedUpAt"
        FROM egg_requests WHERE id = $1`,
     [String(id)],
@@ -1118,7 +1160,8 @@ export async function eggMissed(ship) {
 
 export async function eggWeek(ship) {
   const { rows } = await pool.query(
-    `SELECT ship, packs, rule, seed, drawn_at AS "drawnAt", drawn_by AS "drawnBy"
+    `SELECT ship, packs, rule, seed, extra, points_before AS "pointsBefore",
+            drawn_at AS "drawnAt", drawn_by AS "drawnBy"
        FROM egg_weeks WHERE ship = $1`,
     [ship],
   );
@@ -1127,29 +1170,44 @@ export async function eggWeek(ship) {
 }
 
 /**
- * Write a draw: every request's share, the week's record of how it was
- * decided, and the per-office split, all or nothing.
+ * Write a week's allocation: every request's share and where it is
+ * collected, the week's record of how it was decided, the per-office
+ * split, and everybody's 優先ポイント as they now stand — all or nothing.
  *
  * In one transaction because a half-written draw is the worst of the
  * possible states — some people told they have packs, the week with no
  * record of the rule that decided it, and no way to tell which half ran.
+ * The points are in it for the same reason: 配分 and 優先ポイント are one
+ * decision (「受け取れた人は0に戻り、受け取れなかった人は+1」), and a
+ * points table written without the packs it came from would make the
+ * next week's order a lie.
  */
-export async function eggDrawSave(ship, { packs, rule, seed, by }, allocated) {
+export async function eggDrawSave(ship, { packs, rule, seed, by, extra = 0 }, allocated, {
+  lines = null, points = null, pointsBefore = null,
+} = {}) {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
     await client.query(
-      `INSERT INTO egg_weeks (ship, packs, rule, seed, drawn_at, drawn_by)
-       VALUES ($1, $2, $3, $4, NOW(), $5)
+      `INSERT INTO egg_weeks (ship, packs, rule, seed, extra, points_before, drawn_at, drawn_by)
+       VALUES ($1, $2, $3, $4, $5, $6, NOW(), $7)
        ON CONFLICT (ship) DO UPDATE
          SET packs = EXCLUDED.packs, rule = EXCLUDED.rule, seed = EXCLUDED.seed,
+             extra = EXCLUDED.extra,
+             /* Never overwritten: the first run's input is the week's
+                input, however many times it is replayed. */
+             points_before = COALESCE(egg_weeks.points_before, EXCLUDED.points_before),
              drawn_at = NOW(), drawn_by = EXCLUDED.drawn_by`,
-      [ship, packs, rule, seed, await whoOrNull(by)],
+      [ship, packs, rule, seed, Math.max(0, Number(extra) || 0),
+        pointsBefore ? JSON.stringify(pointsBefore) : null, await whoOrNull(by)],
     );
     for (const r of allocated) {
+      /* at_office carries a value only for somebody moved to 本社. Written
+         as null otherwise rather than as their own office, so that a row
+         never claims a move that did not happen. */
       await client.query(
-        'UPDATE egg_requests SET got = $2, drawn_at = NOW() WHERE id = $1',
-        [r.id, r.got],
+        'UPDATE egg_requests SET got = $2, at_office = $3, drawn_at = NOW() WHERE id = $1',
+        [r.id, r.got, r.at && r.at !== r.office ? r.at : null],
       );
     }
     /* The per-office split is derived from the draw rather than typed, so
@@ -1157,15 +1215,42 @@ export async function eggDrawSave(ship, { packs, rule, seed, by }, allocated) {
        actually allocated to them. */
     await client.query('DELETE FROM egg_week_offices WHERE ship = $1 AND arrived_at IS NULL', [ship]);
     const byOffice = new Map();
-    for (const r of allocated) {
-      if (r.got > 0) byOffice.set(r.office, (byOffice.get(r.office) || 0) + r.got);
+    const bump = (office, got, spare) => {
+      const cur = byOffice.get(office) || { packs: 0, extra: 0 };
+      cur.packs += got; cur.extra += spare;
+      byOffice.set(office, cur);
+    };
+    if (lines) {
+      /* The allocation already worked out each office's line, 余り
+         included. Trusting it here keeps one answer for the week rather
+         than two that have to agree. */
+      for (const l of lines) {
+        if (l.packs > 0) bump(l.office, l.requested ?? l.packs, l.extra || 0);
+      }
+    } else {
+      for (const r of allocated) {
+        if (r.got > 0) bump(r.at || r.office, r.got, 0);
+      }
     }
     for (const [office, n] of byOffice) {
       await client.query(
-        `INSERT INTO egg_week_offices (ship, office, packs) VALUES ($1, $2, $3)
-         ON CONFLICT (ship, office) DO UPDATE SET packs = EXCLUDED.packs`,
-        [ship, office, n],
+        `INSERT INTO egg_week_offices (ship, office, packs, extra) VALUES ($1, $2, $3, $4)
+         ON CONFLICT (ship, office) DO UPDATE
+           SET packs = EXCLUDED.packs, extra = EXCLUDED.extra`,
+        [ship, office, n.packs + n.extra, n.extra],
       );
+    }
+    if (points) {
+      const ids = Object.keys(points);
+      await client.query('UPDATE egg_signup SET points = 0 WHERE points > 0');
+      if (ids.length) {
+        await client.query(
+          `UPDATE egg_signup AS s SET points = v.p
+             FROM (SELECT unnest($1::text[]) AS id, unnest($2::int[]) AS p) AS v
+            WHERE s.employee_id = v.id`,
+          [ids, ids.map((k) => Math.max(0, Number(points[k]) || 0))],
+        );
+      }
     }
     await client.query('COMMIT');
     return true;
@@ -1179,7 +1264,7 @@ export async function eggDrawSave(ship, { packs, rule, seed, by }, allocated) {
 
 export async function eggWeekOffices(ship) {
   const { rows } = await pool.query(
-    `SELECT office, packs, arrived_at AS "arrivedAt", arrived_by AS "arrivedBy"
+    `SELECT office, packs, extra, arrived_at AS "arrivedAt", arrived_by AS "arrivedBy"
        FROM egg_week_offices WHERE ship = $1 ORDER BY office`,
     [ship],
   );

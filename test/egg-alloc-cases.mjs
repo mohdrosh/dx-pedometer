@@ -8,7 +8,7 @@
 import {
   dowOf, mondayOf, openShipMonday, shipDay, arrivalDay,
   requestDeadline, requestsOpen,
-  pickupDeadline, weekInfo, allocate, missedFrom, statusOf,
+  pickupDeadline, weekInfo, missedFrom, statusOf, dueShip,
 } from '../src/egg-week.js';
 
 let n = 0;
@@ -151,153 +151,48 @@ is('and the first week matches the card she is handing out',
   { ship: '2026-11-23', shipDay: '2026-11-24', arrive: '2026-11-25',
     deadline: { date: '2026-11-24', hour: 9 }, pickup: '2026-11-27', shifted: true });
 
-/* ----------------------------- the draw --------------------------------- */
+/* ------------------- which week the clock has to decide ------------------ */
+/* 仕様書 5「締切後に配分を確定する」. The run is unattended, so the only
+   thing standing between a quiet Monday and a week decided twice — or
+   never — is this answer. */
 
-const req = (id, employeeId, want, at) => ({ id, employeeId, want, at });
-/* Keyed by request id and sorted, so a comparison is about who got what and
-   never about the order the rows happened to come back in. */
-const got = (rows) => Object.fromEntries(
-  rows.map((r) => [r.id, r.got]).sort((a, b) => String(a[0]).localeCompare(String(b[0]))),
-);
-const total = (rows) => rows.reduce((s, r) => s + r.got, 0);
+const CFG9 = { egg: { deadlineHour: 9 } };
 
-/* Four people want seven packs between them and there are only four. */
-const four = [
-  req('r1', 'e1', 1, '2026-10-20T09:00:00Z'),
-  req('r2', 'e2', 3, '2026-10-20T10:00:00Z'),
-  req('r3', 'e3', 2, '2026-10-21T09:00:00Z'),
-  req('r4', 'e4', 1, '2026-10-22T09:00:00Z'),
-];
+is('before the hour, nothing is due', dueShip('2026-11-30', 8, CFG9, {}), null);
+is('on the hour, this Monday is', dueShip('2026-11-30', 9, CFG9, {}), '2026-11-30');
+is('and it stays due for the rest of the day',
+  dueShip('2026-11-30', 17, CFG9, {}), '2026-11-30');
+is('a Tuesday in an ordinary week is nobody’s deadline',
+  dueShip('2026-12-01', 23, CFG9, {}), null);
 
-is('先着順 fills in order of asking',
-  got(allocate({ requests: four, packs: 4, rule: 'fcfs' })),
-  { r1: 1, r2: 3, r3: 0, r4: 0 });
+/* 勤労感謝の日 on Monday 11/23 moves that week's deadline to the Tuesday —
+   and the Tuesday still belongs to the Monday that names the week. */
+is('a holiday Monday is not its own deadline', dueShip('2026-11-23', 23, CFG9, HOL), null);
+is('the Tuesday after it decides that same week',
+  dueShip('2026-11-24', 9, CFG9, HOL), '2026-11-23');
 
-/* Running out mid-request gives them what is left rather than nothing —
-   a pack unhanded-out is a pack wasted. */
-is('and the request it runs out on takes the remainder',
-  got(allocate({ requests: four, packs: 3, rule: 'fcfs' })),
-  { r1: 1, r2: 2, r3: 0, r4: 0 });
+/* Nothing exists before the first delivery, however the calendar falls. */
+is('nothing is due before Moraegg starts',
+  dueShip('2026-11-16', 9, CFG9, {}, '2026-11-23'), null);
+is('and the first week is due on its own deadline',
+  dueShip('2026-11-24', 9, CFG9, HOL, '2026-11-23'), '2026-11-23');
 
-is('1人1パック優先 gives everybody one before anybody gets two',
-  got(allocate({ requests: four, packs: 4, rule: 'onEach' })),
-  { r1: 1, r2: 1, r3: 1, r4: 1 });
-
-is('and only then hands out the extras, in order',
-  got(allocate({ requests: four, packs: 6, rule: 'onEach' })),
-  { r1: 1, r2: 2, r3: 2, r4: 1 });
-
-is('a round that nobody can take ends the loop rather than spinning',
-  got(allocate({ requests: four, packs: 99, rule: 'onEach' })),
-  { r1: 1, r2: 3, r3: 2, r4: 1 });
-
-/* 前回落選者優先 — e3 and e4 missed out last week, so they go first even
-   though they asked later. */
-is('last week’s misses go first',
-  got(allocate({ requests: four, packs: 3, rule: 'missedFirst', missedLastWeek: ['e3', 'e4'] })),
-  { r1: 0, r2: 0, r3: 2, r4: 1 });
-
-is('and among themselves they are still in order of asking',
-  got(allocate({ requests: four, packs: 2, rule: 'missedFirst', missedLastWeek: ['e4', 'e3'] })),
-  { r1: 0, r2: 0, r3: 2, r4: 0 });
-
-is('nobody missed last week means plain 先着順',
-  got(allocate({ requests: four, packs: 4, rule: 'missedFirst', missedLastWeek: [] })),
-  got(allocate({ requests: four, packs: 4, rule: 'fcfs' })));
-
-is('an employee id of a different type still matches',
-  got(allocate({ requests: [req('r1', 1, 1, 'a'), req('r2', 2, 1, 'b')], packs: 1, rule: 'missedFirst', missedLastWeek: [2] })),
-  { r1: 0, r2: 1 });
-
-/* --------------------------- the lottery -------------------------------- */
-
-/* A draw nobody can check is not a draw. The same week must come out the
-   same way however many times it is run, including a month later when
-   somebody asks why they missed out. */
-const drawA = got(allocate({ requests: four, packs: 3, rule: 'lottery', seed: '2026-10-26' }));
-const drawB = got(allocate({ requests: four, packs: 3, rule: 'lottery', seed: '2026-10-26' }));
-is('the same week draws the same way, every time', drawA, drawB);
-
-const drawNext = got(allocate({ requests: four, packs: 3, rule: 'lottery', seed: '2026-11-02' }));
-is('a different week draws differently', drawA === drawNext, false);
-
-is('a draw never hands out more than was laid',
-  total(allocate({ requests: four, packs: 3, rule: 'lottery', seed: '2026-10-26' })), 3);
-
-/* Over many weeks everybody has to come up — a "lottery" that always picks
-   the same person is the thing 佐野 is trying to avoid with it. */
-const winners = new Set();
-for (let w = 0; w < 40; w += 1) {
-  for (const r of allocate({ requests: four, packs: 1, rule: 'lottery', seed: `w${w}` })) {
-    if (r.got > 0) winners.add(r.id);
-  }
-}
-is('over 40 weeks the single pack reaches everyone', [...winners].sort(), ['r1', 'r2', 'r3', 'r4']);
-
-/* ------------------------- what must never happen ------------------------ */
-
-const rules = ['fcfs', 'onEach', 'lottery', 'missedFirst'];
-
-for (const rule of rules) {
-  const out = allocate({ requests: four, packs: 3, rule, seed: 's', missedLastWeek: ['e3'] });
-  is(`${rule}: hands out exactly what there is`, total(out), 3);
-  is(`${rule}: nobody gets more than they asked for`,
-    out.every((r) => r.got <= r.want), true);
-  is(`${rule}: nobody gets a negative number of packs`,
-    out.every((r) => r.got >= 0), true);
-  is(`${rule}: everybody who asked is answered, including the misses`,
-    out.length, four.length);
-
-  /* Plenty for everyone is the easy week and must still be right. */
-  is(`${rule}: a good week fills every request`,
-    got(allocate({ requests: four, packs: 50, rule, seed: 's' })),
-    { r1: 1, r2: 3, r3: 2, r4: 1 });
-
-  /* 「10個未満の端数は登録しない」 — some weeks the hens do not deliver. */
-  is(`${rule}: no packs means nobody gets any`,
-    total(allocate({ requests: four, packs: 0, rule })), 0);
-  is(`${rule}: and everybody is still told so`,
-    allocate({ requests: four, packs: 0, rule }).length, 4);
-  is(`${rule}: nobody asked`, allocate({ requests: [], packs: 20, rule }), []);
-}
-
-/* The database will hand us whatever it holds; none of it may crash a draw
-   or conjure a pack out of nothing. */
-is('a request for zero packs is dropped',
-  allocate({ requests: [req('r1', 'e1', 0, 'a')], packs: 5 }).length, 0);
-is('a negative request cannot mint packs',
-  total(allocate({ requests: [req('r1', 'e1', -4, 'a'), req('r2', 'e2', 2, 'b')], packs: 5 })), 2);
-is('a fractional request is floored',
-  got(allocate({ requests: [req('r1', 'e1', 2.9, 'a')], packs: 5 })), { r1: 2 });
-is('fractional packs are floored too',
-  total(allocate({ requests: four, packs: 2.9, rule: 'fcfs' })), 2);
-is('nothing at all is not a crash', allocate({}), []);
-is('negative packs are no packs', total(allocate({ requests: four, packs: -5 })), 0);
-
-/* Two requests logged in the same second must not re-order between runs:
-   the ordering has to come from the data, not from the query planner. */
-const sameTime = [
-  req('rB', 'e2', 1, '2026-10-20T09:00:00Z'),
-  req('rA', 'e1', 1, '2026-10-20T09:00:00Z'),
-];
-is('a tie is broken by request id, not by row order',
-  got(allocate({ requests: sameTime, packs: 1, rule: 'fcfs' })), { rA: 1, rB: 0 });
-is('and the same way whichever order they arrive in',
-  got(allocate({ requests: [...sameTime].reverse(), packs: 1, rule: 'fcfs' })), { rA: 1, rB: 0 });
-
-/* The caller gets its own rows back, so a draw can be re-run against the
-   same request list without the first one having changed it. */
-const original = [req('r1', 'e1', 2, 'a')];
-allocate({ requests: original, packs: 5 });
-is('the request list handed in is not modified', original[0].got, undefined);
+/* allocate()'s 70-odd checks were deleted on 2026/11/03 with the function
+   they covered: the four rules the 需要調査 was going to choose between.
+   The company settled the question itself, and the sequence they settled
+   on is tested in test/egg-allot-cases.mjs. */
 
 /* --------------------------- after the draw ------------------------------ */
 
-const drawn = allocate({ requests: four, packs: 3, rule: 'fcfs' });
+const drawn = [
+  { id: 'r1', employeeId: 'e1', got: 1 }, { id: 'r2', employeeId: 'e2', got: 2 },
+  { id: 'r3', employeeId: 'e3', got: 0 }, { id: 'r4', employeeId: 'e4', got: 0 },
+];
 is('those who got nothing are next week’s priority', missedFrom(drawn).sort(), ['e3', 'e4']);
 is('one person, one entry, however many requests they made',
   missedFrom([{ employeeId: 'e9', got: 0 }, { employeeId: 'e9', got: 0 }]), ['e9']);
-is('a full week leaves nobody waiting', missedFrom(allocate({ requests: four, packs: 50 })), []);
+is('a full week leaves nobody waiting',
+  missedFrom(drawn.map((r) => ({ ...r, got: 1 }))), []);
 is('nothing at all is nobody', missedFrom(null), []);
 
 /* 「自分の申請状況（受付済／確定／落選／受け取り済み）が確認できる」 */

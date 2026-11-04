@@ -22,7 +22,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { S, apiRoot } from './storage';
 import { EGG_TERMS_JA, HQ_OFFICE, TOKYO_OFFICE } from './egg.js';
-import { mg } from './moraegg-text.js';
+import { mg, packs } from './moraegg-text.js';
 
 const L = {
   /* 週 */
@@ -176,17 +176,43 @@ const L = {
   remove: ['削除', 'Remove'],
   closedOffice: ['申請があるため、受付を止めました', 'It has requests, so it was closed instead'],
   rule: ['割当ルール', 'Allocation rule'],
+  /* 2026/11/03: the company settled the rules, so there is no rule to
+     pick any more. What is left are the two numbers inside them that the
+     committee is still confirming. */
+  rules2: ['配分のきまり', 'Allocation'],
+  minSet: ['成立の最低パック数', 'Minimum packs'],
+  minSetNote: ['この数に届かない事業所は見送りです。ただし東京は仕事用の申請があれば発送し、ほかの事業所に仕事用の申請があるときは管理者が個別に調整します。',
+    'An office below this is skipped — except Tokyo, which ships on a business request, and any office with a business request, which an administrator settles case by case.'],
+  tokyoSet: ['東京の特例', 'Tokyo exception'],
+  tokyoOn: ['仕事用なら3パック未満でも宅急便で発送する', 'Ship by courier on a business request, even below the minimum'],
+  result: ['今週の結果', 'This week'],
+  resAt: ['受け取り場所', 'Collected at'],
+  resPacks: ['パック', 'Packs'],
+  resSplit: ['リクエスト{a}＋余り{b}', '{a} requested + {b} spare'],
+  resMoved: ['本社受け取りに移動：{n}名', 'Moved to Head Office: {n}'],
+  resAdjust: ['要調整', 'Needs adjusting'],
+  resUnder: ['最低数を下回りました', 'Below the minimum'],
+  resSkip: ['見送り', 'Skipped'],
+  resTokyo: ['仕事用のため発送', 'Shipped for business'],
+  resNone: ['リクエストなし', 'No requests'],
+  resMiss: ['今回は受け取れない方：{n}名（優先ポイント+1）', 'Not this week: {n} — priority point +1 each'],
+  resSpare: ['本社へ余り{n}パック（ご自由にどうぞ）', '{n} spare to Head Office — help yourself'],
+  resNeeds: ['管理者の調整が必要な事業所があります。', 'An office needs an administrator to settle it.'],
   deadlineHour: ['締切時刻', 'Deadline hour'],
   firstShip: ['初回発送週（月曜）', 'First shipping week (Monday)'],
   firstShipNote: ['この日より前に出された申請は、すべて初回分として受け付けます。空欄なら通常どおり毎週。',
     'Requests made before this date all count towards the first delivery. Leave blank for the ordinary weekly cycle.'],
   maxPacks: ['1人あたりの上限', 'Per-person cap'],
-  draw: ['抽選を実行', 'Run the draw'],
-  drawAgain: ['もう一度実行', 'Run it again'],
-  drawn: ['{d} に実行済み（{rule}、{n}パック）', 'Drawn {d} — {rule}, {n} packs'],
-  drawNote: ['収穫したパック数を、上のルールで申請者に割り当てます。受け取りが始まるまでは何度でもやり直せます。',
-    'Shares the harvested packs out between the requests using the rule above. Can be re-run until somebody collects.'],
-  drawDone: ['抽選しました', 'Drawn'],
+  /* 「抽選」 is no longer what happens: a draw only decides the order
+     inside one point value, and the week itself is decided by the
+     company's sequence. So the button says what it does. */
+  draw: ['配分を確定', 'Decide the week'],
+  drawAgain: ['もう一度確定', 'Decide it again'],
+  drawn: ['{d}：取れ高{n}パックのうち{s}パックを配分しました',
+    '{d}: {s} of {n} harvested packs allocated'],
+  drawNote: ['締切の時刻になれば自動で確定します。このボタンはそれを前倒しで実行するもので、受け取りが始まるまでは何度でもやり直せます。',
+    'This happens on its own at the deadline. The button runs the same thing early, and it can be re-run until somebody collects.'],
+  drawDone: ['確定しました', 'Decided'],
   termsEdit: ['受け取り条件の文面', 'Pickup terms'],
   termsWarn: ['文面を変更すると、全員にもう一度同意していただく必要があります。',
     'Changing this asks everybody to agree again.'],
@@ -801,6 +827,32 @@ export default function EggPortal({ d, reload: load, lang, toast, screen = 'all'
           />
         </div>
 
+        {/* 今週の確定結果. Until the deadline the race above is the whole
+            story; once the week is decided it is history, and what people
+            came to find out is how many packs are coming to them. Her
+            words: 「締切の時点で確定した、事業所ごとの発送数です」. */}
+        {d.decided && (
+          <>
+            <div className="sechead"><span>{mgs('resTitle')}</span></div>
+            <div className="card eg-done">
+              <p className="muted sm">{mgs('resLead')}</p>
+              <ul className="eg-res-l">
+                {d.offices.filter((o) => (o.sent || 0) > 0).map((o) => (
+                  <li key={o.name}>
+                    <b>{o.name}</b>
+                    <span className="eg-res-n">{packs(o.sent, lang)}</span>
+                    {o.spare > 0 && (
+                      <small>
+                        {mgs('resHq', { a: String(o.sent - o.spare), b: String(o.spare) })}
+                      </small>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </>
+        )}
+
         <div className="sechead"><span>{t('byDay')}</span></div>
         <div className="card">
           <Race
@@ -1085,7 +1137,7 @@ export function EggOffice({ lang, toast }) {
    they are decided together: which offices are open, how the packs are
    shared out, and then the draw itself.
 --------------------------------------------------------------------------- */
-export function EggAdmin({ lang, toast, cfg = {}, setCfg, people = [], rules = [], onDone }) {
+export function EggAdmin({ lang, toast, cfg = {}, setCfg, people = [], onDone }) {
   const t = useCallback((k) => (L[k] ? L[k][lang === 'ja' ? 0 : 1] || L[k][0] : k), [lang]);
   const [offices, setOffices] = useState([]);
   const [draft, setDraft] = useState({ name: '', address: '', contactId: '', active: true });
@@ -1215,25 +1267,77 @@ export function EggAdmin({ lang, toast, cfg = {}, setCfg, people = [], rules = [
           <p className="eg-draw-r">
             {t('drawn')
               .replace('{d}', md(last.ship, lang))
-              .replace('{rule}', (rules.find((r) => r.id === last.rule) || {})[lang === 'ja' ? 'ja' : 'en'] || last.rule)
+              .replace('{s}', String(last.shipped ?? 0))
               .replace('{n}', String(last.packs))}
           </p>
         )}
         <p className="muted sm">{t('drawNote')}</p>
       </div>
 
+      {/* 今週の結果. Shown here rather than only on the office screens
+          because this is the one place somebody can see the whole week at
+          once — which is what「管理者が個別に調整する」needs. */}
+      {last && !!last.lines?.length && (
+        <>
+          <div className="sechead"><span>{t('result')}</span></div>
+          <div className="card eg-res">
+            {last.needsAdmin && <p className="eg-warn sm">{t('resNeeds')}</p>}
+            <ul className="eg-res-l">
+              {last.lines.map((l) => (
+                <li key={l.office} className={l.status === 'adjust' || l.underMin ? 'warn' : ''}>
+                  <b>{l.office}</b>
+                  <span className="eg-res-n">
+                    {lang === 'ja' ? `${l.packs}パック` : `${l.packs} pack${l.packs === 1 ? '' : 's'}`}
+                  </span>
+                  <small>
+                    {l.extra > 0
+                      ? t('resSplit').replace('{a}', String(l.requested)).replace('{b}', String(l.extra))
+                      : l.status === 'skip' ? t('resSkip')
+                        : l.status === 'tokyo' ? t('resTokyo')
+                          : l.status === 'adjust' ? t('resAdjust')
+                            : l.status === 'none' ? t('resNone')
+                              : l.underMin ? t('resUnder') : ''}
+                  </small>
+                </li>
+              ))}
+            </ul>
+            <p className="muted sm">{t('resSpare').replace('{n}', String(last.extra || 0))}</p>
+            {last.moved > 0 && (
+              <p className="muted sm">{t('resMoved').replace('{n}', String(last.moved))}</p>
+            )}
+            <p className="muted sm">{t('resMiss').replace('{n}', String(last.missed || 0))}</p>
+          </div>
+        </>
+      )}
+
      </div>
 
      <div className="eg-adm-r">
-      <div className="sechead"><span>{t('rule')}</span></div>
+      <div className="sechead"><span>{t('rules2')}</span></div>
       <div className="card ad-set">
-        <label className="fld"><span>{t('rule')}</span>
+        {/* 配布ルール 5 と 6. The four rules the survey was going to choose
+            between are gone — the company settled the sequence, and these
+            are the two numbers inside it the committee is still
+            confirming with them. */}
+        <label className="fld"><span>{t('minSet')}</span>
           <select
-            value={cfg.egg?.rule || 'fcfs'}
-            onChange={(e) => saveCfg({ rule: e.target.value })}
+            value={String(cfg.egg?.minPacks ?? 3)}
+            onChange={(e) => saveCfg({ minPacks: Number(e.target.value) })}
           >
-            {rules.map((r) => <option key={r.id} value={r.id}>{lang === 'ja' ? r.ja : r.en}</option>)}
+            {[1, 2, 3, 4, 5, 6].map((n) => (
+              <option key={n} value={n}>{lang === 'ja' ? `${n}パック` : `${n} pack${n === 1 ? '' : 's'}`}</option>
+            ))}
           </select>
+          <small className="muted sm">{t('minSetNote')}</small>
+        </label>
+        <label className="check"><span>
+          <input
+            type="checkbox" checked={cfg.egg?.tokyoRule !== false}
+            onChange={(e) => saveCfg({ tokyoRule: e.target.checked })}
+          />
+          {' '}{t('tokyoSet')}
+        </span>
+          <small className="muted sm">{t('tokyoOn')}</small>
         </label>
         <label className="fld"><span>{t('deadlineHour')}</span>
           <select

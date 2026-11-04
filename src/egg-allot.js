@@ -92,7 +92,7 @@ function inPointOrder(rows, points, seed) {
  */
 export function allot({
   requests = [], harvest = 0, minPacks = MIN_PACKS, points = {},
-  tokyoRule = true, seed = '', offices = OFFICES,
+  tokyoRule = true, seed = '', offices = OFFICES, officeMin = {},
 } = {}) {
   const rows = requests
     .map((r) => ({
@@ -110,6 +110,14 @@ export function allot({
 
   const laid = Math.max(0, Math.floor(Number(harvest) || 0));
   const min = Math.max(1, Math.floor(Number(minPacks) || MIN_PACKS));
+  /* An office may carry a minimum of its own —「0なら毎週発送」 — which is
+     how 本社, where the eggs already are, ships whatever it has. Only a
+     number actually stored counts: an office that has never been given
+     one takes the company's. */
+  const minFor = (name) => {
+    const own = officeMin?.[name];
+    return own === null || own === undefined || own === '' ? min : Math.max(0, Math.floor(Number(own) || 0));
+  };
 
   /* ---- 5 & 6: which offices get a delivery at all ---------------------- */
   const asked = new Map();
@@ -125,7 +133,7 @@ export function allot({
   const state = new Map();
   for (const [name, o] of asked) {
     if (o.packs === 0) { state.set(name, 'none'); continue; }
-    if (o.packs >= min) { state.set(name, 'go'); continue; }
+    if (o.packs >= minFor(name)) { state.set(name, 'go'); continue; }
     if (name === TOKYO) {
       /* 「仕事用の申請があれば3パック未満でも送る」, and Tokyo's personal
          requests ride along in the same box. */
@@ -210,7 +218,7 @@ export function allot({
       packs: requested + plus,
       /* 「配分の結果、成立していた事業所が3パックを下回った場合は、管理者が
          調整する」 — said, not fixed: the rule is a person's call. */
-      underMin: state.get(name) === 'go' && requested > 0 && requested < min,
+      underMin: state.get(name) === 'go' && requested > 0 && requested < minFor(name),
     };
   }).filter((l) => l.asked > 0 || l.packs > 0);
 
