@@ -429,6 +429,39 @@ export async function initSchema() {
     'ALTER TABLE egg_weeks ADD COLUMN IF NOT EXISTS points_before JSONB',
   );
 
+  /* 本社 → 本社（神戸）, 2026/11/03. 佐野's 文言辞書 names the eight offices,
+     and Head Office is 本社（神戸） in it.
+
+     This is a rename that has to happen in the database and not only in
+     new rows: 配布ルール 8 sends every spare pack to Head Office, and the
+     allocation finds it BY NAME. Two spellings in one database would
+     quietly drop the leftovers on the floor every week — no error, no
+     warning, just a 「ご自由にどうぞ」 box that never arrives. So it runs
+     at start-up, on whichever database the server wakes up against.
+
+     The offices row is renamed only when the new name is not already
+     there; when both exist the old row is dropped instead and everything
+     pointing at it moved across, because a primary key cannot hold two
+     of the same name. Either way the references are updated first. The
+     survey answers are left alone: they are a record of what people
+     typed in October, not a list of live offices. */
+  const hqOld = '本社';
+  const hqNew = '本社（神戸）';
+  for (const q of [
+    ['UPDATE egg_requests SET office = $2 WHERE office = $1', [hqOld, hqNew]],
+    ['UPDATE egg_requests SET at_office = $2 WHERE at_office = $1', [hqOld, hqNew]],
+    ['UPDATE egg_signup SET office = $2 WHERE office = $1', [hqOld, hqNew]],
+    [`UPDATE egg_week_offices w SET office = $2 WHERE office = $1
+        AND NOT EXISTS (SELECT 1 FROM egg_week_offices x
+                         WHERE x.ship = w.ship AND x.office = $2)`, [hqOld, hqNew]],
+    ['DELETE FROM egg_week_offices WHERE office = $1', [hqOld]],
+    [`UPDATE egg_offices SET name = $2 WHERE name = $1
+        AND NOT EXISTS (SELECT 1 FROM egg_offices WHERE name = $2)`, [hqOld, hqNew]],
+    ['DELETE FROM egg_offices WHERE name = $1', [hqOld]],
+  ]) {
+    await pool.query(q[0], q[1]);
+  }
+
   await pool.query(`
     CREATE TABLE IF NOT EXISTS egg_signup (
       employee_id  TEXT PRIMARY KEY REFERENCES employees(id) ON DELETE CASCADE,
