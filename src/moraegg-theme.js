@@ -392,12 +392,18 @@ export const MG_CSS = `
   margin-right:4px}
 .mg .eg-vs-top b{font-size:30px;font-weight:900;line-height:1;color:var(--mg-navy)}
 .mg .eg-vs-top>div span{font-size:13px;font-weight:700;color:#5B6B86}
-.mg .eg-vs-top p{margin:0 0 0 auto;font-size:12.5px;font-weight:900;color:var(--mg-royal)}
+.mg .eg-vs-top p{flex:1 0 100%;margin:0;font-size:12.5px;font-weight:900;
+  color:var(--mg-royal);text-align:right}
 .mg .eg-vs-top p.warn{color:#B3261E}
 
 .mg .eg-vs-rows{list-style:none;margin:0;padding:0;display:grid;gap:6px}
-.mg .eg-vs-rows li{display:grid;grid-template-columns:5.6em minmax(0,1fr) 1.8em 6.4em;
-  align-items:center;gap:9px}
+/* Name, bar and count on one line; the verdict on its own underneath, at
+   every width. 佐野's wording is a sentence —「あと2パックでお届け」 — and a
+   column narrow enough to sit beside the bar clipped it to 「あと2パックで
+   お…」, which is the half that does not say anything. */
+.mg .eg-vs-rows li{display:grid;grid-template-columns:5.6em minmax(0,1fr) 1.8em;
+  grid-template-areas:'n t v' 's s s';align-items:center;gap:2px 9px}
+.mg .eg-vs-n{grid-area:n} .mg .eg-vs-t{grid-area:t} .mg .eg-vs-v{grid-area:v}
 .mg .eg-vs-n{font-size:12.5px;font-weight:900;color:var(--mg-navy);
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .mg .eg-vs-t{position:relative;display:block;height:18px;background:#FFFDF6;
@@ -412,14 +418,11 @@ export const MG_CSS = `
 .mg .eg-vs-rows li.miss .eg-vs-t i{background:#C3CCDA}
 .mg .eg-vs-v{font-size:14px;font-weight:900;color:var(--mg-navy);
   font-variant-numeric:tabular-nums;text-align:right}
-.mg .eg-vs-s{font-style:normal;font-size:11.5px;font-weight:700;color:#5B6B86;
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mg .eg-vs-s{grid-area:s;font-style:normal;font-size:11.5px;font-weight:700;
+  color:#5B6B86;text-align:right;margin-bottom:4px}
 .mg .eg-vs-rows li.go .eg-vs-s{color:var(--mg-leaf)}
 @media(max-width:560px){
-  .mg .eg-vs-rows li{grid-template-columns:4.6em minmax(0,1fr) 1.7em;
-    grid-template-areas:'n t v' 's s s';row-gap:1px}
-  .mg .eg-vs-n{grid-area:n} .mg .eg-vs-t{grid-area:t} .mg .eg-vs-v{grid-area:v}
-  .mg .eg-vs-s{grid-area:s;text-align:right;margin-bottom:3px}
+  .mg .eg-vs-rows li{grid-template-columns:4.6em minmax(0,1fr) 1.7em}
 }
 @media(prefers-reduced-motion:reduce){.mg .eg-vs-t i{transition:none}}
 
@@ -736,9 +739,35 @@ export const MG_CSS = `
 .mg .eg-res-n{font-size:13px;font-weight:800;font-variant-numeric:tabular-nums}
 .mg .eg-res-l small{grid-column:1/-1;font-size:11.5px;color:#5B6B86}
 .mg .eg-res>p.muted{margin:0 0 4px}
-.mg .eg-vs-req{display:flex;align-items:baseline;gap:6px;flex:1 0 100%;
+.mg .eg-vs-req{display:flex;align-items:baseline;gap:6px;margin-left:auto;
   font-size:12px;color:#5B6B86}
 .mg .eg-vs-req b{font-size:14px;font-weight:800;color:var(--mg-navy)}
+.mg .eg-go{display:flex;flex-direction:column;align-items:flex-start;gap:8px;margin:0 0 14px}
+.mg .eg-go .btn{font-size:14px;padding:11px 20px}
+.mg .eg-bub{position:relative;margin:0;padding:8px 12px;border-radius:12px;
+  background:var(--mg-sun);font-size:12px;font-weight:700;color:var(--mg-navy)}
+.mg .eg-bub::before{content:'';position:absolute;top:-5px;left:18px;width:10px;height:10px;
+  background:var(--mg-sun);transform:rotate(45deg)}
+.mg .eg-mine-res{display:flex;flex-direction:column;gap:3px;margin-bottom:14px}
+.mg .eg-mine-res em{font-style:normal;font-size:11.5px;color:#5B6B86}
+.mg .eg-mine-res strong{font-size:16px;color:var(--mg-navy)}
+
+/* ほかの日を修正する: a row per day with the same two controls as today,
+   small, because this is the rare case and ＋1パック is the common one. */
+.mg .eg-fix{margin-top:12px;border-top:1px solid var(--mg-dot);padding-top:10px}
+.mg .eg-fix>b{font-size:12.5px}
+.mg .eg-fix>p{margin:3px 0 8px}
+.mg .eg-fixl{list-style:none;margin:0;padding:0;display:grid;gap:5px}
+.mg .eg-fixl li{display:grid;grid-template-columns:1fr auto auto auto;gap:8px;
+  align-items:center;font-size:12.5px}
+.mg .eg-fixl b{min-width:22px;text-align:center;font-variant-numeric:tabular-nums}
+.mg .eg-farm-sum{display:flex;gap:18px;flex-wrap:wrap;margin-top:12px}
+.mg .eg-farm-sum>div{display:flex;flex-direction:column}
+.mg .eg-farm-sum em{font-style:normal;font-size:11.5px;color:#5B6B86}
+.mg .eg-farm-sum b{font-size:20px;font-weight:800;color:var(--mg-navy);
+  font-variant-numeric:tabular-nums}
+.mg .eg-farm-sum>p{flex:1 0 100%;margin:0}
+
 /* 毎週のルール: four lines, read once and then recognised, so they are
    set quieter than the dates above them. */
 .mg .eg-rules{list-style:none;margin:0;padding:0;display:grid;gap:7px}

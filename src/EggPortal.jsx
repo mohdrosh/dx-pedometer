@@ -57,8 +57,34 @@ const HERS = {
   pack: 'pack',
   /* 申請 */
   agreeTick: 'agree',
-  purpose: 'purpose',
+  request: 'reqTitle',
   howMany: 'packs',
+  eggsEach: 'packHint',
+  why: 'purpose',
+  reason: 'reason',
+  /* Two different sentences in her dictionary, and they were one here:
+     reasonReq is the hint beside the box, reasonErr is what comes back
+     when it was left empty. */
+  reasonNeeded: 'reasonReq',
+  reasonBad: 'reasonErr',
+  send: 'send',
+  update: 'change',
+  cancel: 'cancel',
+  sent: 'sentTitle',
+  dropped: 'canceled',
+  canChange: 'sentText',
+  /* 丹波. 「事務所」「管理」 she has not written, but the harvest screen is
+     the Tamba staff's and she wrote all of it. */
+  farmHead: 'tToday',
+  addPack: 'tPlus',
+  undo: 'tMinus',
+  weekTotal: 'tWeek',
+  farmNote: 'tHint',
+  weekSum: 'tTotal',
+  weekAsked: 'tReq',
+  fixDay: 'tFix',
+  fixNote: 'tFixNote',
+  fixAdmin: 'tAdmin',
 };
 
 const L = {
@@ -187,6 +213,11 @@ const L = {
   weekTotal: ['今週の累計', 'This week so far'],
   farmNote: ['10個そろったら1パックです。端数は登録しません。本日分のみ修正できます。',
     'One pack is ten eggs. Leftovers are not registered. Only today can be corrected.'],
+  /* Refusals, which she has not written: both are about a correction
+     arriving too late or too early to mean anything. */
+  fixShut: ['この週は配分が確定したため、修正できません。',
+    'This week has been decided, so the count can no longer be changed.'],
+  fixAhead: ['これからの日は登録できません。', 'A day that has not happened yet cannot be registered.'],
 
   /* 事務所 */
   office: ['事務所', 'Office'],
@@ -398,13 +429,16 @@ function OfficeRace({ offices, packs, lang, t, img }) {
             how close it was; these say what it means — and the short one
             says what happens next, which is the question a shortfall
             actually raises. */}
+        {/* Harvest and request total side by side — they are the two
+            halves of the 対決 — and the verdict under both, where it has
+            the width for a sentence. */}
+        <span className="eg-vs-req"><em>{mgs('reqTotal')}</em><b>{asked}</b></span>
         <p className={asked > harvest && harvest > 0 ? 'warn' : ''}>
           {asked > harvest
             ? mgs('short', { n: String(asked - harvest) })
             : asked === harvest ? mgs('even')
               : mgs('spare', { n: String(harvest - asked) })}
         </p>
-        <span className="eg-vs-req"><em>{mgs('reqTotal')}</em><b>{asked}</b></span>
       </div>
 
       <ul className="eg-vs-rows">
@@ -492,7 +526,7 @@ function Verdict({ office, lang, t, img }) {
    every bit of state — the week, the offices, your own row — so they stay
    one component and this says which half to draw rather than the two
    fetching and deriving the same thing twice. */
-export default function EggPortal({ d, reload: load, lang, toast, screen = 'all' }) {
+export default function EggPortal({ d, reload: load, lang, toast, screen = 'all', onGo = null }) {
   /* Her dictionary, for the lines 仕様書 6 says to use verbatim. The
      older L table in this file still carries the rest; the two are kept
      apart so it is obvious which text she owns. */
@@ -550,7 +584,7 @@ export default function EggPortal({ d, reload: load, lang, toast, screen = 'all'
     const j = await api('/request', 'PUT', form);
     setBusy(false);
     if (!j.ok) {
-      toast?.(j.error === 'bad_reason' ? t('reasonNeeded') : t('failed'));
+      toast?.(j.error === 'bad_reason' ? t('reasonBad') : t('failed'));
       return;
     }
     setEditing(false);
@@ -915,6 +949,34 @@ export default function EggPortal({ d, reload: load, lang, toast, screen = 'all'
           />
         </div>
 
+        {/* 「今週のリクエストをする」. 配布状況 is where people land and the
+            request is on the next tab, so the way across is on this
+            screen rather than only in the strip above it — and only
+            while there is a week open to ask for. */}
+        {onGo && d.open && !mine && (
+          <div className="eg-go">
+            <button className="btn primary" onClick={onGo}>{mgs('goReq')}</button>
+            {/* 「あと少しで届く事業所があるよ！」 — shown when it is true:
+                an office within two packs of its line, which is the week
+                a word to a colleague actually changes. */}
+            {(d.offices || []).some((o) => o.minPacks > 0
+              && o.asked > 0 && o.minPacks - o.asked > 0 && o.minPacks - o.asked <= 2)
+              && <p className="eg-bub">{mgs('homeBubble')}</p>}
+          </div>
+        )}
+
+        {/* 「あなたの結果」, once the week is decided: the one line a person
+            came to this screen for, said before the office-by-office
+            table that explains it. */}
+        {d.decided && mine && mine.got > 0 && (
+          <div className="card eg-mine-res">
+            <em>{mgs('resMine')}</em>
+            <strong>
+              {mgs('resMineText', { a: mine.atOffice || mine.office, b: String(mine.got) })}
+            </strong>
+          </div>
+        )}
+
         {/* 今週の確定結果. Until the deadline the race above is the whole
             story; once the week is decided it is history, and what people
             came to find out is how many packs are coming to them. Her
@@ -994,17 +1056,27 @@ export function EggFarm({ lang, toast }) {
   const [d, setD] = useState(null);
   const [busy, setBusy] = useState(false);
 
-  const bump = useCallback(async (delta) => {
+  /* `day` is only ever sent for a correction to another day — the common
+     case is a thumb on ＋1パック, and that should not depend on the
+     browser agreeing with the server about what day it is. */
+  const bump = useCallback(async (delta, day = null) => {
     setBusy(true);
     try {
       const res = await fetch(`${apiRoot()}/egg/harvest`, {
         method: 'POST',
         credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(delta === null ? { packs: 0 } : { delta }),
+        body: JSON.stringify({
+          ...(delta === null ? { packs: 0 } : { delta }),
+          ...(day ? { day } : {}),
+        }),
       });
-      if (!res.ok) { toast?.(t('failed')); return; }
-      setD(await res.json());
+      const j = await res.json().catch(() => null);
+      if (!res.ok) {
+        toast?.(t(j?.error === 'week_decided' ? 'fixShut' : j?.error === 'not_yet' ? 'fixAhead' : 'failed'));
+        return;
+      }
+      setD(j);
     } finally { setBusy(false); }
   }, [t, toast]);
 
@@ -1013,7 +1085,11 @@ export function EggFarm({ lang, toast }) {
   useEffect(() => { bump(0); }, [bump]);
 
   if (!d) return <div className="pad muted">…</div>;
-  const today = d.harvest.find((h) => h.day === d.day);
+  /* Today, not the day the last tap changed: correcting the Tuesday must
+     not make the screen think Tuesday is today and drop it out of the
+     list of days that can be corrected. */
+  const todayIso = d.today || d.day;
+  const today = d.harvest.find((h) => h.day === todayIso);
 
   return (
     <div className="eg-farm">
@@ -1029,7 +1105,7 @@ export function EggFarm({ lang, toast }) {
       <div className="sechead"><span>{t('farmHead')}</span></div>
       <div className="card eg-farm-c">
         <div className="eg-farm-now">
-          <em>{t('todayIs')} {md(d.day, lang)}</em>
+          <em>{t('todayIs')} {md(todayIso, lang)}</em>
           <b>{today?.packs ?? d.packs}</b>
           <span>{t('pack')}</span>
         </div>
@@ -1051,13 +1127,45 @@ export function EggFarm({ lang, toast }) {
       <div className="card">
         <ul className="eg-days">
           {d.harvest.map((h) => (
-            <li key={h.day} className={h.day === d.day ? 'on' : ''}>
+            <li key={h.day} className={h.day === todayIso ? 'on' : ''}>
               <span>{md(h.day, lang)}</span>
               <b>{h.packs}</b>
             </li>
           ))}
           {!d.harvest.length && <li className="muted"><span>{t('noneYet')}</span><b>0</b></li>}
         </ul>
+        {/* 「ほかの日を修正する」. A miscount noticed on the Tuesday used to
+            need an administrator; now it needs the day tapped and the
+            number corrected. It closes once the week has been decided,
+            because the allocation was worked out from this figure. */}
+        <div className="eg-fix">
+          <b>{t('fixDay')}</b>
+          <p className="muted sm">{d.decided ? t('fixShut') : t('fixNote')}</p>
+          {!d.decided && (
+            <ul className="eg-fixl">
+              {d.harvest.filter((h) => h.day !== todayIso).map((h) => (
+                <li key={h.day}>
+                  <span>{md(h.day, lang)}</span>
+                  <button className="btn sm" disabled={busy || !h.packs}
+                    onClick={() => bump(-1, h.day)}>{t('undo')}</button>
+                  <b>{h.packs}</b>
+                  <button className="btn sm" disabled={busy}
+                    onClick={() => bump(1, h.day)}>{t('addPack')}</button>
+                </li>
+              ))}
+              {d.harvest.filter((h) => h.day !== todayIso).length === 0
+                && <li className="muted"><span>{t('noneYet')}</span></li>}
+            </ul>
+          )}
+        </div>
+      </div>
+
+      {/* 今週の合計 and what it is being asked for — the one number that
+          tells the shed whether this week is short. */}
+      <div className="card eg-farm-sum">
+        <div><em>{t('weekSum')}</em><b>{d.harvestPacks}</b></div>
+        <div><em>{t('weekAsked')}</em><b>{d.asked ?? 0}</b></div>
+        <p className="muted sm">{t('fixAdmin')}</p>
       </div>
 
       {/* 佐野's print artwork, offered where the person packing the cartons

@@ -35,7 +35,8 @@
 export const REACTIONS = [
   {
     id: 'like',
-    ja: '良いね', en: 'Like',
+    /* 彼女の辞書の like. 良いね と書いていたのを、辞書どおり いいね に。 */
+    ja: 'いいね', en: 'Like',
     emoji: '🥚',
     meaningJa: '気軽な反応', meaningEn: 'A casual reaction',
   },

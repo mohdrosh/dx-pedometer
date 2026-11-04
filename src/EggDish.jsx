@@ -20,6 +20,22 @@ import {
   PHOTO_EDGE, THUMB_EDGE, PHOTOS_MAX,
   DISH_MAX, BODY_MAX, RECIPE_MAX, COMMENT_MAX, BADGES,
 } from './dish.js';
+import { mg } from './moraegg-text.js';
+
+/* 仕様書 6. The keys 佐野 has written are answered from her dictionary;
+   what is left below is what she has not — the badges, the moderation
+   controls and the error lines. Same table as EggPortal, same reason. */
+const HERS = {
+  head: 'recTitle',
+  lede: 'recLead',
+  post: 'pTitle',
+  dish: 'pName',
+  body: 'pComment',
+  recipe: 'pRecipe',
+  photos: 'pPhoto',
+  careNote: 'pNote',
+  cancel: 'pCancel',
+};
 
 const L = {
   head: ['みんなの料理', 'What people cooked'],
@@ -106,7 +122,8 @@ async function shrink(file, edge, quality) {
 }
 
 export default function EggDish({ lang, toast }) {
-  const t = useCallback((k) => (L[k] ? L[k][lang === 'ja' ? 0 : 1] || L[k][0] : k), [lang]);
+  const t = useCallback((k) => (HERS[k] ? mg(HERS[k], lang)
+    : L[k] ? L[k][lang === 'ja' ? 0 : 1] || L[k][0] : k), [lang]);
   const img = (n) => `${import.meta.env.BASE_URL}moraegg/${n}.webp`;
   const pic = (id, thumb) => `${apiRoot()}/egg/photo?id=${id}${thumb ? '&thumb=1' : ''}`;
 

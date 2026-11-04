@@ -339,7 +339,12 @@ export default function EggTab({
       )}
 
       <div className="mg-body">
-      {at === 'portal' && <EggPortal d={p1} reload={loadP1} lang={lang} toast={toast} screen="status" />}
+      {at === 'portal' && (
+        <EggPortal
+          d={p1} reload={loadP1} lang={lang} toast={toast} screen="status"
+          onGo={() => setView('request')}
+        />
+      )}
       {at === 'request' && <EggPortal d={p1} reload={loadP1} lang={lang} toast={toast} screen="request" />}
       {at === 'settings' && (
         <EggSettings d={p1} reload={loadP1} lang={lang} toast={toast} img={img} />

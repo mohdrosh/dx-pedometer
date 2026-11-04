@@ -1017,9 +1017,24 @@ const server = http.createServer(async (req, res) => {
       const b = await readBody(req).catch(() => null);
       const now = tokyoNow();
       const day = /^\d{4}-\d{2}-\d{2}$/.test(String(b?.day || '')) ? String(b.day) : now.stamp;
-      /* 「同日中であれば取り消し・修正ができる」 — a correction to a day that
-         has passed is an administrator's job, not a tap in the shed. */
-      if (day !== now.stamp && !who.admin) return sendJson(res, 409, { error: 'not_today' });
+      /* 仕様書 5.1 の「ほかの日を修正する」. It used to be today only, and
+         a miscount noticed on the Tuesday had to go through an
+         administrator. What it cannot be is a day whose week has already
+         been decided: the allocation was worked out from that number, so
+         changing it afterwards would leave the packs people were promised
+         resting on a harvest that no longer says what it said.
+
+         Eggs laid in a week ship on the Monday after it, so that is the
+         week to ask about. */
+      if (day !== now.stamp) {
+        /* A day that has not happened cannot have been harvested — but an
+           administrator setting a week up before it starts is doing
+           something else, and is not the person this guard is for. */
+        if (day > now.stamp && !who.admin) return sendJson(res, 409, { error: 'not_yet' });
+        const feeds = shiftDay(mondayOf(day), 7);
+        const w = await eggWeek(feeds);
+        if (w?.drawnAt && !who.admin) return sendJson(res, 409, { error: 'week_decided' });
+      }
 
       let packs;
       if (b?.delta !== undefined) {
@@ -1034,8 +1049,21 @@ const server = http.createServer(async (req, res) => {
 
       const monday = mondayOf(now.stamp);
       const harvest = await eggHarvest(monday, shiftDay(monday, 6));
+      /* 「今週のリクエスト合計」 — what this week's eggs are being asked
+         for. They ship on the Monday after this one, so that is the week
+         counted, and it is a total with no names in it. */
+      const feeds = shiftDay(monday, 7);
+      const asked = (await eggWeekRequests(feeds)).reduce((a, r) => a + (r.packs || 0), 0);
       return sendJson(res, 200, {
-        day, packs, harvest, harvestPacks: harvest.reduce((a, d) => a + d.packs, 0),
+        /* `day` is the day this call changed, which is not necessarily
+           today — a correction names another one. `today` is today, and
+           the screen needs both: one to show the result of the tap, the
+           other to know which card is 今日の取れ高. */
+        day, today: now.stamp,
+        packs, harvest, harvestPacks: harvest.reduce((a, d) => a + d.packs, 0),
+        week: { from: monday, to: shiftDay(monday, 6), ship: feeds },
+        asked,
+        decided: !!(await eggWeek(feeds))?.drawnAt,
       });
     }
 
