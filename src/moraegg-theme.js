@@ -639,6 +639,24 @@ export const MG_CSS = `
 .mg .eg-shut{display:flex;align-items:center;gap:13px}
 .mg .eg-shut img{width:66px;height:66px;flex:none}
 .mg .eg-shut p{margin:0}
+/* 今週はお休みです, and whatever an administrator wrote about this week. */
+.mg .eg-off{display:flex;align-items:center;gap:13px}
+.mg .eg-off img{width:66px;height:66px;flex:none}
+.mg .eg-off p{margin:3px 0 0}
+.mg .eg-sched-n{margin:6px 0 0;font-size:12px;font-weight:700;color:var(--mg-navy)}
+
+/* スケジュール設定: one row per week, and a week that has been touched is
+   marked so the exceptions can be found without reading all eight. */
+.mg .eg-wks{list-style:none;margin:10px 0 0;padding:0;display:grid;gap:7px}
+.mg .eg-wks li{display:grid;grid-template-columns:auto 1fr;gap:6px 10px;align-items:center;
+  padding:8px 10px;border-radius:10px;background:var(--mg-sky)}
+.mg .eg-wks li.on{background:#FFF6DC;box-shadow:inset 0 0 0 1px var(--mg-sun)}
+.mg .eg-wks b{font-size:12.5px;white-space:nowrap}
+.mg .eg-wk-t{display:flex;gap:5px;flex-wrap:wrap}
+.mg .eg-wk-t .eg-opt{padding:3px 9px;font-size:11.5px}
+.mg .eg-wk-d,.mg .eg-wk-n{grid-column:1/-1;width:100%;box-sizing:border-box;
+  padding:5px 8px;border:1px solid var(--mg-dot);border-radius:8px;font-size:12px}
+.mg .eg-wk-a{grid-column:1/-1;font-size:11px;color:#5B6B86}
 
 /* 需要調査 */
 .mg .eg-sv-form .eg-fq{margin-bottom:15px}
@@ -718,6 +736,16 @@ export const MG_CSS = `
 .mg .eg-res-n{font-size:13px;font-weight:800;font-variant-numeric:tabular-nums}
 .mg .eg-res-l small{grid-column:1/-1;font-size:11.5px;color:#5B6B86}
 .mg .eg-res>p.muted{margin:0 0 4px}
+.mg .eg-res-l li.head,.mg .eg-res-l li.total{background:none;padding:4px 10px}
+.mg .eg-res-l li.head{font-size:11.5px;color:#5B6B86}
+.mg .eg-res-l li.total{border-top:1px solid var(--mg-dot);border-radius:0}
+/* 受け取る人の一覧: the list an administrator checks against the boxes. */
+.mg .eg-res-who{list-style:none;margin:0;padding:0;display:grid;gap:3px}
+.mg .eg-res-who li{display:grid;grid-template-columns:1fr auto auto auto;gap:10px;
+  align-items:baseline;padding:5px 8px;border-radius:8px;font-size:12.5px}
+.mg .eg-res-who li:nth-child(odd){background:var(--mg-sky)}
+.mg .eg-res-who li.head{background:none;font-size:11.5px;color:#5B6B86}
+.mg .eg-res-who em{font-style:normal;font-weight:800;font-variant-numeric:tabular-nums}
 .mg .ad-set,.mg .eg-admin{display:grid;gap:4px}
 .mg .eg-admin{align-items:end}
 

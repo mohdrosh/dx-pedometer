@@ -47,7 +47,7 @@ import {
 } from './src/egg.js';
 import {
   mondayOf, openShipMonday, requestDeadline, requestsOpen, pickupDeadline,
-  weekInfo, shiftDay, statusOf, dueShip,
+  weekInfo, shiftDay, statusOf, dueShip, weekPlan,
 } from './src/egg-week.js';
 import { allot } from './src/egg-allot.js';
 import {
@@ -372,6 +372,16 @@ async function runAllot(ship, { packs = null, by = null } = {}) {
        noticed. */
     needsAdmin: out.needsAdmin,
     moved: out.rows.filter((r) => r.moved && r.got > 0).length,
+    /* 「受け取る人の一覧」 — names, because this is the list an
+       administrator checks against the boxes, and it only exists after
+       the week is decided. */
+    list: out.rows.filter((r) => r.got > 0).map((r) => ({
+      name: already.find((a) => a.id === r.id)?.name || r.employeeId,
+      office: r.at,
+      moved: !!r.moved,
+      purpose: r.purpose,
+      got: r.got,
+    })).sort((a, b) => a.office.localeCompare(b.office, 'ja') || a.name.localeCompare(b.name, 'ja')),
     missed: out.rows.filter((r) => r.purpose !== 'work' && r.got <= 0).length,
     offices: await eggWeekOffices(ship),
   };
@@ -784,6 +794,15 @@ const server = http.createServer(async (req, res) => {
       return sendJson(res, 200, {
         today: now.stamp,
         week: weekInfo(ship, cfg, holidays),
+        /* 仕様書 4.6:「今週はお休みです」 is about the week people are
+           living in, not the week they can request for — those are the
+           same Monday most of the time and deliberately are not during a
+           shutdown, when requests are being taken for the week it ends. */
+        thisWeek: (() => {
+          const m = mondayOf(now.stamp);
+          const plan = weekPlan(m, cfg);
+          return { ship: m, off: plan.type === 'off', note: plan.note };
+        })(),
         /* Whether this is the very first shipment, so the screen can show
            her 初回の受付スタート card instead of the ordinary weekly one. */
         firstRound: !!cfg.egg?.firstShip && ship === String(cfg.egg.firstShip),

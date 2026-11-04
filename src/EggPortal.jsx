@@ -23,6 +23,8 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { S, apiRoot } from './storage';
 import { EGG_TERMS_JA, HQ_OFFICE, TOKYO_OFFICE } from './egg.js';
 import { mg, packs } from './moraegg-text.js';
+import { mondayOf, shiftDay, shipDay, weekPlan } from './egg-week.js';
+import { PUBLIC_HOLIDAYS } from './holidays.js';
 
 const L = {
   /* 週 */
@@ -601,7 +603,24 @@ export default function EggPortal({ d, reload: load, lang, toast, screen = 'all'
           )}
           <p className="eg-sched-r">{t('ruleLine')}</p>
           {d.week.shifted && <p className="eg-sched-h">{t('monHoliday')}</p>}
+          {/* 仕様書 4.6:「お知らせ（みんなの画面に表示）」 — whatever an
+              administrator wrote about this week, under the dates it is
+              about. */}
+          {d.week.note && <p className="eg-sched-n">{d.week.note}</p>}
         </div>
+
+        {/* 「今週はお休みです」. About the week people are in, which during
+            a shutdown is not the week the form is taking requests for —
+            so it says both rather than letting one stand for the other. */}
+        {d.thisWeek?.off && (
+          <div className="card eg-off">
+            <img src={img('empty')} alt="" />
+            <div>
+              <strong>{mgs('offTitle')}</strong>
+              {d.thisWeek.note && <p className="muted sm">{d.thisWeek.note}</p>}
+            </div>
+          </div>
+        )}
 
         {onRequest && !d.consented && (
           <>
@@ -1137,7 +1156,94 @@ export function EggOffice({ lang, toast }) {
    they are decided together: which offices are open, how the packs are
    shared out, and then the draw itself.
 --------------------------------------------------------------------------- */
-export function EggAdmin({ lang, toast, cfg = {}, setCfg, people = [], onDone }) {
+/* ---------------------------------------------------------------------------
+   スケジュール設定 — 仕様書 4.6.
+
+   「通常は毎週自動で『月曜9時締切』になります。祝日やお休みの週だけ、ここで
+   変更してください」, which is the whole design: the ordinary week is not
+   stored at all. An administrator who never opens this screen still has a
+   correct schedule, and what is written down is only the exceptions —
+   which is also what makes a mistake here small and visible.
+
+   Eight weeks, because the two things this is for are a public holiday
+   and the new year shutdown, and both are known about a month or two
+   ahead. A year of rows would be a year of rows nobody reads.
+   --------------------------------------------------------------------- */
+function EggSchedule({ cfg, save, lang, today }) {
+  const mgs = (k, vars) => mg(k, lang, vars);
+  const weeks = useMemo(() => {
+    const first = mondayOf(today || new Date().toISOString().slice(0, 10));
+    return Array.from({ length: 8 }, (_, i) => shiftDay(first, i * 7));
+  }, [today]);
+
+  /* The whole map is rewritten on each change rather than patched, so a
+     week set back to 通常 with no notice leaves nothing behind: an empty
+     entry and no entry mean the same thing, and only one of them can
+     drift. */
+  const put = (monday, next) => {
+    const all = { ...(cfg.egg?.weeks || {}) };
+    if (!next || (next.type === 'normal' && !next.note)) delete all[monday];
+    else if (next.type === 'off') all[monday] = { off: true, ...(next.note ? { note: next.note } : {}) };
+    else {
+      all[monday] = {
+        ...(next.type === 'changed' && next.ship ? { ship: next.ship } : {}),
+        ...(next.note ? { note: next.note } : {}),
+      };
+    }
+    save({ weeks: all });
+  };
+
+  return (
+    <div className="card eg-sched-set">
+      <p className="muted sm">{mgs('schLead')}</p>
+      <ul className="eg-wks">
+        {weeks.map((w) => {
+          const plan = weekPlan(w, cfg);
+          const auto = !!PUBLIC_HOLIDAYS[w] && plan.type === 'normal';
+          return (
+            <li key={w} className={plan.type !== 'normal' ? 'on' : ''}>
+              <b>{mgs('weekOf', { n: md(w, lang) })}</b>
+              <div className="eg-wk-t">
+                {[['normal', 'schNormal'], ['changed', 'schChanged'], ['off', 'schOff']].map(([k, label]) => (
+                  <button
+                    key={k} type="button"
+                    className={`eg-opt${plan.type === k ? ' on' : ''}`}
+                    onClick={() => put(w, {
+                      type: k,
+                      /* A week switched to 日付を変更 starts from the day it
+                         would have shipped anyway, so the common edit is
+                         a nudge rather than a date typed from nothing. */
+                      ship: k === 'changed' ? (plan.ship || shipDay(w, PUBLIC_HOLIDAYS)) : null,
+                      note: plan.note,
+                    })}
+                  >{mgs(label)}</button>
+                ))}
+              </div>
+              {plan.type === 'changed' && (
+                <input
+                  type="date" className="eg-wk-d" defaultValue={plan.ship || ''}
+                  onBlur={(e) => put(w, { type: 'changed', ship: e.target.value, note: plan.note })}
+                />
+              )}
+              {auto && <small className="eg-wk-a">{mgs('schAuto')}</small>}
+              <input
+                className="eg-wk-n" defaultValue={plan.note}
+                placeholder={mgs('schCommentPh')} maxLength={120}
+                onBlur={(e) => {
+                  if (e.target.value === plan.note) return;
+                  put(w, { type: plan.type, ship: plan.ship, note: e.target.value.trim() });
+                }}
+              />
+            </li>
+          );
+        })}
+      </ul>
+      <p className="muted sm">{mgs('schComment')}</p>
+    </div>
+  );
+}
+
+export function EggAdmin({ lang, toast, cfg = {}, setCfg, people = [], onDone, today = null }) {
   const t = useCallback((k) => (L[k] ? L[k][lang === 'ja' ? 0 : 1] || L[k][0] : k), [lang]);
   const [offices, setOffices] = useState([]);
   const [draft, setDraft] = useState({ name: '', address: '', contactId: '', active: true });
@@ -1274,39 +1380,72 @@ export function EggAdmin({ lang, toast, cfg = {}, setCfg, people = [], onDone })
         <p className="muted sm">{t('drawNote')}</p>
       </div>
 
-      {/* 今週の結果. Shown here rather than only on the office screens
-          because this is the one place somebody can see the whole week at
-          once — which is what「管理者が個別に調整する」needs. */}
+      {/* 今週の確定結果, in her words and her columns: 事業所 / 発送する
+          パック数 / 内訳, then 合計, then the list of people the boxes are
+          checked against. Shown here because this is the one screen that
+          holds the whole week at once, which is what「管理者が個別に調整
+          する」needs. */}
       {last && !!last.lines?.length && (
         <>
-          <div className="sechead"><span>{t('result')}</span></div>
+          <div className="sechead"><span>{mg('resTitle', lang)}</span></div>
           <div className="card eg-res">
             {last.needsAdmin && <p className="eg-warn sm">{t('resNeeds')}</p>}
-            <ul className="eg-res-l">
+            <p className="muted sm">{mg('resLead', lang)}</p>
+            <ul className="eg-res-l eg-res-h">
+              <li className="head">
+                <b>{mg('resOffice', lang)}</b>
+                <span className="eg-res-n">{mg('resPacks', lang)}</span>
+              </li>
               {last.lines.map((l) => (
                 <li key={l.office} className={l.status === 'adjust' || l.underMin ? 'warn' : ''}>
                   <b>{l.office}</b>
-                  <span className="eg-res-n">
-                    {lang === 'ja' ? `${l.packs}パック` : `${l.packs} pack${l.packs === 1 ? '' : 's'}`}
-                  </span>
+                  <span className="eg-res-n">{packs(l.packs, lang)}</span>
                   <small>
                     {l.extra > 0
-                      ? t('resSplit').replace('{a}', String(l.requested)).replace('{b}', String(l.extra))
-                      : l.status === 'skip' ? t('resSkip')
-                        : l.status === 'tokyo' ? t('resTokyo')
+                      ? mg('resHq', lang, { a: String(l.requested), b: String(l.extra) })
+                      : l.status === 'skip' ? mg('resSkip', lang)
+                        : l.status === 'tokyo' ? mg('resTokyo', lang)
                           : l.status === 'adjust' ? t('resAdjust')
-                            : l.status === 'none' ? t('resNone')
+                            : l.status === 'none' ? mg('cNone', lang)
                               : l.underMin ? t('resUnder') : ''}
                   </small>
                 </li>
               ))}
+              <li className="total">
+                <b>{mg('resTotal', lang)}</b>
+                <span className="eg-res-n">{packs(last.shipped || 0, lang)}</span>
+                <small>{`${mg('resHarvest', lang)} ${packs(last.packs || 0, lang)}`}</small>
+              </li>
             </ul>
-            <p className="muted sm">{t('resSpare').replace('{n}', String(last.extra || 0))}</p>
             {last.moved > 0 && (
               <p className="muted sm">{t('resMoved').replace('{n}', String(last.moved))}</p>
             )}
             <p className="muted sm">{t('resMiss').replace('{n}', String(last.missed || 0))}</p>
           </div>
+
+          {!!last.list?.length && (
+            <>
+              <div className="sechead"><span>{mg('adminList', lang)}</span></div>
+              <div className="card">
+                <ul className="eg-res-who">
+                  <li className="head">
+                    <b>{mg('adminWho', lang)}</b>
+                    <span>{mg('resOffice', lang)}</span>
+                    <span>{mg('adminPurpose', lang)}</span>
+                    <em>{mg('confirmed', lang)}</em>
+                  </li>
+                  {last.list.map((r, i) => (
+                    <li key={`${r.name}-${i}`}>
+                      <b>{r.name}</b>
+                      <span>{r.office}{r.moved ? ' ←' : ''}</span>
+                      <span>{mg(r.purpose === 'work' ? 'pWork' : 'pPersonal', lang)}</span>
+                      <em>{packs(r.got, lang)}</em>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </>
+          )}
         </>
       )}
 
@@ -1366,6 +1505,10 @@ export function EggAdmin({ lang, toast, cfg = {}, setCfg, people = [], onDone })
           />
         </label>
       </div>
+
+      {/* 仕様書 4.6. Hers, by her heading. */}
+      <div className="sechead"><span>{mg('schTitle', lang)}</span></div>
+      <EggSchedule cfg={cfg} save={saveCfg} lang={lang} today={today} />
 
       <div className="sechead"><span>{t('termsEdit')}</span></div>
       <div className="card">

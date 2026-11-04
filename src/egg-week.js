@@ -84,13 +84,41 @@ function hourOf(cfg) {
  * new year shutdown, when nothing is being harvested anyway. An office
  * that does shut can be given a 休業日 in 設定, which is merged in here.
  */
-export function shipDay(shipMonday, holidays = {}) {
+export function shipDay(shipMonday, holidays = {}, cfg = null) {
+  /* 「日付を変更」: an administrator's date for this one week beats both
+     the Monday and the holiday rule. It is stored against the Monday that
+     names the week, so the week keeps its name however far the day moves
+     — otherwise a shipment pushed to the Wednesday would look like a
+     different week to every row already filed under the Monday. */
+  const set = weekPlan(shipMonday, cfg).ship;
+  if (set) return set;
   return holidays[shipMonday] ? shift(shipMonday, 1) : shipMonday;
+}
+
+/**
+ * What an administrator has said about one week, if anything.
+ *
+ * 仕様書 4.6:「通常／日付を変更／お休み」 and a notice to go with it.
+ * Normal is the absence of an entry rather than a stored word, so a
+ * schedule nobody has touched is an empty object and every week in it
+ * is ordinary.
+ */
+export function weekPlan(shipMonday, cfg) {
+  const row = cfg?.egg?.weeks?.[shipMonday];
+  if (!row) return { type: 'normal', ship: null, note: '' };
+  if (row.off === true) return { type: 'off', ship: null, note: String(row.note || '') };
+  const ship = row.ship ? String(row.ship) : null;
+  return { type: ship ? 'changed' : 'normal', ship, note: String(row.note || '') };
+}
+
+/** 「お休み」 — a week with no shipment at all. */
+export function weekOff(shipMonday, cfg) {
+  return weekPlan(shipMonday, cfg).type === 'off';
 }
 
 /** 申請締切 — the shipping day, at the configured hour. */
 export function requestDeadline(shipMonday, cfg, holidays = {}) {
-  return { date: shipDay(shipMonday, holidays), hour: hourOf(cfg) };
+  return { date: shipDay(shipMonday, holidays, cfg), hour: hourOf(cfg) };
 }
 
 /**
@@ -112,6 +140,7 @@ export function dueShip(todayIso, nowHour, cfg, holidays = {}, firstShip = null)
   const monday = mondayOf(todayIso);
   for (const ship of [shift(monday, -7), monday, shift(monday, 7)]) {
     if (firstShip && ship < String(firstShip)) continue;
+    if (weekOff(ship, cfg)) continue;
     const due = requestDeadline(ship, cfg, holidays);
     if (due.date === todayIso && Number(nowHour) >= due.hour) return ship;
   }
@@ -119,8 +148,8 @@ export function dueShip(todayIso, nowHour, cfg, holidays = {}, firstShip = null)
 }
 
 /** 到着日 — 「丹波から発送、翌日事務所に到着」. */
-export function arrivalDay(shipMonday, holidays = {}) {
-  return shift(shipDay(shipMonday, holidays), 1);
+export function arrivalDay(shipMonday, holidays = {}, cfg = null) {
+  return shift(shipDay(shipMonday, holidays, cfg), 1);
 }
 
 /**
@@ -143,7 +172,14 @@ export function openShipMonday(todayIso, nowHour, cfg, holidays = {}, firstShip 
     ? thisMonday
     : shift(thisMonday, 7);
   const first = firstShip || cfg?.egg?.firstShip;
-  return first && open < String(first) ? String(first) : open;
+  let week = first && open < String(first) ? String(first) : open;
+  /* 「お休み」 weeks are stepped over rather than refused: somebody asking
+     during the new year shutdown is asking for the week it ends, and
+     being told 「受付は終了しました」 for a week that was never going to
+     ship is an answer to a question nobody asked. Bounded, so a schedule
+     with every week switched off cannot spin. */
+  for (let i = 0; i < 12 && weekOff(week, cfg); i += 1) week = shift(week, 7);
+  return week;
 }
 
 /* The old name, kept because callers that do not know the hour still
@@ -165,6 +201,8 @@ export function requestsOpen(shipMonday, nowIso, nowHour, cfg, holidays = {}) {
      ask. Before that date nothing is open, whatever the deadline says. */
   const from = cfg?.egg?.requestsFrom;
   if (from && nowIso && String(nowIso) < String(from)) return false;
+  /* 「お休み」: nothing ships, so nothing is taken for it. */
+  if (weekOff(shipMonday, cfg)) return false;
   const { date, hour } = requestDeadline(shipMonday, cfg, holidays);
   if (nowIso < date) return true;
   if (nowIso > date) return false;
@@ -185,13 +223,18 @@ export function pickupDeadline(shipMonday, holidays = {}) {
 
 /** Everything about one shipping week, for a screen to print. */
 export function weekInfo(shipMonday, cfg, holidays) {
+  const plan = weekPlan(shipMonday, cfg);
   return {
     ship: shipMonday,
-    shipDay: shipDay(shipMonday, holidays),
-    arrive: arrivalDay(shipMonday, holidays),
+    shipDay: shipDay(shipMonday, holidays, cfg),
+    arrive: arrivalDay(shipMonday, holidays, cfg),
     deadline: requestDeadline(shipMonday, cfg, holidays),
     pickup: pickupDeadline(shipMonday, holidays),
-    shifted: shipDay(shipMonday, holidays) !== shipMonday,
+    shifted: shipDay(shipMonday, holidays, cfg) !== shipMonday,
+    /* What an administrator said about this week, so a screen can print
+       「今週はお休みです」 and her notice without asking a second time. */
+    plan: plan.type,
+    note: plan.note,
   };
 }
 

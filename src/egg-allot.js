@@ -184,6 +184,25 @@ export function allot({
   }
 
   /* ---- 8: whatever is left goes to Head Office ------------------------- */
+  /* Before it is declared 「ご自由にどうぞ」: 本社 is where the spare packs
+     are going, so a box is on its way there whatever its own requests
+     added up to. Refusing somebody at 本社 while sending 33 loose packs
+     into the same room is not what rule 5 is for — the minimum exists so
+     that a van is not sent for two packs, and this van is already going.
+     It can only ever happen when there is surplus, so nobody else is a
+     pack worse off for it. */
+  if (left > 0 && !ships(HQ)) {
+    const atHq = inPointOrder(rows.filter((r) => r.office === HQ), points, seed);
+    let served = 0;
+    for (const r of atHq) {
+      if (left <= 0) break;
+      const give = Math.min(r.want, left);
+      if (give > 0) { r.got = give; left -= give; served += give; missedBySkip.delete(r.id); }
+    }
+    /* And the line says 本社 is being delivered to, because it is. */
+    if (served > 0) state.set(HQ, 'go');
+  }
+
   const extra = Math.max(0, left);
 
   /* ---- 9: points ------------------------------------------------------- */

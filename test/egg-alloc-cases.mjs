@@ -8,7 +8,7 @@
 import {
   dowOf, mondayOf, openShipMonday, shipDay, arrivalDay,
   requestDeadline, requestsOpen,
-  pickupDeadline, weekInfo, missedFrom, statusOf, dueShip,
+  pickupDeadline, weekInfo, missedFrom, statusOf, dueShip, weekPlan, weekOff,
 } from '../src/egg-week.js';
 
 let n = 0;
@@ -142,21 +142,64 @@ is('a shifted shipping day does not shift the pickup',
 is('a normal week reads out whole',
   weekInfo('2026-11-30', null, {}),
   { ship: '2026-11-30', shipDay: '2026-11-30', arrive: '2026-12-01',
-    deadline: { date: '2026-11-30', hour: 9 }, pickup: '2026-12-04', shifted: false });
+    deadline: { date: '2026-11-30', hour: 9 }, pickup: '2026-12-04', shifted: false,
+    plan: 'normal', note: '' });
 
 /* The first delivery, exactly as her 初回の受付スタート！ card prints it:
    締切 11/24（火）朝9:00, 発送 11/24, 到着 11/25, 受け取り期限 11/27. */
 is('and the first week matches the card she is handing out',
   weekInfo('2026-11-23', null, HOL),
   { ship: '2026-11-23', shipDay: '2026-11-24', arrive: '2026-11-25',
-    deadline: { date: '2026-11-24', hour: 9 }, pickup: '2026-11-27', shifted: true });
+    deadline: { date: '2026-11-24', hour: 9 }, pickup: '2026-11-27', shifted: true,
+    plan: 'normal', note: '' });
+
+/* ------------------- 通常 / 日付を変更 / お休み --------------------------- */
+/* 仕様書 4.6. Three kinds of week, set by an administrator against the
+   Monday that names the week — so a shipment moved to the Wednesday is
+   still filed under the same Monday as every request already made for
+   it. */
+
+const CFG9 = { egg: { deadlineHour: 9 } };
+const OFF = { egg: { deadlineHour: 9, weeks: { '2026-12-28': { off: true, note: '年末年始のため、今週はお休みです。' } } } };
+const MOVED = { egg: { deadlineHour: 9, weeks: { '2026-12-07': { ship: '2026-12-09', note: '今週は水曜発送です。' } } } };
+
+is('an untouched week is an ordinary one', weekPlan('2026-12-07', CFG9),
+  { type: 'normal', ship: null, note: '' });
+is('a week switched off says so', weekPlan('2026-12-28', OFF).type, 'off');
+is('and carries her notice', weekPlan('2026-12-28', OFF).note, '年末年始のため、今週はお休みです。');
+is('a moved week names its day', weekPlan('2026-12-07', MOVED),
+  { type: 'changed', ship: '2026-12-09', note: '今週は水曜発送です。' });
+
+is('the administrator’s date beats the Monday', shipDay('2026-12-07', {}, MOVED), '2026-12-09');
+is('and beats the holiday rule too',
+  shipDay('2026-12-07', { '2026-12-07': 'x' }, MOVED), '2026-12-09');
+is('the deadline follows the day it was moved to',
+  requestDeadline('2026-12-07', MOVED, {}), { date: '2026-12-09', hour: 9 });
+is('as does the arrival', arrivalDay('2026-12-07', {}, MOVED), '2026-12-10');
+/* 受け取りは「その週の金曜まで」, which a moved shipping day does not change:
+   the week still ends on the Friday. */
+is('but the pickup deadline is still the Friday', pickupDeadline('2026-12-07', {}), '2026-12-11');
+
+is('nothing is taken for a week that is off',
+  requestsOpen('2026-12-28', '2026-12-20', 9, OFF, {}), false);
+is('while the weeks around it are untouched',
+  requestsOpen('2026-12-21', '2026-12-20', 9, OFF, {}), true);
+/* Somebody asking during the shutdown is asking for the week it ends. */
+is('a week that is off is stepped over, not refused',
+  openShipMonday('2026-12-28', 10, OFF, {}), '2027-01-04');
+is('and the clock has no deadline to keep for it',
+  dueShip('2026-12-28', 9, OFF, {}), null);
+
+/* A schedule with everything switched off must not spin. */
+const ALLOFF = { egg: { weeks: Object.fromEntries(
+  Array.from({ length: 40 }, (_, i) => [`2027-0${1 + Math.floor(i / 28)}-01`, { off: true }]),
+) } };
+is('a hopeless schedule still answers', typeof openShipMonday('2026-12-07', 10, ALLOFF, {}), 'string');
 
 /* ------------------- which week the clock has to decide ------------------ */
 /* 仕様書 5「締切後に配分を確定する」. The run is unattended, so the only
    thing standing between a quiet Monday and a week decided twice — or
    never — is this answer. */
-
-const CFG9 = { egg: { deadlineHour: 9 } };
 
 is('before the hour, nothing is due', dueShip('2026-11-30', 8, CFG9, {}), null);
 is('on the hour, this Monday is', dueShip('2026-11-30', 9, CFG9, {}), '2026-11-30');

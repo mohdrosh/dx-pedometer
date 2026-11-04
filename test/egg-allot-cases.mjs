@@ -224,5 +224,43 @@ const line = (r, office) => r.lines.find((l) => l.office === office);
   is('only the person who missed gains a point', r.points, { h2: 1 });
 }
 
+/* 8 と 5 のあいだ. 本社's own requests fall under the minimum, so rule 5
+   would skip them — but rule 8 is sending the spare packs to 本社 anyway,
+   and a person told 落選 while loose packs arrive in their own office is
+   not what the minimum is for. It can only happen when there is surplus,
+   so it costs nobody. */
+{
+  const out = allot({
+    requests: [
+      { id: 'a', employeeId: 'p1', office: HQ, packs: 1, purpose: 'private' },
+      { id: 'b', employeeId: 'p2', office: '大阪', packs: 3, purpose: 'private' },
+    ],
+    harvest: 20,
+    minPacks: 3,
+  });
+  const hq = out.rows.find((r) => r.id === 'a');
+  is('本社 is served from the packs already coming to it', hq.got, 1);
+  is('and its line says delivered, not skipped',
+    out.lines.find((l) => l.office === HQ).status, 'go');
+  is('the spare packs are what is left after that', out.extra, 16);
+  is('and everything still adds up', out.shipped, 20);
+}
+
+/* But a short week does not quietly promote 本社: there is nothing left
+   over to serve them with. */
+{
+  const out = allot({
+    requests: [
+      { id: 'a', employeeId: 'p1', office: HQ, packs: 1, purpose: 'private' },
+      { id: 'b', employeeId: 'p2', office: '大阪', packs: 3, purpose: 'private' },
+    ],
+    harvest: 3,
+    minPacks: 3,
+  });
+  is('a week with nothing spare still skips 本社',
+    out.rows.find((r) => r.id === 'a').got, 0);
+  is('and says so', out.lines.find((l) => l.office === HQ).status, 'skip');
+}
+
 console.log(bad ? `\n  ${bad} of ${n} failed\n` : `  ${n} checks — 成立判定, 東京, 配分順, 余り, 優先ポイント\n`);
 process.exit(bad ? 1 : 0);
