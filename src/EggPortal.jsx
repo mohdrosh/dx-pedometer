@@ -26,6 +26,41 @@ import { mg, packs } from './moraegg-text.js';
 import { mondayOf, shiftDay, shipDay, weekPlan } from './egg-week.js';
 import { PUBLIC_HOLIDAYS } from './holidays.js';
 
+/* ---------------------------------------------------------------------------
+   仕様書 6:「画面の文言は、文言辞書の日本語をそのまま使う。日本語が正で、
+   英語は日本語からの訳である」.
+
+   L below predates her dictionary. Rather than leave two Japanese
+   wordings for the same thing in two files, every L key that she has
+   written a string for is listed here and answered from hers — one table
+   to read down when checking a screen against the dictionary, and no
+   call site that has to remember which source it belongs to.
+
+   What is left in L is what she has not written: the role screens (丹波,
+   事務所, 管理), which are for the handful of people running this rather
+   than for the 171 reading it.
+   --------------------------------------------------------------------- */
+const HERS = {
+  /* 今週のスケジュール */
+  schedHead: 'sched',
+  stepDeadline: 'sDeadline',
+  stepShip: 'sShip',
+  stepArrive: 'sArrive',
+  stepPickup: 'sPick',
+  monHoliday: 'holiday',
+  ruleLine: 'r1',
+  /* 事務所対決 */
+  race: 'battle',
+  harvestNow: 'harvest',
+  byDay: 'daily',
+  coopNews: 'news',
+  pack: 'pack',
+  /* 申請 */
+  agreeTick: 'agree',
+  purpose: 'purpose',
+  howMany: 'packs',
+};
+
 const L = {
   /* 週 */
   ship: ['発送日', 'Ships'],
@@ -333,9 +368,11 @@ function Race({ harvest, week0, packs, want, today, lang, t, img }) {
    distance you can see instead of a subtraction you have to do.
 --------------------------------------------------------------------------- */
 function OfficeRace({ offices, packs, lang, t, img }) {
+  const mgs = (k, vars) => mg(k, lang, vars);
   const rows = (offices || []).map((o) => ({
     name: o.name,
     asked: Math.max(0, Number(o.asked) || 0),
+    work: Math.max(0, Number(o.work) || 0),
     min: Math.max(0, Number(o.minPacks) || 0),
   }));
   const harvest = Math.max(0, Number(packs) || 0);
@@ -357,17 +394,28 @@ function OfficeRace({ offices, packs, lang, t, img }) {
           <b>{harvest}</b>
           <span>{t('pack')}</span>
         </div>
+        {/* 取れ高とリクエストの差を、彼女の3つの言い方で。A percentage said
+            how close it was; these say what it means — and the short one
+            says what happens next, which is the question a shortfall
+            actually raises. */}
         <p className={asked > harvest && harvest > 0 ? 'warn' : ''}>
-          {asked > harvest && harvest > 0
-            ? t('overHarvest')
-            : t('ofHarvest').replace('{n}', String(harvest ? Math.round((asked / harvest) * 100) : 0))}
+          {asked > harvest
+            ? mgs('short', { n: String(asked - harvest) })
+            : asked === harvest ? mgs('even')
+              : mgs('spare', { n: String(harvest - asked) })}
         </p>
+        <span className="eg-vs-req"><em>{mgs('reqTotal')}</em><b>{asked}</b></span>
       </div>
 
       <ul className="eg-vs-rows">
         {ranked.map((r) => {
-          const met = r.min > 0 && r.asked >= r.min;
-          const state = r.min === 0 ? 'free' : met ? 'go' : r.asked > 0 ? 'wait' : 'miss';
+          const met = r.min === 0 || r.asked >= r.min;
+          /* 東京 is reachable only by courier, so a business request sends
+             a box however short the week is. Said here because this is
+             where somebody looks to find out whether theirs is coming. */
+          const courier = !met && r.name === TOKYO_OFFICE && r.work > 0;
+          const state = r.asked === 0 ? 'miss'
+            : met ? 'go' : courier ? 'free' : 'wait';
           return (
             <li key={r.name} className={state}>
               <span className="eg-vs-n">{r.name}</span>
@@ -378,18 +426,23 @@ function OfficeRace({ offices, packs, lang, t, img }) {
                 {r.min > 0 && <u style={{ left: pct(r.min) }} aria-hidden="true" />}
               </span>
               <b className="eg-vs-v">{r.asked}</b>
+              {/* 佐野's four: お届け決定 / あと{n}パックでお届け /
+                  仕事用のため発送 / リクエストなし. */}
               <em className="eg-vs-s">
-                {r.min === 0
-                  ? t('noMin')
-                  : met ? t('comingShort')
-                    : t('minNeed').replace('{n}', String(r.min - r.asked))}
+                {r.asked === 0 ? mgs('cNone')
+                  : met ? mgs('cGo')
+                    : courier ? mgs('cSp')
+                      : mgs('cNear', { n: String(r.min - r.asked) })}
               </em>
             </li>
           );
         })}
         {!ranked.length && <li className="muted"><span className="eg-vs-n">{t('noneYet')}</span></li>}
       </ul>
-      <p className="eg-nn">{t('raceNote')}</p>
+      {/* 「合計{n}パック以上集まった事業所に届けます（線がお届けライン）」 —
+          the notch on the bar explained once, under the bars, with the
+          number the offices are actually measured against. */}
+      <p className="eg-nn">{mgs('minNote', { n: String(Math.max(0, ...rows.map((r) => r.min))) })}</p>
     </div>
   );
 }
@@ -448,7 +501,8 @@ export default function EggPortal({ d, reload: load, lang, toast, screen = 'all'
      act rather than the thing that happens when you press the only button
      on the screen. */
   const [ticked, setTicked] = useState(false);
-  const t = useCallback((k) => (L[k] ? L[k][lang === 'ja' ? 0 : 1] || L[k][0] : k), [lang]);
+  const t = useCallback((k) => (HERS[k] ? mg(HERS[k], lang)
+    : L[k] ? L[k][lang === 'ja' ? 0 : 1] || L[k][0] : k), [lang]);
   const img = (n) => `${import.meta.env.BASE_URL}moraegg/${n}.webp`;
 
   const [busy, setBusy] = useState(false);
@@ -608,6 +662,21 @@ export default function EggPortal({ d, reload: load, lang, toast, screen = 'all'
               about. */}
           {d.week.note && <p className="eg-sched-n">{d.week.note}</p>}
         </div>
+
+        {/* 毎週のルール. Four lines that do not change from week to week,
+            so they sit under the dates that do — and on リクエスト, where
+            somebody is about to act on them. 佐野:「毎週のルールをリクエスト
+            ページに出してほしい」. */}
+        {onRequest && (
+          <>
+            <div className="sechead"><span>{mgs('rules')}</span></div>
+            <div className="card">
+              <ul className="eg-rules">
+                {['r1', 'r2', 'r3', 'r4'].map((k) => <li key={k}>{mgs(k)}</li>)}
+              </ul>
+            </div>
+          </>
+        )}
 
         {/* 「今週はお休みです」. About the week people are in, which during
             a shutdown is not the week the form is taking requests for —
@@ -919,7 +988,8 @@ export default function EggPortal({ d, reload: load, lang, toast, screen = 'all'
    which is why every other day in the list is a figure and not a control.
 --------------------------------------------------------------------------- */
 export function EggFarm({ lang, toast }) {
-  const t = useCallback((k) => (L[k] ? L[k][lang === 'ja' ? 0 : 1] || L[k][0] : k), [lang]);
+  const t = useCallback((k) => (HERS[k] ? mg(HERS[k], lang)
+    : L[k] ? L[k][lang === 'ja' ? 0 : 1] || L[k][0] : k), [lang]);
   const img = (n) => `${import.meta.env.BASE_URL}moraegg/${n}.webp`;
   const [d, setD] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -1016,7 +1086,8 @@ export function EggFarm({ lang, toast }) {
    チェックする」, so a row is a button either way and the list is the record.
 --------------------------------------------------------------------------- */
 export function EggOffice({ lang, toast }) {
-  const t = useCallback((k) => (L[k] ? L[k][lang === 'ja' ? 0 : 1] || L[k][0] : k), [lang]);
+  const t = useCallback((k) => (HERS[k] ? mg(HERS[k], lang)
+    : L[k] ? L[k][lang === 'ja' ? 0 : 1] || L[k][0] : k), [lang]);
   const [d, setD] = useState(null);
   const [ship, setShip] = useState('');
   const [office, setOffice] = useState('');
@@ -1244,7 +1315,8 @@ function EggSchedule({ cfg, save, lang, today }) {
 }
 
 export function EggAdmin({ lang, toast, cfg = {}, setCfg, people = [], onDone, today = null }) {
-  const t = useCallback((k) => (L[k] ? L[k][lang === 'ja' ? 0 : 1] || L[k][0] : k), [lang]);
+  const t = useCallback((k) => (HERS[k] ? mg(HERS[k], lang)
+    : L[k] ? L[k][lang === 'ja' ? 0 : 1] || L[k][0] : k), [lang]);
   const [offices, setOffices] = useState([]);
   const [draft, setDraft] = useState({ name: '', address: '', contactId: '', active: true });
   const [busy, setBusy] = useState(false);

@@ -736,6 +736,15 @@ export const MG_CSS = `
 .mg .eg-res-n{font-size:13px;font-weight:800;font-variant-numeric:tabular-nums}
 .mg .eg-res-l small{grid-column:1/-1;font-size:11.5px;color:#5B6B86}
 .mg .eg-res>p.muted{margin:0 0 4px}
+.mg .eg-vs-req{display:flex;align-items:baseline;gap:6px;flex:1 0 100%;
+  font-size:12px;color:#5B6B86}
+.mg .eg-vs-req b{font-size:14px;font-weight:800;color:var(--mg-navy)}
+/* 毎週のルール: four lines, read once and then recognised, so they are
+   set quieter than the dates above them. */
+.mg .eg-rules{list-style:none;margin:0;padding:0;display:grid;gap:7px}
+.mg .eg-rules li{position:relative;padding-left:18px;font-size:12.5px;line-height:1.55}
+.mg .eg-rules li::before{content:'';position:absolute;left:3px;top:7px;width:7px;height:7px;
+  border-radius:50%;background:var(--mg-sun)}
 .mg .eg-res-l li.head,.mg .eg-res-l li.total{background:none;padding:4px 10px}
 .mg .eg-res-l li.head{font-size:11.5px;color:#5B6B86}
 .mg .eg-res-l li.total{border-top:1px solid var(--mg-dot);border-radius:0}

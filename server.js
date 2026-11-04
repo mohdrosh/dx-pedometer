@@ -830,6 +830,11 @@ const server = http.createServer(async (req, res) => {
           note: o.note || '', minPacks: o.minPacks || 0,
           asked: requests.filter((r) => r.office === o.name)
             .reduce((a, r) => a + (r.packs || 0), 0),
+          /* 仕事用 only, because 東京's exception turns on it: 「仕事用の
+             申請があれば3パック未満でも送る」. A count, not a list — who
+             asked for what is nobody else's business. */
+          work: requests.filter((r) => r.office === o.name && r.purpose === 'work')
+            .reduce((a, r) => a + (r.packs || 0), 0),
           /* Null until the week is decided, so a screen can tell "none
              yet" from "none at all" without being told twice. */
           sent: decided ? (sent[o.name]?.packs ?? 0) : null,

@@ -19,6 +19,7 @@ import { S, apiRoot } from './storage';
 import EggSignup from './EggSignup';
 import EggSettings from './EggSettings';
 import { NOT_NOW } from './egg.js';
+import { mg } from './moraegg-text.js';
 import { MG_CSS } from './moraegg-theme';
 import EggPortal, { EggFarm, EggOffice, EggAdmin } from './EggPortal';
 import EggDish from './EggDish';
@@ -91,6 +92,10 @@ const L = {
      ever sees the ones that are theirs. */
   /* 仕様書 3 の 4 つのタブ. 配布 became 配布状況 and gave up the request
      form to a tab of its own, which is what the four are. */
+  /* The four tab labels are hers — tabHome / tabReq / tabRecipe / tabSet
+     — and answered from the dictionary below rather than from here, so
+     there is one wording and not two. These rows stay as the fallback
+     for a dictionary that fails to load. */
   v_portal: ['配布状況', 'Distribution'],
   v_req: ['リクエスト', 'Request'],
   v_set: ['マイ設定', 'My settings'],
@@ -139,7 +144,11 @@ function Bars({ rows, total, lead, t }) {
 export default function EggTab({
   user, cfg = {}, setCfg, lang, setLang, toast, people = [], onBack, onSignOut,
 }) {
-  const t = useCallback((k) => (L[k] ? L[k][lang === 'ja' ? 0 : 1] || L[k][0] : k), [lang]);
+  /* 仕様書 6: her dictionary is the Japanese, so a key she has written
+     is answered from it and L is only the fallback. */
+  const HERS = { v_portal: 'tabHome', v_req: 'tabReq', v_dish: 'tabRecipe', v_set: 'tabSet' };
+  const t = useCallback((k) => (HERS[k] ? mg(HERS[k], lang)
+    : L[k] ? L[k][lang === 'ja' ? 0 : 1] || L[k][0] : k), [lang]);
 
   const [d, setD] = useState(null);
   const [office, setOffice] = useState('');
