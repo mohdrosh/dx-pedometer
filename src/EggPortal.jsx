@@ -872,12 +872,22 @@ export default function EggPortal({ d, reload: load, lang, toast, screen = 'all'
                 : status === 'received' ? '' : 'ok'}`}>
                 {t(`st_${status}`)}
               </span>
+              {/* 「{office}／{n}パック／{purpose}」 — her one line, which is
+                  what was asked for. Once the week is decided it says what
+                  was given instead, because that is the number that
+                  matters from then on. */}
               <div className="eg-mystat-v">
-                <b>{mine.office}</b>
-                <i>/</i>
-                <b>{status === 'confirmed' || status === 'picked'
-                  ? t('gotPacks').replace('{n}', String(mine.got))
-                  : `${mine.packs} ${t('pack')}`}</b>
+                {status === 'confirmed' || status === 'picked' ? (
+                  <b>{`${mine.atOffice || mine.office}／${t('gotPacks').replace('{n}', String(mine.got))}`}</b>
+                ) : (
+                  <b>
+                    {mgs('sumLine', {
+                      office: mine.office,
+                      n: String(mine.packs),
+                      purpose: mgs(mine.purpose === 'work' ? 'pWork' : 'pPersonal'),
+                    })}
+                  </b>
+                )}
               </div>
               {status === 'missed' && <p className="muted sm">{t('missedNote')}</p>}
               {status === 'expired' && <p className="muted sm">{t('expiredNote')}</p>}
@@ -1382,7 +1392,7 @@ function EggSchedule({ cfg, save, lang, today }) {
           return (
             <li key={w} className={plan.type !== 'normal' ? 'on' : ''}>
               <b>{mgs('weekOf', { n: md(w, lang) })}</b>
-              <div className="eg-wk-t">
+              <div className="eg-wk-t" aria-label={mgs('schType')}>
                 {[['normal', 'schNormal'], ['changed', 'schChanged'], ['off', 'schOff']].map(([k, label]) => (
                   <button
                     key={k} type="button"
@@ -1405,6 +1415,7 @@ function EggSchedule({ cfg, save, lang, today }) {
                 />
               )}
               {auto && <small className="eg-wk-a">{mgs('schAuto')}</small>}
+              {plan.type === 'off' && <small className="eg-wk-a">{mgs('schOffShow')}</small>}
               <input
                 className="eg-wk-n" defaultValue={plan.note}
                 placeholder={mgs('schCommentPh')} maxLength={120}
@@ -1575,6 +1586,7 @@ export function EggAdmin({ lang, toast, cfg = {}, setCfg, people = [], onDone, t
               <li className="head">
                 <b>{mg('resOffice', lang)}</b>
                 <span className="eg-res-n">{mg('resPacks', lang)}</span>
+                <small>{mg('resNote', lang)}</small>
               </li>
               {last.lines.map((l) => (
                 <li key={l.office} className={l.status === 'adjust' || l.underMin ? 'warn' : ''}>
