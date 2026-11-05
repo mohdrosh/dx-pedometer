@@ -86,6 +86,21 @@ const DIST = path.join(DIR, 'dist');
 const PORT = process.env.PORT || 8787;
 const APP_URL = process.env.APP_URL || '';
 const MAIL_FROM = process.env.MAIL_FROM || 'kenkou@morabu.com';
+/* 佐野, 11/05:「モラエッグのメールは admin_egg@morabu.com から送ってくださ
+   い。メールの設定は万歩計と同じで、送信元だけ変えてください」.
+
+   One mail server, one login, two senders: the pedometer's reminders go
+   on coming from 健康対策委員会's address, and only モラエッグ's three
+   letters carry this one. A single setting for the whole site would have
+   quietly re-signed the monthly pedometer reminder as well, which is not
+   what she asked for and not something anybody would notice until a
+   confused reply arrived.
+
+   Settable, because whether a mail server will let this login send under
+   another address is a question for IT and not for me: if it refuses,
+   unsetting EGG_MAIL_FROM puts everything back on the address that
+   already works. */
+const EGG_MAIL_FROM = process.env.EGG_MAIL_FROM || 'admin_egg@morabu.com';
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || '';
 const DRY_RUN = process.env.MAIL_DRY_RUN === '1' || !process.env.SMTP_HOST;
 const SERVE_STATIC = fs.existsSync(DIST);
@@ -100,10 +115,10 @@ const mailer = DRY_RUN ? null : nodemailer.createTransport({
   auth: process.env.SMTP_USER ? { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS } : undefined,
 });
 
-async function send(to, subject, text) {
+async function send(to, subject, text, from = MAIL_FROM) {
   if (!to) return false;
-  if (DRY_RUN) { console.log(`[DRY RUN] would send to ${to} — ${subject}`); return true; }
-  await mailer.sendMail({ from: MAIL_FROM, to, subject, text });
+  if (DRY_RUN) { console.log(`[DRY RUN] would send to ${to} from ${from} — ${subject}`); return true; }
+  await mailer.sendMail({ from, to, subject, text });
   return true;
 }
 
@@ -465,9 +480,11 @@ async function eggMail(ship, cfg, holidays) {
 
   let sent = 0;
   let failed = 0;
+  /* Every letter in this function is モラエッグ's, so every one of them
+     goes out under モラエッグ's address. */
   const post = async (to, m) => {
     if (!to) return;
-    try { await send(to, m.subject, m.body); sent += 1; } catch { failed += 1; }
+    try { await send(to, m.subject, m.body, EGG_MAIL_FROM); sent += 1; } catch { failed += 1; }
   };
 
   /* 「リクエストした人へのメールは会社のアドレスに送り、プライベートの
@@ -2142,6 +2159,9 @@ initSchema()
       console.log(`  Database : connected`);
       console.log(`  Static   : ${SERVE_STATIC ? 'serving dist/' : 'API only (run vite separately)'}`);
       console.log(`  Mail     : ${DRY_RUN ? 'DRY RUN (no SMTP_HOST — nothing is sent)' : `${MAIL_FROM} via ${process.env.SMTP_HOST}`}`);
+      if (!DRY_RUN && EGG_MAIL_FROM !== MAIL_FROM) {
+        console.log(`  Eggs mail: ${EGG_MAIL_FROM}`);
+      }
       console.log(`  Jobs     : reminder on the 26th, auto-submit on the 2nd, 09:00 JST`);
       console.log(`  Eggs     : the week is decided at its request deadline`);
       console.log(`  Auth     : session cookie required for /api (${SESSION_DAYS}-day sessions)\n`);
