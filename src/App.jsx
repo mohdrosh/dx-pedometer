@@ -91,18 +91,37 @@ const landingTab = (u) => (u?.admin ? 'admin' : (u?.mypage ? 'profile' : 'entry'
 const AT_MYPAGE_DOOR = typeof window !== 'undefined'
   && /(^|\/)my\/?$/.test(window.location.pathname);
 
-/* The third door. モラエッグ has an address of its own — .../egg — so it can
-   be bookmarked, pasted into a message and opened without going through
-   マイページ first. It needs nothing from nginx: the server already serves
-   index.html for any path that is not a file, which is how /my works.
-   The tab stays as well, so nobody who does not have the link is stranded. */
+/* The third door. モラエッグ has an address of its own so it can be
+   bookmarked, pasted into a message and opened without going through
+   マイページ first.
+
+   仕様書 1（2026/11/05）: that address is now https://dx.morabu.com/egg,
+   and 佐野's QR code — the one going into the employee meeting slides —
+   encodes exactly that, with no trailing slash. The app needs nothing
+   from nginx to recognise it: index.html is served for any path that is
+   not a file, which is how /my works. Reaching the box at all does need
+   one nginx location, because /egg sits outside the /pedometer/ prefix
+   that is proxied today; see docs/nginx-egg.conf. */
 const AT_EGG_DOOR = typeof window !== 'undefined'
   && /(^|\/)egg\/?$/.test(window.location.pathname);
+
+/* Whichever address this page was actually opened at is the one it keeps.
+
+   Somebody who followed the QR to /egg must not have the bar rewritten to
+   /pedometer/egg under them — that is the old address, it would be what
+   they bookmark and what they paste to a colleague, and the whole point
+   of the change was to stop handing that one out. Somebody who came
+   through マイページ at /pedometer/ stays inside that prefix, which still
+   works and will go on working. */
+const EGG_URL = (() => {
+  if (typeof window === 'undefined') return `${import.meta.env.BASE_URL}egg`;
+  if (AT_EGG_DOOR) return window.location.pathname;
+  return `${import.meta.env.BASE_URL}egg`;
+})();
 
 /* Keep the address bar honest as somebody moves between the two. Pushing a
    state rather than reloading: this is one page, and a reload would throw
    away everything it has fetched. */
-const EGG_URL = `${import.meta.env.BASE_URL}egg`;
 function showUrl(toEgg) {
   if (typeof window === 'undefined' || !window.history?.replaceState) return;
   const want = toEgg ? EGG_URL : import.meta.env.BASE_URL;
