@@ -108,17 +108,40 @@ const SESSION_DAYS = Number(process.env.SESSION_DAYS || 7);
 const COOKIE = 'dxsid';
 
 /* ------------------------------- mail ----------------------------------- */
-const mailer = DRY_RUN ? null : nodemailer.createTransport({
+const smtp = (user, pass) => ({
   host: process.env.SMTP_HOST,
   port: Number(process.env.SMTP_PORT || 587),
   secure: process.env.SMTP_SECURE === '1',
-  auth: process.env.SMTP_USER ? { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS } : undefined,
+  auth: user ? { user, pass } : undefined,
 });
+
+const mailer = DRY_RUN ? null
+  : nodemailer.createTransport(smtp(process.env.SMTP_USER, process.env.SMTP_PASS));
+
+/**
+ * モラエッグ's own connection, when it has been given one.
+ *
+ * The mail host is shared hosting, where the SMTP username IS the
+ * mailbox: signing in as kenkou@morabu.com and then putting another
+ * address in the From is the thing such servers refuse outright. So
+ * 「送信元だけ変えてください」 needs more than a From — it needs モラエッグ to
+ * sign in as itself.
+ *
+ * Set EGG_SMTP_USER and EGG_SMTP_PASS and that is what happens. Leave
+ * them unset and モラエッグ shares the pedometer's connection, which is
+ * the right answer on a server that does allow sending under another
+ * address, and the right answer while nobody has made the mailbox yet.
+ */
+const eggMailer = DRY_RUN || !process.env.EGG_SMTP_USER ? null
+  : nodemailer.createTransport(smtp(process.env.EGG_SMTP_USER, process.env.EGG_SMTP_PASS));
 
 async function send(to, subject, text, from = MAIL_FROM) {
   if (!to) return false;
   if (DRY_RUN) { console.log(`[DRY RUN] would send to ${to} from ${from} — ${subject}`); return true; }
-  await mailer.sendMail({ from, to, subject, text });
+  /* Its own connection for モラエッグ's letters when there is one; the
+     shared one otherwise. */
+  const via = from === EGG_MAIL_FROM && eggMailer ? eggMailer : mailer;
+  await via.sendMail({ from, to, subject, text });
   return true;
 }
 
@@ -2160,7 +2183,12 @@ initSchema()
       console.log(`  Static   : ${SERVE_STATIC ? 'serving dist/' : 'API only (run vite separately)'}`);
       console.log(`  Mail     : ${DRY_RUN ? 'DRY RUN (no SMTP_HOST — nothing is sent)' : `${MAIL_FROM} via ${process.env.SMTP_HOST}`}`);
       if (!DRY_RUN && EGG_MAIL_FROM !== MAIL_FROM) {
-        console.log(`  Eggs mail: ${EGG_MAIL_FROM}`);
+        /* Said at start-up because the difference between these two is
+           the difference between モラエッグ's mail arriving and bouncing,
+           and nobody will think to check it on the morning it matters. */
+        console.log(`  Eggs mail: ${EGG_MAIL_FROM} ${process.env.EGG_SMTP_USER
+          ? `(signed in as ${process.env.EGG_SMTP_USER})`
+          : `(signed in as ${process.env.SMTP_USER || 'nobody'} — the host may refuse this sender)`}`);
       }
       console.log(`  Jobs     : reminder on the 26th, auto-submit on the 2nd, 09:00 JST`);
       console.log(`  Eggs     : the week is decided at its request deadline`);
