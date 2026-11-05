@@ -1109,10 +1109,12 @@ function WeekResult({ r, lang, t, ship, final = true, withNames = false }) {
         {r.needsAdmin && <p className="eg-warn sm">{t('resNeeds')}</p>}
         <p className="muted sm">{mgs(final ? 'resLead' : 'resLeadCheck')}</p>
         <ul className="eg-res-l eg-res-h">
+          {/* 内訳 is not a column of its own: it is the line under each
+              office, so labelling it in the header put a stray 「内訳」
+              under 事業所 with nothing beneath it. */}
           <li className="head">
             <b>{mgs('resOffice')}</b>
             <span className="eg-res-n">{mgs('resPacks')}</span>
-            <small>{mgs('resNote')}</small>
           </li>
           {r.lines.map((l) => (
             <li key={l.office} className={l.underMin ? 'warn' : ''}>
@@ -1145,7 +1147,7 @@ function WeekResult({ r, lang, t, ship, final = true, withNames = false }) {
             {/* 「PDFとCSVで印刷・ダウンロードできる」. Both are the server's,
                 so what is printed is what was allocated and not what a
                 browser still had on screen. */}
-            <div className="eg-exp">
+            <div className="eg-dl">
               <a className="btn sm" href={`${apiRoot()}/egg/list?ship=${ship || r.ship}`}
                 target="_blank" rel="noreferrer">{mgs('pdf')}</a>
               <a className="btn sm" href={`${apiRoot()}/egg/list.csv?ship=${ship || r.ship}`}

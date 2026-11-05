@@ -782,7 +782,10 @@ export const MG_CSS = `
 .mg .eg-ship-1 input{width:7em}
 .mg .eg-ship-2 p{flex:1 1 100%;margin:0;font-size:13px;font-weight:700}
 .mg .eg-ship-ok{margin:0;font-size:12px;font-weight:800;color:var(--mg-leaf)}
-.mg .eg-exp{display:flex;gap:8px;margin-bottom:10px}
+/* The two export buttons. Named eg-dl and not eg-exp: that one is
+   already the 期限切れ badge, and a second rule under the same name put a
+   yellow pill behind both buttons. */
+.mg .eg-dl{display:flex;gap:8px;margin-bottom:10px}
 .mg .eg-chk{margin-left:auto;padding:2px 9px;border-radius:999px;
   background:var(--mg-sun);font-size:11px;font-weight:800;color:var(--mg-navy)}
 .mg .eg-chk-msg{margin:0 0 8px;font-size:12px;font-weight:700;color:var(--mg-navy)}
