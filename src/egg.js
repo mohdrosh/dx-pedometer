@@ -42,6 +42,17 @@ export const EGG_OFFICES = [
   HQ_OFFICE, TOKYO_OFFICE, '大阪', '三田', '姫路', '京都', '尼崎技術研修所',
 ];
 
+/* 新長田 was one of the eight when the 需要調査 was answered in October,
+   and people chose it. It stopped being a destination on 2026/11/05, but
+   it does not stop having been their answer: counting the survey against
+   today's list would drop those rows on the floor, and the committee
+   would read a total that is quietly short without anything saying so.
+
+   So the survey is counted against the offices as they were, and
+   everything that ships uses EGG_OFFICES. Two lists, because they answer
+   two different questions — where can eggs go, and what did people say. */
+export const SURVEY_OFFICES = [...EGG_OFFICES.slice(0, 6), '新長田', ...EGG_OFFICES.slice(6)];
+
 /* 仕様書 4.10「最低パック数の初期値：本社 1、姫路・京都 2、東京・大阪・三田・
    尼崎技術研修所 4」. A starting point only — every one of them is editable
    per office in 事業所の設定, which is where the live number comes from. */
@@ -368,7 +379,7 @@ export function eggOffices(cfg) {
  * の多い事務所を最初の配布先とする」 is a decision somebody makes by looking
  * at all of them, including the ones nobody picked.
  */
-export function tally(rows, offices = EGG_OFFICES) {
+export function tally(rows, offices = SURVEY_OFFICES) {
   const byOffice = new Map([...offices, NOT_NOW].map((o) => [o, 0]));
   const byRule = new Map(EGG_RULE_IDS.map((r) => [r, 0]));
   const byName = new Map(EGG_NAME_IDS.map((n) => [n, 0]));

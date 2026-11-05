@@ -113,7 +113,7 @@ const L = {
 
   /* 申請 */
   request: ['申請', 'Request'],
-  where: ['受け取る事務所', 'Collect at'],
+  where: ['受け取る事業所', 'Collect at'],
   howMany: ['パック数', 'Packs'],
   pack: ['パック', 'packs'],
   eggsEach: ['1パック10個', '10 eggs a pack'],
@@ -130,7 +130,7 @@ const L = {
   failed: ['送信できませんでした', 'Could not send that'],
   canChange: ['締切までは何度でも変更・取り消しができます。',
     'You can change or cancel this any time before the deadline.'],
-  noOffice: ['配布先の事務所がまだ設定されていません。',
+  noOffice: ['配布先の事業所がまだ設定されていません。',
     'No office is receiving eggs yet.'],
 
   /* 状況 */
@@ -144,9 +144,9 @@ const L = {
   /* 5.5:「期限までに受け取られなかったパックは、その事務所の判断で扱う。
      システムでは『期限切れ』として記録するのみ」 */
   st_expired: ['期限切れ', 'Expired'],
-  expiredNote: ['受け取り期限を過ぎました。事務所にお問い合わせください。',
+  expiredNote: ['受け取り期限を過ぎました。事業所にお問い合わせください。',
     'The pickup deadline has passed. Please ask your office.'],
-  expiredOffice: ['期限切れのパックは事務所でご判断ください。',
+  expiredOffice: ['期限切れのパックは事業所でご判断ください。',
     'Expired packs are for the office to deal with.'],
   gotPacks: ['{n}パック確定', '{n} packs confirmed'],
   missedNote: ['今回は行き渡りませんでした。来週の抽選では優先されます。',
@@ -157,7 +157,7 @@ const L = {
 
   /* 佐野の例:「最低パック数を超えたら『今週はこの事務所にタマゴが届きます！』、
      届かなかったら残念賞のメッセージ」 */
-  comingTo: ['今週、{o}にタマゴが届きます！', 'Eggs are coming to {o} this week!'],
+  comingTo: ['今週、{o}に卵が届きます！', 'Eggs are coming to {o} this week!'],
   comingShort: ['届きます！', 'Delivery!'],
   comingSub: ['{n}パックの申請が集まりました。受け取りをお忘れなく。',
     '{n} packs requested. Don\u2019t forget to collect yours.'],
@@ -180,8 +180,8 @@ const L = {
   /* 合計と対決グラフ */
   race: ['丹波の取れ高　対　みんなのリクエスト', "Tamba's harvest vs everyone's requests"],
   harvestNow: ['今週の丹波の取れ高', "Tamba's harvest this week"],
-  raceHead: ['事務所対決', 'Office vs office'],
-  raceNote: ['リクエストが集まるほどバーが伸びます。最低パック数に届いた事務所に発送します。',
+  raceHead: ['事業所対決', 'Office vs office'],
+  raceNote: ['リクエストが集まるほどバーが伸びます。最低パック数に届いた事業所に発送します。',
     'The bars grow as requests come in. Offices that reach their minimum get a delivery.'],
   minNeed: ['あと{n}パック', '{n} to go'],
   noMin: ['最低数なし', 'no minimum'],
@@ -203,7 +203,7 @@ const L = {
   exactly: ['ちょうど足ります', 'Exactly enough'],
   byDay: ['日ごとの取れ高', 'Laid, day by day'],
   byPurpose: ['目的の内訳', 'By purpose'],
-  byOffice: ['事務所の内訳', 'By office'],
+  byOffice: ['事業所の内訳', 'By office'],
   people: ['人', 'people'],
   noneYet: ['まだ申請がありません', 'No requests yet'],
 
@@ -224,7 +224,7 @@ const L = {
   shipDone: ['この週はすでに最終確定しています。', 'This week has already been confirmed.'],
 
   /* 事務所 */
-  office: ['事務所', 'Office'],
+  office: ['事業所', 'Office'],
   arrivals: ['到着の確認', 'Confirm arrival'],
   arrived: ['到着しました', 'They have arrived'],
   arrivedOn: ['{d} 確認済み', 'Confirmed {d}'],
@@ -236,8 +236,8 @@ const L = {
 
   /* 管理 */
   admin: ['管理', 'Admin'],
-  offices: ['配布先の事務所', 'Receiving offices'],
-  officeName: ['事務所名', 'Office'],
+  offices: ['配布先の事業所', 'Receiving offices'],
+  officeName: ['事業所名', 'Office'],
   address: ['住所・受取場所', 'Address'],
   contact: ['担当者', 'Contact'],
   activeQ: ['受付中', 'Open'],
@@ -479,10 +479,11 @@ function OfficeRace({ offices, packs, lang, t, img }) {
         })}
         {!ranked.length && <li className="muted"><span className="eg-vs-n">{t('noneYet')}</span></li>}
       </ul>
-      {/* 「合計{n}パック以上集まった事業所に届けます（線がお届けライン）」 —
-          the notch on the bar explained once, under the bars, with the
-          number the offices are actually measured against. */}
-      <p className="eg-nn">{mgs('minNote', { n: String(Math.max(0, ...rows.map((r) => r.min))) })}</p>
+      {/* The notch on each bar, explained once underneath. Her minNote
+          takes a single number and there is no single number any more —
+          本社 1, 姫路・京都 2, the rest 4 — so this is minNoteAll, which
+          she wrote for exactly that. */}
+      <p className="eg-nn">{mgs('minNoteAll')}</p>
     </div>
   );
 }
@@ -702,6 +703,79 @@ export default function EggPortal({ d, reload: load, lang, toast, screen = 'all'
               about. */}
           {d.week.note && <p className="eg-sched-n">{d.week.note}</p>}
         </div>
+
+        {/* 配布状況 reads down the left: what is happening this week, then
+            what it means for you, then the way to act on it. The right
+            is the charts, which are for looking at rather than reading.
+
+            These three were on the right until the week they first had
+            something to say — the result card made that column 1413px
+            against the left's 555, so the page was as long as its least
+            useful half and the answer somebody came for was below the
+            fold. */}
+        {/* 「今週のリクエストをする」. 配布状況 is where people land and the
+            request is on the next tab, so the way across is on this
+            screen rather than only in the strip above it — and only
+            while there is a week open to ask for. */}
+        {onGo && d.open && !mine && (
+          <div className="eg-go">
+            <button className="btn primary" onClick={onGo}>{mgs('goReq')}</button>
+            {/* 「あと少しで届く事業所があるよ！」 — shown when it is true:
+                an office within two packs of its line, which is the week
+                a word to a colleague actually changes. */}
+            {(d.offices || []).some((o) => o.minPacks > 0
+              && o.asked > 0 && o.minPacks - o.asked > 0 && o.minPacks - o.asked <= 2)
+              && <p className="eg-bub">{mgs('homeBubble')}</p>}
+          </div>
+        )}
+
+        {/* 「あなたの結果」, once the week is decided: the one line a person
+            came to this screen for, said before the office-by-office
+            table that explains it. */}
+        {d.final && mine && mine.got > 0 && (
+          <div className="card eg-mine-res">
+            <em>{mgs('resMine')}</em>
+            <strong>
+              {mgs('resMineText', { a: mine.atOffice || mine.office, b: String(mine.got) })}
+            </strong>
+          </div>
+        )}
+
+        {/* 今週の結果. Until the deadline the race above is the whole
+            story; once the week is allocated it is history, and what
+            people came to find out is how many packs are coming to them.
+
+            Two headings, because there are two states (仕様書 4.7): the
+            numbers appear as soon as the system has worked them out, but
+            they are 「振り分け結果」 and 「ただいま最終の確認を行っています」
+            until the Tamba staff have checked them. Showing them earlier
+            than that is deliberate — people can see the week moving —
+            and calling them 確定 earlier would not be. */}
+        {d.decided && (
+          <>
+            <div className="sechead">
+              <span>{mgs(d.final ? 'resTitle' : 'resTitleCheck')}</span>
+              {!d.final && <span className="eg-chk">{mgs('checking')}</span>}
+            </div>
+            <div className="card eg-done">
+              <p className="muted sm">{mgs(d.final ? 'resLead' : 'resLeadCheck')}</p>
+              {!d.final && <p className="eg-chk-msg">{mgs('checkingMsg')}</p>}
+              <ul className="eg-res-l">
+                {d.offices.filter((o) => (o.sent || 0) > 0).map((o) => (
+                  <li key={o.name}>
+                    <b>{o.name}</b>
+                    <span className="eg-res-n">{packs(o.sent, lang)}</span>
+                    {o.spare > 0 && (
+                      <small>
+                        {mgs('resHq', { a: String(o.sent - o.spare), b: String(o.spare) })}
+                      </small>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </>
+        )}
 
         {/* 毎週のルール. Four lines that do not change from week to week,
             so they sit under the dates that do — and on リクエスト, where
@@ -965,70 +1039,6 @@ export default function EggPortal({ d, reload: load, lang, toast, screen = 'all'
             offices={d.offices} packs={d.harvestPacks} lang={lang} t={t} img={img}
           />
         </div>
-
-        {/* 「今週のリクエストをする」. 配布状況 is where people land and the
-            request is on the next tab, so the way across is on this
-            screen rather than only in the strip above it — and only
-            while there is a week open to ask for. */}
-        {onGo && d.open && !mine && (
-          <div className="eg-go">
-            <button className="btn primary" onClick={onGo}>{mgs('goReq')}</button>
-            {/* 「あと少しで届く事業所があるよ！」 — shown when it is true:
-                an office within two packs of its line, which is the week
-                a word to a colleague actually changes. */}
-            {(d.offices || []).some((o) => o.minPacks > 0
-              && o.asked > 0 && o.minPacks - o.asked > 0 && o.minPacks - o.asked <= 2)
-              && <p className="eg-bub">{mgs('homeBubble')}</p>}
-          </div>
-        )}
-
-        {/* 「あなたの結果」, once the week is decided: the one line a person
-            came to this screen for, said before the office-by-office
-            table that explains it. */}
-        {d.final && mine && mine.got > 0 && (
-          <div className="card eg-mine-res">
-            <em>{mgs('resMine')}</em>
-            <strong>
-              {mgs('resMineText', { a: mine.atOffice || mine.office, b: String(mine.got) })}
-            </strong>
-          </div>
-        )}
-
-        {/* 今週の結果. Until the deadline the race above is the whole
-            story; once the week is allocated it is history, and what
-            people came to find out is how many packs are coming to them.
-
-            Two headings, because there are two states (仕様書 4.7): the
-            numbers appear as soon as the system has worked them out, but
-            they are 「振り分け結果」 and 「ただいま最終の確認を行っています」
-            until the Tamba staff have checked them. Showing them earlier
-            than that is deliberate — people can see the week moving —
-            and calling them 確定 earlier would not be. */}
-        {d.decided && (
-          <>
-            <div className="sechead">
-              <span>{mgs(d.final ? 'resTitle' : 'resTitleCheck')}</span>
-              {!d.final && <span className="eg-chk">{mgs('checking')}</span>}
-            </div>
-            <div className="card eg-done">
-              <p className="muted sm">{mgs(d.final ? 'resLead' : 'resLeadCheck')}</p>
-              {!d.final && <p className="eg-chk-msg">{mgs('checkingMsg')}</p>}
-              <ul className="eg-res-l">
-                {d.offices.filter((o) => (o.sent || 0) > 0).map((o) => (
-                  <li key={o.name}>
-                    <b>{o.name}</b>
-                    <span className="eg-res-n">{packs(o.sent, lang)}</span>
-                    {o.spare > 0 && (
-                      <small>
-                        {mgs('resHq', { a: String(o.sent - o.spare), b: String(o.spare) })}
-                      </small>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </>
-        )}
 
         <div className="sechead"><span>{t('byDay')}</span></div>
         <div className="card">
@@ -1604,8 +1614,15 @@ function EggSchedule({ cfg, save, lang, today }) {
     if (!next || (next.type === 'normal' && !next.note)) delete all[monday];
     else if (next.type === 'off') all[monday] = { off: true, ...(next.note ? { note: next.note } : {}) };
     else {
+      /* Each of the four dates is stored only if it was set. A week where
+         just the arrival moved keeps working out the other three the
+         ordinary way, so a public holiday that shifts later still shifts
+         them. */
       all[monday] = {
-        ...(next.type === 'changed' && next.ship ? { ship: next.ship } : {}),
+        ...(next.ship ? { ship: next.ship } : {}),
+        ...(next.deadline ? { deadline: next.deadline } : {}),
+        ...(next.arrive ? { arrive: next.arrive } : {}),
+        ...(next.pickup ? { pickup: next.pickup } : {}),
         ...(next.note ? { note: next.note } : {}),
       };
     }
@@ -1629,20 +1646,36 @@ function EggSchedule({ cfg, save, lang, today }) {
                     className={`eg-opt${plan.type === k ? ' on' : ''}`}
                     onClick={() => put(w, {
                       type: k,
-                      /* A week switched to 日付を変更 starts from the day it
-                         would have shipped anyway, so the common edit is
-                         a nudge rather than a date typed from nothing. */
-                      ship: k === 'changed' ? (plan.ship || shipDay(w, PUBLIC_HOLIDAYS)) : null,
+                      /* A week switched to 日付を変更 starts from the days it
+                         would have had anyway, so the common edit is a
+                         nudge rather than four dates typed from nothing. */
+                      ...(k === 'changed' ? {
+                        ship: plan.ship || shipDay(w, PUBLIC_HOLIDAYS),
+                        deadline: plan.deadline || shipDay(w, PUBLIC_HOLIDAYS),
+                        arrive: plan.arrive || shiftDay(shipDay(w, PUBLIC_HOLIDAYS), 1),
+                        pickup: plan.pickup || shiftDay(w, 4),
+                      } : {}),
                       note: plan.note,
                     })}
                   >{mgs(label)}</button>
                 ))}
               </div>
+              {/* 仕様書 4.8:「締切・発送・到着・受け取り期限を入力する」. All
+                  four, in the order they happen, so the row reads like
+                  the week it describes. */}
               {plan.type === 'changed' && (
-                <input
-                  type="date" className="eg-wk-d" defaultValue={plan.ship || ''}
-                  onBlur={(e) => put(w, { type: 'changed', ship: e.target.value, note: plan.note })}
-                />
+                <div className="eg-wk-ds">
+                  {[['deadline', 'sDeadline'], ['ship', 'sShip'],
+                    ['arrive', 'sArrive'], ['pickup', 'sPick']].map(([k, label]) => (
+                      <label key={k}><span>{mgs(label)}</span>
+                        <input
+                          type="date" defaultValue={plan[k] || ''}
+                          onBlur={(e) => e.target.value !== (plan[k] || '')
+                            && put(w, { ...plan, type: 'changed', [k]: e.target.value })}
+                        />
+                      </label>
+                  ))}
+                </div>
               )}
               {auto && <small className="eg-wk-a">{mgs('schAuto')}</small>}
               {plan.type === 'off' && <small className="eg-wk-a">{mgs('schOffShow')}</small>}
@@ -1732,43 +1765,73 @@ export function EggAdmin({ lang, toast, cfg = {}, setCfg, people = [], onDone, t
   return (
     <div className="eg-adm">
      <div className="eg-adm-l">
-      <div className="sechead"><span>{t('offices')}</span></div>
+      {/* 事業所の設定 — 仕様書 4.10. One card per office rather than a row
+          in a table: there are seven of them, each has four things to
+          set, and a row that fits all four on a laptop is unreadable on
+          the phone the committee actually uses.
+
+          Every field saves on its own. The old version sent the whole
+          row on any change, so saving a minimum wiped an address that
+          happened not to be loaded — it cost 大阪 its address twice
+          before anybody noticed. */}
+      <div className="sechead"><span>{mg('offTitle2', lang)}</span></div>
       <div className="card">
-        <ul className="eg-offs">
+        <p className="muted sm">{mg('offLead', lang)}</p>
+        <ul className="eg-offc">
           {offices.map((o) => (
-            <li key={o.name}>
-              <b>{o.name}</b>
-              <input
-                className="eg-offs-a" defaultValue={o.address || ''} placeholder={t('address')}
-                onBlur={(e) => e.target.value !== (o.address || '') && put({ ...o, address: e.target.value })}
-              />
-              <select
-                value={o.contactId || ''}
-                onChange={(e) => put({ ...o, contactId: e.target.value })}
-              >
-                <option value="">{t('contact')} —</option>
-                {people.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-              </select>
-              {/* 最低パック数: below this, no run is made to the office and
-                  everybody who asked is told so. 0 means always ship. */}
-              <input
-                className="eg-offs-m" type="number" min={0} max={999}
-                defaultValue={o.minPacks ?? 0} title={t('minPacks')}
-                onBlur={(e) => Number(e.target.value) !== (o.minPacks ?? 0)
-                  && put({ ...o, minPacks: Number(e.target.value) })}
-              />
-              <label className="eg-offs-on">
+            <li key={o.name} className={o.active ? '' : 'off'}>
+              <div className="eg-offc-h">
+                <b>{o.name}</b>
+                <label className="eg-offs-on">
+                  <input
+                    type="checkbox" checked={o.active}
+                    onChange={(e) => put({ name: o.name, active: e.target.checked })}
+                  />
+                  <span>{mg('open', lang)}</span>
+                </label>
+              </div>
+              <label className="fld"><span>{mg('offLoc', lang)}</span>
                 <input
-                  type="checkbox" checked={o.active}
-                  onChange={(e) => put({ ...o, active: e.target.checked })}
+                  defaultValue={o.address || ''} placeholder={t('address')} maxLength={200}
+                  onBlur={(e) => e.target.value !== (o.address || '')
+                    && put({ name: o.name, address: e.target.value })}
                 />
-                <span>{t('activeQ')}</span>
+              </label>
+              {/* 最低パック数: below this, no run is made to the office and
+                  everybody who asked is told so — except a business
+                  request, which ships from one pack anywhere. */}
+              <label className="fld eg-offc-m"><span>{mg('offMin', lang)}</span>
+                <input
+                  type="number" min={0} max={99} defaultValue={o.minPacks ?? 0}
+                  onBlur={(e) => Number(e.target.value) !== (o.minPacks ?? 0)
+                    && put({ name: o.name, minPacks: Number(e.target.value) })}
+                />
+              </label>
+              <label className="fld"><span>{mg('offContact', lang)}</span>
+                <select
+                  value={o.contactId || ''}
+                  onChange={(e) => put({ name: o.name, contactId: e.target.value })}
+                >
+                  <option value="">—</option>
+                  {people.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}
+                </select>
+              </label>
+              {/* The address the parcel notice goes to. Empty means the
+                  contact's own, from the employee record — which is
+                  right nearly always, and wrong for an office that
+                  wants it in a shared inbox. */}
+              <label className="fld"><span>{mg('offMail', lang)}</span>
+                <input
+                  type="email" defaultValue={o.contactMailOwn || ''}
+                  placeholder={o.contactMail || ''} maxLength={120}
+                  onBlur={(e) => e.target.value !== (o.contactMailOwn || '')
+                    && put({ name: o.name, contactMail: e.target.value })}
+                />
               </label>
               <button className="btn ghost sm" onClick={() => drop(o.name)}>{t('remove')}</button>
             </li>
           ))}
         </ul>
-        <p className="muted sm">{t('minPacks')}</p>
         <div className="eg-offs-add">
           <input
             value={draft.name} placeholder={t('officeName')}

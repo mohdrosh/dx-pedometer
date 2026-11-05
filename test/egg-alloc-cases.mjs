@@ -164,11 +164,38 @@ const OFF = { egg: { deadlineHour: 9, weeks: { '2026-12-28': { off: true, note: 
 const MOVED = { egg: { deadlineHour: 9, weeks: { '2026-12-07': { ship: '2026-12-09', note: '今週は水曜発送です。' } } } };
 
 is('an untouched week is an ordinary one', weekPlan('2026-12-07', CFG9),
-  { type: 'normal', ship: null, note: '' });
+  { type: 'normal', ship: null, deadline: null, arrive: null, pickup: null, note: '' });
 is('a week switched off says so', weekPlan('2026-12-28', OFF).type, 'off');
 is('and carries her notice', weekPlan('2026-12-28', OFF).note, '年末年始のため、今週はお休みです。');
 is('a moved week names its day', weekPlan('2026-12-07', MOVED),
-  { type: 'changed', ship: '2026-12-09', note: '今週は水曜発送です。' });
+  { type: 'changed', ship: '2026-12-09', deadline: null, arrive: null, pickup: null,
+    note: '今週は水曜発送です。' });
+
+/* 仕様書 4.8（2026/11/05）: all four dates, each on its own. */
+{
+  const ALL = { egg: { deadlineHour: 9, weeks: { '2026-12-07': {
+    deadline: '2026-12-08', ship: '2026-12-09', arrive: '2026-12-10', pickup: '2026-12-12',
+  } } } };
+  is('a changed week can move its deadline',
+    requestDeadline('2026-12-07', ALL, {}), { date: '2026-12-08', hour: 9 });
+  is('its shipping day', shipDay('2026-12-07', {}, ALL), '2026-12-09');
+  is('its arrival', arrivalDay('2026-12-07', {}, ALL), '2026-12-10');
+  is('and its pickup deadline', pickupDeadline('2026-12-07', {}, ALL), '2026-12-12');
+  is('and the week reads out as all four',
+    weekInfo('2026-12-07', ALL, {}),
+    { ship: '2026-12-07', shipDay: '2026-12-09', arrive: '2026-12-10',
+      deadline: { date: '2026-12-08', hour: 9 }, pickup: '2026-12-12', shifted: true,
+      plan: 'changed', note: '' });
+}
+{
+  /* Only one of the four moved: the other three are still worked out the
+     ordinary way, so nobody has to retype dates that have not changed. */
+  const ONE = { egg: { deadlineHour: 9, weeks: { '2026-12-07': { arrive: '2026-12-11' } } } };
+  is('moving the arrival alone leaves the shipping day', shipDay('2026-12-07', {}, ONE), '2026-12-07');
+  is('and moves only the arrival', arrivalDay('2026-12-07', {}, ONE), '2026-12-11');
+  is('with the pickup deadline still the Friday', pickupDeadline('2026-12-07', {}, ONE), '2026-12-11');
+  is('and the week counts as changed', weekPlan('2026-12-07', ONE).type, 'changed');
+}
 
 is('the administrator’s date beats the Monday', shipDay('2026-12-07', {}, MOVED), '2026-12-09');
 is('and beats the holiday rule too',

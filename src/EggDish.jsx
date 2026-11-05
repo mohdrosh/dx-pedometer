@@ -39,7 +39,7 @@ const HERS = {
 
 const L = {
   head: ['みんなの料理', 'What people cooked'],
-  lede: ['タマゴで作ったお料理を見せてください。投稿は任意です。',
+  lede: ['卵で作ったお料理を見せてください。投稿は任意です。',
     'Show us what you made. Posting is entirely up to you.'],
   /* the front of the site */
   heroKicker: ['丹波の鶏舎から', 'From the coop in Tamba'],

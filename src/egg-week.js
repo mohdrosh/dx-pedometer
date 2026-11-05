@@ -105,10 +105,27 @@ export function shipDay(shipMonday, holidays = {}, cfg = null) {
  */
 export function weekPlan(shipMonday, cfg) {
   const row = cfg?.egg?.weeks?.[shipMonday];
-  if (!row) return { type: 'normal', ship: null, note: '' };
-  if (row.off === true) return { type: 'off', ship: null, note: String(row.note || '') };
-  const ship = row.ship ? String(row.ship) : null;
-  return { type: ship ? 'changed' : 'normal', ship, note: String(row.note || '') };
+  const none = {
+    type: 'normal', ship: null, deadline: null, arrive: null, pickup: null, note: '',
+  };
+  if (!row) return none;
+  const d = (v) => (/^\d{4}-\d{2}-\d{2}$/.test(String(v || '')) ? String(v) : null);
+  const note = String(row.note || '');
+  if (row.off === true) return { ...none, type: 'off', note };
+  /* 仕様書 4.8（2026/11/05）:「『日付を変更』では締切・発送・到着・受け取り
+     期限を入力する」. Four dates, each optional: an administrator moving
+     only the shipping day should not have to retype the other three, and
+     whatever they leave blank is worked out the ordinary way. */
+  const out = {
+    ...none,
+    ship: d(row.ship),
+    deadline: d(row.deadline),
+    arrive: d(row.arrive),
+    pickup: d(row.pickup),
+    note,
+  };
+  const changed = out.ship || out.deadline || out.arrive || out.pickup;
+  return { ...out, type: changed ? 'changed' : 'normal' };
 }
 
 /** 「お休み」 — a week with no shipment at all. */
@@ -118,7 +135,11 @@ export function weekOff(shipMonday, cfg) {
 
 /** 申請締切 — the shipping day, at the configured hour. */
 export function requestDeadline(shipMonday, cfg, holidays = {}) {
-  return { date: shipDay(shipMonday, holidays, cfg), hour: hourOf(cfg) };
+  /* A deadline of its own beats the shipping day, which is otherwise
+     also the deadline. The hour is the schedule's either way — 「月曜9時」
+     is the rule, and what a changed week moves is the day. */
+  const own = weekPlan(shipMonday, cfg).deadline;
+  return { date: own || shipDay(shipMonday, holidays, cfg), hour: hourOf(cfg) };
 }
 
 /**
@@ -149,7 +170,7 @@ export function dueShip(todayIso, nowHour, cfg, holidays = {}, firstShip = null)
 
 /** 到着日 — 「丹波から発送、翌日事務所に到着」. */
 export function arrivalDay(shipMonday, holidays = {}, cfg = null) {
-  return shift(shipDay(shipMonday, holidays, cfg), 1);
+  return weekPlan(shipMonday, cfg).arrive || shift(shipDay(shipMonday, holidays, cfg), 1);
 }
 
 /**
@@ -216,7 +237,9 @@ export function requestsOpen(shipMonday, nowIso, nowHour, cfg, holidays = {}) {
  * Friday. `holidays` is the map the rest of the app already carries,
  * keyed by YYYY-MM-DD.
  */
-export function pickupDeadline(shipMonday, holidays = {}) {
+export function pickupDeadline(shipMonday, holidays = {}, cfg = null) {
+  const own = weekPlan(shipMonday, cfg).pickup;
+  if (own) return own;
   const friday = shift(shipMonday, 4);
   return holidays[friday] ? shift(shipMonday, 3) : friday;
 }
@@ -229,7 +252,7 @@ export function weekInfo(shipMonday, cfg, holidays) {
     shipDay: shipDay(shipMonday, holidays, cfg),
     arrive: arrivalDay(shipMonday, holidays, cfg),
     deadline: requestDeadline(shipMonday, cfg, holidays),
-    pickup: pickupDeadline(shipMonday, holidays),
+    pickup: pickupDeadline(shipMonday, holidays, cfg),
     shifted: shipDay(shipMonday, holidays, cfg) !== shipMonday,
     /* What an administrator said about this week, so a screen can print
        「今週はお休みです」 and her notice without asking a second time. */

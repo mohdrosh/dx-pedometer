@@ -7,7 +7,7 @@ import {
   EGG_OFFICES, EGG_RULES, EGG_NAMES, EGG_PURPOSES, NOT_NOW,
   EGG_TERMS_JA, REASON_MAX,
   cleanVote, eggWindow, eggOpen, eggOffices, tally,
-  cleanRequest, eggMaxPacks, eggTerms, consentOk, requestTotals,
+  cleanRequest, eggMaxPacks, eggTerms, consentOk, requestTotals, SURVEY_OFFICES,
 } from '../src/egg.js';
 
 let n = 0;
@@ -206,8 +206,14 @@ is('the word employeeId is nowhere in a tally',
 
 is('nobody has answered yet', tally([]).answers, 0);
 is('and there is no winning rule on no votes', tally([]).topRule, null);
+/* The survey is counted against the offices as they were when it was
+   answered, which is eight: 新長田 was one of them in October and left
+   the list on 2026/11/05. Counting October against today's seven would
+   quietly drop whoever chose it. */
 is('offices are all present on no votes',
-  tally([]).offices.length, EGG_OFFICES.length);
+  tally([]).offices.length, SURVEY_OFFICES.length);
+is('and that list still has 新長田 on it', SURVEY_OFFICES.includes('新長田'), true);
+is('while the offices eggs can go to do not', EGG_OFFICES.includes('新長田'), false);
 
 is('a tie has no winner until somebody picks one',
   tally([

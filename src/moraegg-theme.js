@@ -659,6 +659,13 @@ export const MG_CSS = `
 .mg .eg-wk-t .eg-opt{padding:3px 9px;font-size:11.5px}
 .mg .eg-wk-d,.mg .eg-wk-n{grid-column:1/-1;width:100%;box-sizing:border-box;
   padding:5px 8px;border:1px solid var(--mg-dot);border-radius:8px;font-size:12px}
+/* The four dates of a changed week, in the order they happen. */
+.mg .eg-wk-ds{grid-column:1/-1;display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.mg .eg-wk-ds label{display:flex;flex-direction:column;gap:2px}
+.mg .eg-wk-ds span{font-size:10.5px;color:#5B6B86}
+.mg .eg-wk-ds input{width:100%;box-sizing:border-box;padding:4px 6px;
+  border:1px solid var(--mg-dot);border-radius:7px;font-size:11.5px}
+@media(max-width:700px){ .mg .eg-wk-ds{grid-template-columns:repeat(2,1fr)} }
 .mg .eg-wk-a{grid-column:1/-1;font-size:11px;color:#5B6B86}
 
 /* 需要調査 */
@@ -750,6 +757,23 @@ export const MG_CSS = `
 /* 確認中: a quiet badge beside the heading and a line under the lead, so
    the numbers below can be read while it is clear they are not yet an
    answer. Not a warning colour — nothing is wrong, it is just not done. */
+/* 事業所の設定: a card per office, two fields across on a desk and one on
+   a phone, so nothing has to be scrolled sideways to be set. */
+.mg .eg-offc{list-style:none;margin:10px 0 0;padding:0;display:grid;gap:10px}
+.mg .eg-offc li{display:grid;grid-template-columns:1fr 1fr;gap:8px 12px;
+  padding:11px 13px;border-radius:12px;background:var(--mg-sky)}
+.mg .eg-offc li.off{opacity:.6}
+.mg .eg-offc-h{grid-column:1/-1;display:flex;align-items:center;gap:12px}
+.mg .eg-offc-h b{font-size:14px}
+.mg .eg-offc-h .eg-offs-on{margin-left:auto;font-size:11.5px}
+.mg .eg-offc .fld{margin:0}
+.mg .eg-offc .fld span{font-size:11px;color:#5B6B86}
+.mg .eg-offc input,.mg .eg-offc select{width:100%;box-sizing:border-box;
+  padding:6px 8px;border:1px solid var(--mg-dot);border-radius:8px;font-size:12.5px}
+.mg .eg-offc-m input{width:6em}
+.mg .eg-offc>li>button{grid-column:1/-1;justify-self:end}
+@media(max-width:620px){ .mg .eg-offc li{grid-template-columns:1fr} }
+
 /* 発送の確定: two steps, and the second is only reachable once the first
    has happened, so they read down rather than sitting side by side. */
 .mg .eg-sub2{margin:0 0 12px}

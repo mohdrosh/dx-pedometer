@@ -101,7 +101,7 @@ const L = {
   v_set: ['マイ設定', 'My settings'],
   v_dish: ['みんなの料理', 'Dishes'],
   v_farm: ['丹波', 'Harvest'],
-  v_office: ['事務所', 'Office'],
+  v_office: ['事業所', 'Office'],
   v_survey: ['需要調査', 'Survey'],
   v_admin: ['管理', 'Admin'],
 };

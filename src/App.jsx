@@ -41,7 +41,7 @@ const MODULES = [
   { id: 'steps', ja: '万歩計', en: 'Pedometer' },
   { id: 'timesheet', ja: '勤怠', en: 'Timesheet' },
   { id: 'expense', ja: '旅費精算', en: 'Expenses' },
-  { id: 'egg', ja: 'タマゴ', en: 'Eggs' },
+  { id: 'egg', ja: '卵', en: 'Eggs' },
 ];
 
 /* Whether a module is open to this person. 万歩計 is the system itself and
@@ -202,12 +202,12 @@ const STR = {
   boardAt: ['乗車地', 'From'],
   alightAt: ['降車地', 'To'],
   pickPerson: ['左の一覧から選ぶと、ここで編集できます。', 'Pick somebody on the left to edit them here.'],
-  eggOn: ['タマゴ配布を使う', 'Use the egg portal'],
+  eggOn: ['卵の配布を使う', 'Use the egg portal'],
   eggFarmOn: ['丹波で収穫を登録する', 'Registers the harvest in Tamba'],
   eggFarmNote: ['ONにすると「丹波」タブが出て、1パックごとに登録できます。丹波側の担当の方だけにしてください。',
     'Adds the Harvest tab, one tap per pack. Only for the people working in Tamba.'],
-  eggOnNote: ['ONにすると、この方に「タマゴ」タブが出て、需要調査に回答できます。対象は正社員です。',
-    'Switches on the タマゴ tab for this person and lets them answer the demand survey. Full-time employees only.'],
+  eggOnNote: ['ONにすると、この方に「卵」タブが出て、モラエッグを使えます。対象は正社員です。',
+    'Switches on the egg tab for this person and opens モラエッグ to them. Full-time employees only.'],
   mypageOn: ['マイページを使う', 'Use the new My Page'],
   mypageOnNote: ['ONにすると、この方は新しいマイページ（個人情報・万歩計・勤怠・旅費精算）になります。',
     'When on, this person gets the new My Page workspace with Attendance and Expenses.'],
@@ -480,7 +480,7 @@ const STR = {
   mypageHello: ['こんにちは！\nマイページへようこそ。', 'Hello! Welcome to your page.'],
   eggDoorTitle: ['モラエッグ', 'Moraegg'],
   eggDoorEyebrow: ['丹波の鶏舎から、朝どれたまご', 'Fresh eggs from the coop in Tamba'],
-  eggDoorHello: ['こんにちは！\n今週のタマゴ、どうぞ。', "Hello! This week's eggs are here."],
+  eggDoorHello: ['こんにちは！\n今週の卵、どうぞ。', "Hello! This week's eggs are here."],
   thisMonth: ['今月度', 'Current month'],
   subWindow: ['提出期間', 'Submission'],
   profileHead: ['登録情報', 'Your details'],
