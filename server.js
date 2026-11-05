@@ -28,7 +28,7 @@ if (fs.existsSync('.env.local')) dotenv.config({ path: '.env.local' });
 else if (fs.existsSync('.env')) dotenv.config();
 
 const nodemailer = (await import('nodemailer')).default;
-import { reminderMail, summaryMail, reminderRecipients } from './src/mail.js';
+import { reminderMail, summaryMail, reminderRecipients, companyEmail } from './src/mail.js';
 import { PUBLIC_HOLIDAYS } from './src/holidays.js';
 import { buildTimesheet, timesheetFilename } from './src/kintai-xlsx.js';
 import { noticesFor, buildTodoke, todokeFilename } from './src/todoke.js';
@@ -50,6 +50,7 @@ import {
   weekInfo, shiftDay, statusOf, dueShip, weekPlan,
 } from './src/egg-week.js';
 import { allot } from './src/egg-allot.js';
+import { requesterMail, contactMail, adminMail } from './src/egg-mail.js';
 import {
   REACTIONS, PHOTOS_MAX, PHOTO_BYTES, PHOTO_EDGE, THUMB_EDGE,
   cleanPost, cleanComment, cleanReaction, photoOk, badgeFor, topDish, postCounts,
@@ -71,7 +72,7 @@ const {
   eggOfficeRows, eggOfficeSave, eggOfficeDelete, eggContactFor,
   eggHarvest, eggHarvestBump, eggHarvestSet,
   eggRequestSave, eggRequestDrop, eggMyRequest, eggMyRequests,
-  eggWeekRequests, eggMissed, eggWeek, eggDrawSave, eggWeekOffices,
+  eggWeekRequests, eggMissed, eggWeek, eggDrawSave, eggWeekOffices, eggWeekFinalise,
   eggArrived, eggPickup, eggConsent, eggConsentSave, eggRequestById,
   eggSignup, eggSignupSave, eggSignups, eggPoints, eggPointsSave,
   dishFeed, dishPost, dishCreate, dishEdit, dishDelete, dishHide,
@@ -308,21 +309,26 @@ async function eggCfg() {
  * After that the answer is out in the world: a second draw would take a
  * pack off a person who already has it in their hands.
  */
-async function runAllot(ship, { packs = null, by = null } = {}) {
+async function runAllot(ship, { packs = null, by = null, dry = false } = {}) {
   const { cfg } = await eggCfg();
   const already = await eggWeekRequests(ship);
-  if (already.some((r) => r.pickedUpAt)) return { error: 'already_collected' };
+  if (!dry && already.some((r) => r.pickedUpAt)) return { error: 'already_collected' };
 
   /* The harvest that ships on this Monday is the week before it. */
   const harvested = (await eggHarvest(shiftDay(ship, -7), shiftDay(ship, -1)))
     .reduce((a, d) => a + d.packs, 0);
-  const harvest = Number.isInteger(packs) && packs >= 0 ? packs : harvested;
-
   /* The points this week is decided on are the ones it was first decided
      on: a re-run reads the snapshot rather than the live table, which its
      own earlier run has already rewritten. */
   const week = await eggWeek(ship);
   const points = week?.pointsBefore || await eggPoints();
+
+  /* What ships is what the shed confirmed, and only then what the
+     register adds up to. A dry read of a week already decided must use
+     the confirmed number or it would quietly report a different week
+     from the one people were told about. */
+  const harvest = Number.isInteger(packs) && packs >= 0 ? packs
+    : (dry && Number.isInteger(week?.packs) ? week.packs : harvested);
 
   const rows = await eggOfficeRows(true);
   const open = rows.map((o) => o.name);
@@ -333,7 +339,6 @@ async function runAllot(ship, { packs = null, by = null } = {}) {
     })),
     harvest,
     minPacks: cfg.egg?.minPacks,
-    tokyoRule: cfg.egg?.tokyoRule !== false,
     points,
     seed: ship,
     /* An office's own 最低パック数 beats the company's, which is how 本社
@@ -351,18 +356,26 @@ async function runAllot(ship, { packs = null, by = null } = {}) {
     return { id: r.id, office: r.office, got: x?.got ?? 0, at: x?.at ?? r.office };
   });
 
-  await eggDrawSave(
-    ship,
-    { packs: harvest, rule: 'company', seed: ship, by, extra: out.extra },
-    full,
-    { lines: out.lines, points: out.points, pointsBefore: points },
-  );
+  if (!dry) {
+    await eggDrawSave(
+      ship,
+      { packs: harvest, rule: 'company', seed: ship, by, extra: out.extra },
+      full,
+      { lines: out.lines, points: out.points, pointsBefore: points },
+    );
+  }
 
   return {
     ship,
     rule: 'company',
     packs: harvest,
     harvested,
+    /* 配布ルール 10: drawn is the system's answer, final is a person's.
+       Both are read from the row rather than assumed, because a dry read
+       of an old week has to report that week's state and not this
+       call's. */
+    drawn: dry ? !!week?.drawnAt : true,
+    final: !!week?.finalAt,
     minPacks: out.minPacks,
     extra: out.extra,
     shipped: out.shipped,
@@ -401,15 +414,109 @@ async function eggTick(now) {
   const { cfg, holidays } = await eggCfg();
   const ship = dueShip(now.stamp, now.h, cfg, holidays, cfg.egg?.firstShip || null);
   if (!ship) return;
+
+  /* 配布ルール 10（2026/11/05）: the week is no longer the clock's to
+     decide. 「丹波担当が、その時点で発送できるパック数を入力して確定する」 —
+     what can actually ship is not always what was laid, and only the
+     person holding the trays knows which.
+
+     So this is a safety net and not the mechanism. If nobody has
+     confirmed by the hour the rules give for 最終確定, the week is
+     allocated on the recorded harvest so that people have an answer to
+     look at — and it stops there, at 確認中. It never marks a week final
+     and never sends a letter: those say a person has checked, and no
+     person has. */
+  const by = Number(cfg.egg?.finalHour ?? 12);
+  if (now.h < by) return;
   if ((await getKey('job:egg')) === ship) return;
+  const week = await eggWeek(ship);
+  if (week?.drawnAt) return;          /* the shed got there first */
+
   /* Written before the run, not after: a run that throws half way must not
      be started again by the next tick fifteen minutes later, when a person
      needs to look at why it failed. */
   await setKey('job:egg', ship);
   const out = await runAllot(ship, { by: null });
   console.log(out.error
-    ? `  egg: ${ship} not decided — ${out.error}`
-    : `  egg: ${ship} decided — ${out.shipped}/${out.packs} packs${out.needsAdmin ? ', needs an administrator' : ''}`);
+    ? `  egg: ${ship} not allocated — ${out.error}`
+    : `  egg: ${ship} allocated on the recorded harvest — ${out.shipped}/${out.packs} packs, waiting for 最終確定`);
+}
+
+/** The week as it stands, without changing anything. */
+const weekResult = (ship) => runAllot(ship, { dry: true });
+
+/**
+ * The letters that go out at 最終確定 (仕様書 4.11).
+ *
+ * Every address is looked up here rather than passed in, so nothing a
+ * browser sent can decide who gets mail. Each send is caught on its own:
+ * one bad address among 171 must not stop the other 170, and the week is
+ * already confirmed by the time this runs — there is nothing to roll
+ * back and nobody for an exception to help.
+ */
+async function eggMail(ship, cfg, holidays) {
+  const week = await weekResult(ship);
+  if (week?.error) return { sent: 0, failed: 0, error: week.error };
+  const info = weekInfo(ship, cfg, holidays);
+  const rows = await eggWeekRequests(ship);
+  const offices = await eggOfficeRows(false);
+
+  let sent = 0;
+  let failed = 0;
+  const post = async (to, m) => {
+    if (!to) return;
+    try { await send(to, m.subject, m.body); sent += 1; } catch { failed += 1; }
+  };
+
+  /* 「リクエストした人へのメールは会社のアドレスに送り、プライベートの
+     アドレスを登録している人にはそちらにも送る」. The work address comes
+     from the employee record and the personal one from 参加登録 — never
+     from the request, which is a browser's word for it. */
+  for (const r of rows) {
+    const person = await getEmployee(r.employeeId);
+    const reg = await eggSignup(r.employeeId);
+    const m = requesterMail({
+      name: person?.name || '',
+      got: r.got || 0,
+      missed: !(r.got > 0),
+      office: r.atOffice || r.office,
+      arrive: info.arrive,
+      pickup: info.pickup,
+    });
+    await post(companyEmail(person?.email), m);
+    if (reg?.notifyPriv && reg?.privateMail) await post(reg.privateMail, m);
+  }
+
+  /* 「各事業所の連絡担当者へ、その事業所に届くパック数と到着日を送る」. Only
+     the offices actually being shipped to: a contact whose office is not
+     getting a box this week has nothing to do about it. */
+  for (const line of week.lines || []) {
+    if (!(line.packs > 0)) continue;
+    const o = offices.find((x) => x.name === line.office);
+    if (!o?.contactMail) continue;
+    await post(o.contactMail, contactMail({
+      office: line.office,
+      packs: line.packs,
+      arrive: info.arrive,
+      people: (week.list || []).filter((x) => x.office === line.office).length,
+    }));
+  }
+
+  /* 「管理者向けのメールは会社のアドレスのみに送る。送り先は追って連絡する」
+     — so it goes to ADMIN_EMAIL for now, which is where every other
+     administrative mail in this app already goes, and the moment she
+     names the real recipients it is one environment variable. */
+  if (ADMIN_EMAIL) {
+    await post(ADMIN_EMAIL, adminMail({
+      ship,
+      harvest: week.packs,
+      shipped: week.shipped,
+      extra: week.extra,
+      missed: week.missed,
+      lines: week.lines,
+    }));
+  }
+  return { sent, failed };
 }
 
 async function tick() {
@@ -729,8 +836,8 @@ const server = http.createServer(async (req, res) => {
        ------------------------------------------------------------------ */
 
     /** A request with the one status every screen should print for it. */
-    const withStatus = (row, todayIso, holidays) => (
-      row ? { ...row, status: statusOf(row, todayIso, holidays) } : null
+    const withStatus = (row, todayIso, holidays, final = true) => (
+      row ? { ...row, status: statusOf(row, todayIso, holidays, final) } : null
     );
 
     /** Who the caller is, worked out from the session alone. */
@@ -787,6 +894,11 @@ const server = http.createServer(async (req, res) => {
          accounts of the same Monday. */
       const week = await eggWeek(ship);
       const decided = !!week?.drawnAt;
+      /* 仕様書 4.7: between the allocation and 最終確定 the numbers are
+         shown but described as 確認中. Both flags go to the browser
+         because the screen says different things at each stage, and
+         working one out from the other has already been got wrong once. */
+      const finalised = !!week?.finalAt;
       const sent = decided
         ? Object.fromEntries((await eggWeekOffices(ship)).map((o) => [o.office, o]))
         : {};
@@ -820,7 +932,12 @@ const server = http.createServer(async (req, res) => {
           locDeadline: cfg.egg?.locDeadline || null,
           requestsFrom: cfg.egg?.requestsFrom || null,
         },
-        offices8: EGG_OFFICES,
+        /* Every office with its address, for the two screens that let
+           somebody pick one: 「事業所名の下に、所在地を小さく表示する」. The
+           list beside this one carries this week's request counts and is
+           active offices only — this is the roster, which a person
+           registering needs whole. */
+        officeRows: offices.map((o) => ({ name: o.name, address: o.address || '' })),
         open: requestsOpen(ship, now.stamp, now.h, cfg, holidays),
         /* Each office carries the minimum that makes a run to it worth
            making, and how many packs have been asked for so far — the two
@@ -849,9 +966,11 @@ const server = http.createServer(async (req, res) => {
            The status is worked out here rather than in each screen, so the
            participant, the office contact and any export can never disagree
            about whether a pack has expired. */
-        mine: withStatus(await eggMyRequest(sess.employeeId, ship), now.stamp, holidays),
+        mine: withStatus(await eggMyRequest(sess.employeeId, ship), now.stamp, holidays, finalised),
+        /* Older weeks in the history were confirmed long ago; only the
+           open one can be mid-check. */
         history: (who.admin ? [] : await eggMyRequests(sess.employeeId, 8))
-          .map((r) => withStatus(r, now.stamp, holidays)),
+          .map((r) => withStatus(r, now.stamp, holidays, r.ship !== ship || finalised)),
         /* 「申請の合計数は目的別の内訳も含めて確認できる」 — counts, open to
            everyone, and no names in them. */
         totals: requestTotals(requests, offices.map((o) => o.name)),
@@ -860,6 +979,7 @@ const server = http.createServer(async (req, res) => {
         week0: harvestFrom,
         drawn: week,
         decided,
+        final: finalised,
         role: { admin: who.admin, farm: who.farm, contactFor: who.contactFor },
       });
     }
@@ -1169,14 +1289,23 @@ const server = http.createServer(async (req, res) => {
       const b = await readBody(req).catch(() => null);
       const name = String(b?.name || '').trim();
       if (!name || name.length > 60) return sendJson(res, 400, { error: 'bad_name' });
-      await eggOfficeSave({
-        name,
-        address: String(b?.address || '').slice(0, 200),
-        contactId: b?.contactId ? String(b.contactId) : null,
-        note: String(b?.note || '').slice(0, 200),
-        active: b?.active !== false,
-        minPacks: b?.minPacks,
-      });
+      /* Only what was sent. 事業所の設定 saves one field at a time, and a
+         screen that posts its minimum should not also blank the address
+         it never had on it. */
+      const patch = { name };
+      if ('address' in (b || {})) patch.address = String(b.address || '').slice(0, 200);
+      if ('contactId' in (b || {})) patch.contactId = b.contactId ? String(b.contactId) : null;
+      if ('note' in (b || {})) patch.note = String(b.note || '').slice(0, 200);
+      if ('active' in (b || {})) patch.active = b.active !== false;
+      if ('minPacks' in (b || {})) patch.minPacks = b.minPacks;
+      if ('contactMail' in (b || {})) {
+        const m = String(b.contactMail || '').trim().slice(0, 120);
+        if (m && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(m)) {
+          return sendJson(res, 400, { error: 'bad_mail' });
+        }
+        patch.contactMail = m || null;
+      }
+      await eggOfficeSave(patch);
       return sendJson(res, 200, { offices: await eggOfficeRows(false) });
     }
 
@@ -1203,8 +1332,161 @@ const server = http.createServer(async (req, res) => {
        the clock at the Monday deadline. Both land in runAllot below, so
        what the committee sees when they press it early is what would
        have happened on its own. */
+    /* 配布ルール 10.6「発送先の事業所一覧を、PDFとCSVで印刷・ダウンロード
+       できる」.
+
+       Both are built here rather than in the browser, so what is printed
+       is what was allocated and not what a tab still had on screen from
+       before the last correction.
+
+       The PDF is the browser's: this serves a page laid out for paper
+       and the print dialog makes the file. That is what 「PDFで印刷」 asks
+       for, it needs nothing installed on the server, and it works from
+       the shed's phone as well as from a desk. */
+    if (url.pathname === '/api/egg/list' && req.method === 'GET') {
+      if (!sess) return deny(res);
+      const whoNow = await eggWho();
+      if (!whoNow.admin && !whoNow.farm && !whoNow.contactFor?.length) return deny(res, 403);
+
+      const { cfg, holidays } = await eggCfgNow();
+      const now = tokyoNow();
+      const q = url.searchParams.get('ship');
+      const ship = /^\d{4}-\d{2}-\d{2}$/.test(String(q || ''))
+        ? String(q) : openShipMonday(now.stamp, now.h, cfg, holidays);
+      const week = await weekResult(ship);
+      if (week?.error) return sendJson(res, 409, { error: week.error });
+      const info = weekInfo(ship, cfg, holidays);
+
+      /* An office contact may print, but only their own office's page:
+         the whole company's list is not theirs to hold. */
+      const mine = whoNow.admin || whoNow.farm ? null : whoNow.contactFor;
+      const list = (week.list || []).filter((r) => !mine || mine.includes(r.office));
+      const lines = (week.lines || []).filter((l) => !mine || mine.includes(l.office));
+
+      const esc = (v) => String(v ?? '').replace(/[&<>"]/g, (c) => (
+        { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+      const rows = lines.filter((l) => l.packs > 0).map((l) => `
+        <tr><td>${esc(l.office)}</td><td class="n">${l.packs}</td>
+            <td>${l.extra > 0 ? `リクエスト${l.requested}＋余り${l.extra}`
+    : l.status === 'work' ? '仕事用のため発送' : ''}</td></tr>`).join('');
+      const people = list.map((r) => `
+        <tr><td>${esc(r.name)}</td><td>${esc(r.office)}</td>
+            <td>${r.purpose === 'work' ? '仕事用' : '私用'}</td>
+            <td class="n">${r.got}</td></tr>`).join('');
+
+      const html = `<!doctype html><html lang="ja"><head><meta charset="utf-8">
+<title>モラエッグ 発送一覧 ${esc(ship)}</title>
+<style>
+  body{font-family:system-ui,"Hiragino Kaku Gothic ProN","Noto Sans JP",sans-serif;
+       margin:24px;color:#0B296A}
+  h1{font-size:18px;margin:0 0 4px} p.sub{margin:0 0 18px;color:#5B6B86;font-size:13px}
+  h2{font-size:14px;margin:22px 0 6px}
+  table{border-collapse:collapse;width:100%;font-size:13px}
+  th,td{border:1px solid #C3CCDA;padding:5px 8px;text-align:left}
+  th{background:#EAF0FB}
+  td.n{text-align:right;font-variant-numeric:tabular-nums}
+  @media print{ body{margin:0} .noprint{display:none} }
+</style></head><body>
+<h1>モラエッグ 発送一覧</h1>
+<p class="sub">発送日 ${esc(info.shipDay)}／到着 ${esc(info.arrive)}／受け取り期限 ${esc(info.pickup)}
+ ${week.final ? '' : '（確認中）'}</p>
+<h2>事業所ごとの発送数</h2>
+<table><tr><th>事業所</th><th>発送するパック数</th><th>内訳</th></tr>${rows}</table>
+<h2>受け取る人の一覧</h2>
+<table><tr><th>名前</th><th>事業所</th><th>用途</th><th>パック数</th></tr>${people}</table>
+<p class="noprint" style="margin-top:18px">
+  <button onclick="window.print()">印刷する</button></p>
+</body></html>`;
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
+      res.end(html);
+      return undefined;
+    }
+
+    if (url.pathname === '/api/egg/list.csv' && req.method === 'GET') {
+      if (!sess) return deny(res);
+      const whoNow = await eggWho();
+      if (!whoNow.admin && !whoNow.farm && !whoNow.contactFor?.length) return deny(res, 403);
+
+      const { cfg, holidays } = await eggCfgNow();
+      const now = tokyoNow();
+      const q = url.searchParams.get('ship');
+      const ship = /^\d{4}-\d{2}-\d{2}$/.test(String(q || ''))
+        ? String(q) : openShipMonday(now.stamp, now.h, cfg, holidays);
+      const week = await weekResult(ship);
+      if (week?.error) return sendJson(res, 409, { error: week.error });
+      const info = weekInfo(ship, cfg, holidays);
+      const mine = whoNow.admin || whoNow.farm ? null : whoNow.contactFor;
+
+      /* A field is quoted and its own quotes doubled — a name with a
+         comma in it would otherwise shift every column after it. */
+      const cell = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+      const rows = [['事業所', '名前', '用途', 'パック数', '到着日', '受け取り期限']];
+      for (const r of (week.list || [])) {
+        if (mine && !mine.includes(r.office)) continue;
+        rows.push([r.office, r.name, r.purpose === 'work' ? '仕事用' : '私用',
+          r.got, info.arrive, info.pickup]);
+      }
+      /* CRLF and a byte-order mark, because this is opened in Excel on a
+         Japanese Windows machine and without them every name is mojibake
+         and every row is one cell. */
+      const csv = `\uFEFF${rows.map((r) => r.map(cell).join(',')).join('\r\n')}\r\n`;
+      res.writeHead(200, {
+        'Content-Type': 'text/csv; charset=utf-8',
+        'Content-Disposition': `attachment; filename="moraegg-${ship}.csv"`,
+        'Cache-Control': 'no-store',
+      });
+      res.end(csv);
+      return undefined;
+    }
+
+    /* The week as the shed needs to see it: what is open, what has been
+       allocated, and whether anybody has stood behind it yet. Read-only,
+       so it can be polled while a Monday is in progress. */
+    if (url.pathname === '/api/egg/ship' && req.method === 'GET') {
+      if (!sess) return deny(res);
+      const whoNow = await eggWho();
+      if (!whoNow.admin && !whoNow.farm) return deny(res, 403);
+
+      const { cfg, holidays } = await eggCfgNow();
+      const now = tokyoNow();
+      const q = url.searchParams.get('ship');
+      const ship = /^\d{4}-\d{2}-\d{2}$/.test(String(q || ''))
+        ? String(q) : openShipMonday(now.stamp, now.h, cfg, holidays);
+
+      const week = await eggWeek(ship);
+      const info = weekInfo(ship, cfg, holidays);
+      /* The harvest actually recorded for the week these eggs come from,
+         which is what the pack-count box starts at. */
+      const harvested = (await eggHarvest(shiftDay(ship, -7), shiftDay(ship, -1)))
+        .reduce((a, d) => a + d.packs, 0);
+      return sendJson(res, 200, {
+        ship,
+        week: info,
+        today: now.stamp,
+        /* 「月曜9時の締切後に」 — before that there is nothing to confirm,
+           and the screen says so rather than offering a dead button. */
+        open: requestsOpen(ship, now.stamp, now.h, cfg, holidays),
+        harvested,
+        drawn: !!week?.drawnAt,
+        final: !!week?.finalAt,
+        packs: week?.packs ?? null,
+        result: week?.drawnAt ? await weekResult(ship) : null,
+      });
+    }
+
+    /* 配布ルール 10.2「丹波担当が、その時点で発送できるパック数を入力して
+       確定する」. Stage one of two: the week is worked out, and nothing is
+       announced. The packs are what the shed says can actually go today,
+       which is not always what was laid — a cracked tray is the obvious
+       case — so the number is typed rather than taken from the register.
+
+       The 丹波 role may press it, and an administrator may too: one of
+       the three administrators IS a Tamba staff member (仕様書 2), and
+       somebody has to be able to run a Monday when they are off. */
     if (url.pathname === '/api/egg/draw' && req.method === 'POST') {
-      if (!sess?.isAdmin) return deny(res, 403);
+      if (!sess) return deny(res);
+      const whoNow = await eggWho();
+      if (!whoNow.admin && !whoNow.farm) return deny(res, 403);
       if (rateLimited(`egg:${sess.sid}`, 30, 60_000)) return sendJson(res, 429, { error: 'too_many' });
 
       const { cfg, holidays } = await eggCfgNow();
@@ -1213,12 +1495,55 @@ const server = http.createServer(async (req, res) => {
       const ship = /^\d{4}-\d{2}-\d{2}$/.test(String(b?.ship || ''))
         ? String(b.ship) : openShipMonday(now.stamp, now.h, cfg, holidays);
 
+      /* A week already confirmed is not re-run by this: the emails have
+         gone and people have been told what they are getting. */
+      const already = await eggWeek(ship);
+      if (already?.finalAt) return sendJson(res, 409, { error: 'already_final' });
+
       const out = await runAllot(ship, {
         packs: Number.isInteger(b?.packs) && b.packs >= 0 ? b.packs : null,
         by: sess.employeeId,
       });
       if (out.error) return sendJson(res, 409, { error: out.error });
       return sendJson(res, 200, out);
+    }
+
+    /* 配布ルール 10.4「丹波担当が振り分け結果を確認し、12時までを目安に最終
+       確定する」. Stage two: the display changes to 確定 and the emails go.
+       Separate from stage one because it is a different act by a person —
+       the first says what the eggs are, the second says the answer is
+       right. */
+    if (url.pathname === '/api/egg/final' && req.method === 'POST') {
+      if (!sess) return deny(res);
+      const whoNow = await eggWho();
+      if (!whoNow.admin && !whoNow.farm) return deny(res, 403);
+      if (rateLimited(`egg:${sess.sid}`, 30, 60_000)) return sendJson(res, 429, { error: 'too_many' });
+
+      const { cfg, holidays } = await eggCfgNow();
+      const b = await readBody(req).catch(() => null);
+      const now = tokyoNow();
+      const ship = /^\d{4}-\d{2}-\d{2}$/.test(String(b?.ship || ''))
+        ? String(b.ship) : openShipMonday(now.stamp, now.h, cfg, holidays);
+
+      const week = await eggWeek(ship);
+      if (!week?.drawnAt) return sendJson(res, 409, { error: 'not_drawn' });
+      if (week.finalAt) return sendJson(res, 409, { error: 'already_final' });
+      if (!await eggWeekFinalise(ship, sess.employeeId)) {
+        return sendJson(res, 409, { error: 'not_drawn' });
+      }
+
+      /* The emails are the point of this button, but they are not what
+         it promises: the week is confirmed either way, and a mail server
+         having a bad morning must not leave the site saying 確認中 for
+         the rest of the day. So they are sent after the state is safe,
+         and what went wrong is reported rather than thrown. */
+      let mail = { sent: 0, failed: 0 };
+      try {
+        mail = await eggMail(ship, cfg, holidays);
+      } catch (e) {
+        mail = { sent: 0, failed: -1, error: String(e?.message || e).slice(0, 120) };
+      }
+      return sendJson(res, 200, { ...(await weekResult(ship)), final: true, mail });
     }
 
     /* ==================== Phase 2：料理写真の投稿 =======================

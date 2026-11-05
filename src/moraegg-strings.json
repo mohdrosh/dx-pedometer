@@ -1,4 +1,100 @@
 {
+  "checking": {
+    "ja": "確認中",
+    "en": "Checking"
+  },
+  "checkingMsg": {
+    "ja": "ただいま最終の確認を行っています。確定までしばらくお待ちください。",
+    "en": "Final check in progress. Please wait until the results are final."
+  },
+  "locHint": {
+    "ja": "所在地（管理画面で設定）",
+    "en": "Location (set in admin)"
+  },
+  "minNoteAll": {
+    "ja": "線がお届けラインです（本社1パック、姫路・京都2パック、それ以外4パック）",
+    "en": "The line marks the minimum (Head Office 1 pack, Himeji and Kyoto 2, all others 4)"
+  },
+  "workNote": {
+    "ja": "仕事用は1パックでも発送できますが、できるだけ2パック以上でお願いします。",
+    "en": "Business requests can ship from just 1 pack, but please request 2 or more if you can."
+  },
+  "tabOffices": {
+    "ja": "事業所の設定",
+    "en": "Office settings"
+  },
+  "offTitle2": {
+    "ja": "事業所の設定",
+    "en": "Office settings"
+  },
+  "offLead": {
+    "ja": "所在地は、参加登録とマイ設定で事業所名の下に表示します。連絡担当者には、最終確定のときにメールで知らせます。",
+    "en": "The location is shown under the office name in sign-up and My settings. The contact person is emailed at final confirmation."
+  },
+  "offLoc": {
+    "ja": "所在地",
+    "en": "Location"
+  },
+  "offMin": {
+    "ja": "最低パック数",
+    "en": "Minimum packs"
+  },
+  "offContact": {
+    "ja": "連絡担当者",
+    "en": "Contact person"
+  },
+  "offMail": {
+    "ja": "メールアドレス",
+    "en": "Email"
+  },
+  "pdf": {
+    "ja": "PDFで印刷",
+    "en": "Print as PDF"
+  },
+  "csv": {
+    "ja": "CSVでダウンロード",
+    "en": "Download CSV"
+  },
+  "tabInput": {
+    "ja": "取れ高の入力",
+    "en": "Harvest input"
+  },
+  "tabShip": {
+    "ja": "発送の確定",
+    "en": "Confirm shipping"
+  },
+  "shipTitle": {
+    "ja": "発送の確定",
+    "en": "Confirm shipping"
+  },
+  "shipStep1": {
+    "ja": "発送できるパック数",
+    "en": "Packs available to ship"
+  },
+  "shipConfirmed": {
+    "ja": "9:00に確定済み",
+    "en": "Confirmed at 9:00"
+  },
+  "shipStep2": {
+    "ja": "振り分け結果を確認して、最終確定してください（12時まで）",
+    "en": "Review the allocation and give final confirmation (by 12:00 noon)"
+  },
+  "doFinal": {
+    "ja": "最終確定する",
+    "en": "Give final confirmation"
+  },
+  "finalDone": {
+    "ja": "最終確定しました。メールを送信しました。",
+    "en": "Final confirmation done. Emails sent."
+  },
+  "shipList": {
+    "ja": "発送一覧",
+    "en": "Shipping list"
+  },
+  "beforeShip": {
+    "ja": "月曜9時の締切後に、発送できるパック数を入力して確定します。",
+    "en": "After the Monday 9:00 AM deadline, enter and confirm the number of packs available to ship."
+  },
   "adminApp": {
     "ja": "モラエッグ 管理",
     "en": "Moraegg Admin"
@@ -67,6 +163,14 @@
     "ja": "今週の確定結果",
     "en": "This week’s final results"
   },
+  "resTitleCheck": {
+    "ja": "今週の振り分け結果",
+    "en": "This week’s allocation"
+  },
+  "resLeadCheck": {
+    "ja": "締切の時点の振り分け結果です。丹波担当の最終確定で確定します。",
+    "en": "The allocation as of the deadline. It becomes final when Tamba staff confirm it."
+  },
   "resLead": {
     "ja": "締切の時点で確定した、事業所ごとの発送数です。",
     "en": "The number of packs going to each office, as confirmed at the deadline."
@@ -88,12 +192,12 @@
     "en": "{a} requested + {b} extra"
   },
   "resTokyo": {
-    "ja": "仕事用のため宅急便で発送",
-    "en": "Sent by courier for business use"
+    "ja": "仕事用のため発送",
+    "en": "Shipping for business use"
   },
   "resSkip": {
-    "ja": "見送り（3パックに届かず）",
-    "en": "Skipped (under 3 packs)"
+    "ja": "見送り（最低パック数に届かず）",
+    "en": "Skipped (below minimum)"
   },
   "resTotal": {
     "ja": "合計",
@@ -479,10 +583,6 @@
     "ja": "受取場所でお届けが決まらなかった場合は、本社（神戸）で受け取ります",
     "en": "If my office doesn’t get a delivery, I’ll pick up at Head Office (Kobe)"
   },
-  "tokyoWork": {
-    "ja": "東京へは宅急便でお届けします。できるだけ周りの方にも声をかけて、合計3パック以上になるようご協力をお願いします。",
-    "en": "Eggs for Tokyo are sent by courier. Please ask colleagues to join so the total reaches 3 packs or more."
-  },
   "send": {
     "ja": "リクエストする",
     "en": "Send request"
@@ -679,7 +779,6 @@
       "sanda": "三田",
       "himeji": "姫路",
       "kyoto": "京都",
-      "nagata": "新長田",
       "ama": "尼崎技術研修所"
     },
     "en": {
@@ -689,7 +788,6 @@
       "sanda": "Sanda",
       "himeji": "Himeji",
       "kyoto": "Kyoto",
-      "nagata": "Shin-Nagata",
       "ama": "Amagasaki Technical Training Center"
     }
   }

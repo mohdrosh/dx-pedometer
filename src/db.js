@@ -23,6 +23,7 @@
 ========================================================================== */
 
 import pg from 'pg';
+import { OFFICE_MIN_DEFAULT, EGG_OFFICES } from './egg.js';
 
 const { Pool } = pg;
 
@@ -445,6 +446,75 @@ export async function initSchema() {
      of the same name. Either way the references are updated first. The
      survey answers are left alone: they are a record of what people
      typed in October, not a list of live offices. */
+  /* 仕様書 4.10 の連絡担当者は「名前・メールアドレス」. The name comes from
+     the employee record, as it always has; this is for the address when
+     the registry's is not the one the parcel notice should go to — an
+     office with a shared inbox, say. Empty means use the record's. */
+  await pool.query(
+    'ALTER TABLE egg_offices ADD COLUMN IF NOT EXISTS contact_mail TEXT',
+  );
+
+  /* 配布ルール 10（2026/11/05）: allocating and confirming are two acts by
+     two different moments. drawn_at says the system has worked the week
+     out; final_at says a human has looked at it and stands behind it.
+     Only the second one is an answer to anybody, and only the second one
+     sends email — which is why it is a column and not a flag derived
+     from the clock. */
+  await pool.query(
+    'ALTER TABLE egg_weeks ADD COLUMN IF NOT EXISTS final_at TIMESTAMPTZ',
+  );
+  await pool.query(
+    `ALTER TABLE egg_weeks ADD COLUMN IF NOT EXISTS final_by TEXT
+       REFERENCES employees(id) ON DELETE SET NULL`,
+  );
+  /* Weeks decided before this existed were final the moment they were
+     drawn, because there was nothing else to wait for. Without this they
+     would all read 確認中 for ever. */
+  await pool.query(
+    'UPDATE egg_weeks SET final_at = drawn_at WHERE final_at IS NULL AND drawn_at IS NOT NULL',
+  );
+
+  /* The seven offices and their minimums (仕様書 4.10), written once so a
+     fresh database and the live one agree. Only inserted, never updated:
+     the numbers are an administrator's to change in 事業所の設定 from the
+     moment this has run, and an upsert would undo their work on every
+     restart. 新長田 left the list on 2026/11/05 when every shipment moved
+     to a courier — deactivated rather than deleted, because requests and
+     weeks already reference it by name. */
+  for (const [name, min] of Object.entries(OFFICE_MIN_DEFAULT)) {
+    await pool.query(
+      `INSERT INTO egg_offices (name, active, min_packs) VALUES ($1, TRUE, $2)
+       ON CONFLICT (name) DO NOTHING`,
+      [name, min],
+    );
+  }
+  await pool.query(
+    "UPDATE egg_offices SET active = FALSE WHERE name = '新長田' AND active",
+  );
+
+  /* The three offices that existed before 2026/11/05 were set up by hand
+     and carry whatever minimum was typed then — 本社 3 where the rules now
+     say 1, 東京 3 where they say 4. Inserting defaults does not reach them,
+     so the new numbers are applied once, here, and recorded as done.
+
+     Once, and not on every restart: from the moment this has run the
+     minimum belongs to whoever is looking at 事業所の設定, and a migration
+     that kept reasserting itself would quietly undo their work every time
+     the server came back up. */
+  const stampRow = await pool.query(
+    "SELECT 1 FROM config WHERE key = 'job:officeMin1105'",
+  );
+  if (!stampRow.rowCount) {
+    for (const [name, min] of Object.entries(OFFICE_MIN_DEFAULT)) {
+      await pool.query('UPDATE egg_offices SET min_packs = $2 WHERE name = $1', [name, min]);
+    }
+    await pool.query(
+      `INSERT INTO config (key, value) VALUES ('job:officeMin1105', $1)
+       ON CONFLICT (key) DO NOTHING`,
+      [JSON.stringify(new Date().toISOString())],
+    );
+  }
+
   const hqOld = '本社';
   const hqNew = '本社（神戸）';
   for (const q of [
@@ -976,26 +1046,58 @@ export async function eggAudience() {
 export async function eggOfficeRows(activeOnly = false) {
   const { rows } = await pool.query(
     `SELECT o.name, o.address, o.contact_id AS "contactId", o.note, o.active,
-            o.min_packs AS "minPacks", e.name AS "contactName"
+            o.min_packs AS "minPacks", e.name AS "contactName",
+            /* 仕様書 4.10: the contact is a name and an address. The name
+               is the employee record's; the address is the record's too
+               unless an office has been given one of its own, which is
+               what a shared inbox needs. */
+            COALESCE(NULLIF(o.contact_mail, ''), e.email) AS "contactMail",
+            o.contact_mail AS "contactMailOwn"
        FROM egg_offices o
        LEFT JOIN employees e ON e.id = o.contact_id
       ${activeOnly ? 'WHERE o.active' : ''}
       ORDER BY o.name`,
   );
-  return rows;
+  /* 佐野's order, not the collation's: her dictionary lists the offices
+     本社・東京・大阪・三田・姫路・京都・尼崎, and a screen that puts them in
+     another order every time the database is asked is a screen nobody
+     can scan. Anything not on her list sorts after it, by name. */
+  const rank = new Map(EGG_OFFICES.map((n, i) => [n, i]));
+  const at = (n) => (rank.has(n) ? rank.get(n) : 99);
+  return rows.sort((a, b) => (
+    at(a.name) - at(b.name) || String(a.name).localeCompare(String(b.name), 'ja')
+  ));
 }
 
-export async function eggOfficeSave({ name, address, contactId, note, active, minPacks }) {
+/**
+ * Create or amend one office.
+ *
+ * A patch, not a replacement: only the fields actually passed are
+ * written. The whole-row version lost 大阪's address every time anything
+ * saved its minimum — the screen sent what it had on it, and what it did
+ * not have it quietly cleared. A field left out now means "leave it
+ * alone", which is what every caller already assumed.
+ */
+export async function eggOfficeSave(patch = {}) {
+  const name = String(patch.name || '').trim();
+  if (!name) return false;
   await pool.query(
-    `INSERT INTO egg_offices (name, address, contact_id, note, active, min_packs)
-     VALUES ($1, $2, $3, $4, $5, $6)
-     ON CONFLICT (name) DO UPDATE
-       SET address = EXCLUDED.address, contact_id = EXCLUDED.contact_id,
-           note = EXCLUDED.note, active = EXCLUDED.active,
-           min_packs = EXCLUDED.min_packs`,
-    [String(name), address || null, contactId || null, note || null, active !== false,
-      Math.max(0, Math.floor(Number(minPacks) || 0))],
+    `INSERT INTO egg_offices (name, active, min_packs) VALUES ($1, TRUE, $2)
+     ON CONFLICT (name) DO NOTHING`,
+    [name, Math.max(0, Math.floor(Number(patch.minPacks) || 0))],
   );
+  const sets = [];
+  const vals = [name];
+  const put = (col, v) => { vals.push(v); sets.push(`${col} = $${vals.length}`); };
+  if ('address' in patch) put('address', patch.address || null);
+  if ('contactId' in patch) put('contact_id', patch.contactId || null);
+  if ('contactMail' in patch) put('contact_mail', patch.contactMail || null);
+  if ('note' in patch) put('note', patch.note || null);
+  if ('active' in patch) put('active', patch.active !== false);
+  if ('minPacks' in patch) put('min_packs', Math.max(0, Math.floor(Number(patch.minPacks) || 0)));
+  if (sets.length) {
+    await pool.query(`UPDATE egg_offices SET ${sets.join(', ')} WHERE name = $1`, vals);
+  }
   return true;
 }
 
@@ -1194,7 +1296,8 @@ export async function eggMissed(ship) {
 export async function eggWeek(ship) {
   const { rows } = await pool.query(
     `SELECT ship, packs, rule, seed, extra, points_before AS "pointsBefore",
-            drawn_at AS "drawnAt", drawn_by AS "drawnBy"
+            drawn_at AS "drawnAt", drawn_by AS "drawnBy",
+            final_at AS "finalAt", final_by AS "finalBy"
        FROM egg_weeks WHERE ship = $1`,
     [ship],
   );
@@ -1293,6 +1396,24 @@ export async function eggDrawSave(ship, { packs, rule, seed, by, extra = 0 }, al
   } finally {
     client.release();
   }
+}
+
+/**
+ * 最終確定 — a person has looked at the week and stands behind it.
+ *
+ * Refuses a week that has not been allocated yet: there would be nothing
+ * to stand behind, and the emails that go out on the back of this would
+ * tell everybody they had missed out. Returns false rather than throwing
+ * so the route can answer 409 and say which.
+ */
+export async function eggWeekFinalise(ship, by = null) {
+  const { rows } = await pool.query(
+    `UPDATE egg_weeks SET final_at = NOW(), final_by = $2
+      WHERE ship = $1 AND drawn_at IS NOT NULL AND final_at IS NULL
+      RETURNING ship`,
+    [ship, await whoOrNull(by)],
+  );
+  return rows.length > 0;
 }
 
 export async function eggWeekOffices(ship) {

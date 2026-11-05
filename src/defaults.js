@@ -60,8 +60,15 @@ export const DEFAULT_CFG = {
     locDeadline: '2026-11-17',
     requestsFrom: '2026-11-21',
     firstShip: '2026-11-23',
-    minPacks: 3,      /* 暫定。3 か 5 を会社に確認中 */
-    tokyoRule: true,  /* 暫定。仕事用なら1パックでも宅急便 */
+    /* 2026/11/05: both of the provisional settings here were answered by
+       the company. The minimum is per office now (事業所の設定), and this
+       is only the fallback for an office that has none; the 東京の特例 is
+       gone because every office ships a business request from one pack. */
+    minPacks: 4,
+    /* 配布ルール 2:「最終確定：締切日の12時までに、丹波担当が振り分けを確定
+       する」. The hour is a setting because the deadline hour is, and the
+       two move together when a week is shifted. */
+    finalHour: 12,
   },
   /* 会社情報・就業条件・稼働カレンダー. Registered here for now, shaped so the
      core system can supply the same objects later — see src/company.js. */

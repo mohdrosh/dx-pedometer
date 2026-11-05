@@ -5,13 +5,11 @@
    (先着順 / 1人1パック優先 / 抽選 / 前回落選者優先). The company decided
    instead, and what they decided is not one of the four: it is a sequence.
 
-     5  成立判定   an office gets a delivery once its requests reach the
-                  minimum — 3 packs, provisional, possibly 5
-     6  東京の特例   Tokyo is reachable only by courier, so a business
-                  request sends a box even below the minimum
+     5  成立判定   an office gets a delivery once its requests reach its
+                  own minimum — 本社 1, 姫路・京都 2, the rest 4
+     6  仕事用     a business request ships from one pack, at any office
      7  配分順     business first and in full, then one personal pack each
-                  in priority-point order, then second packs in the same
-                  order
+                  in priority-point order, then second packs
      8  余り      leftovers go to Head Office as 「ご自由にどうぞ」, so the
                   total shipped always equals what Tamba laid
      9  優先ポイント  carried by the person, not the office
@@ -39,7 +37,11 @@ export const HQ = HQ_OFFICE;
 export const TOKYO = TOKYO_OFFICE;
 export const OFFICES = EGG_OFFICES;
 
-export const MIN_PACKS = 3;     /* 暫定。会社に確認中 — 3 か 5 */
+/* The fallback for an office with no minimum of its own. Every one of
+   the seven has one (仕様書 4.10), so this is only ever reached by a
+   caller that passes none — the tests, and an office created after this
+   list was written. */
+export const MIN_PACKS = 4;
 
 /* Same generator as the shipping-week draw: seeded, so a week replays. */
 function rng(seed) {
@@ -92,7 +94,7 @@ function inPointOrder(rows, points, seed) {
  */
 export function allot({
   requests = [], harvest = 0, minPacks = MIN_PACKS, points = {},
-  tokyoRule = true, seed = '', offices = OFFICES, officeMin = {},
+  seed = '', offices = OFFICES, officeMin = {},
 } = {}) {
   const rows = requests
     .map((r) => ({
@@ -134,19 +136,16 @@ export function allot({
   for (const [name, o] of asked) {
     if (o.packs === 0) { state.set(name, 'none'); continue; }
     if (o.packs >= minFor(name)) { state.set(name, 'go'); continue; }
-    if (name === TOKYO) {
-      /* 「仕事用の申請があれば3パック未満でも送る」, and Tokyo's personal
-         requests ride along in the same box. */
-      state.set(name, tokyoRule && o.work > 0 ? 'tokyo' : 'skip');
-      continue;
-    }
-    /* 「仕事用の申請がある事業所が3パック未満の場合は、見送りにせず、管理者
-       が個別に調整する」 — not skipped, not automatic either. Flagged for a
-       person to decide, and treated as running until they do. */
-    state.set(name, o.work > 0 ? 'adjust' : 'skip');
+    /* 配布ルール 6（2026/11/05）:「仕事用（客先用）の申請は、東京を含む
+       すべての事業所で、1パックから発送できる」. Tokyo's exception is gone
+       because it is no longer an exception — every office works the way
+       Tokyo did, now that all of them ship by courier. An office under
+       its minimum with a business request ships, and 「仕事用で発送が決ま
+       った事業所は、私用の申請も同じ箱で一緒に送る」. */
+    state.set(name, o.work > 0 ? 'work' : 'skip');
   }
 
-  const ships = (name) => ['go', 'tokyo', 'adjust'].includes(state.get(name));
+  const ships = (name) => ['go', 'work'].includes(state.get(name));
 
   /* ---- people at an office that fell short ----------------------------- */
   const missedBySkip = new Set();
@@ -237,7 +236,10 @@ export function allot({
       packs: requested + plus,
       /* 「配分の結果、成立していた事業所が3パックを下回った場合は、管理者が
          調整する」 — said, not fixed: the rule is a person's call. */
-      underMin: state.get(name) === 'go' && requested > 0 && requested < minFor(name),
+      /* 「配分の結果、成立していた事業所が3パックを下回った場合は、管理者が
+         調整する」 — still said, still a person's call, and still three
+         rather than the office's own minimum: the rule names the number. */
+      underMin: state.get(name) === 'go' && requested > 0 && requested < Math.min(3, minFor(name) || 3),
     };
   }).filter((l) => l.asked > 0 || l.packs > 0);
 
@@ -246,6 +248,6 @@ export function allot({
     rows, lines, extra, shipped, harvest: laid, minPacks: min,
     points: next,
     /* Anything a person has to look at before the van leaves. */
-    needsAdmin: lines.some((l) => l.status === 'adjust' || l.underMin),
+    needsAdmin: lines.some((l) => l.underMin),
   };
 }

@@ -269,8 +269,16 @@ export function missedFrom(allocated) {
  * Called without a date nothing ever expires, which is what the older
  * callers that do not know today's date should see.
  */
-export function statusOf(row, todayIso = null, holidays = {}) {
+export function statusOf(row, todayIso = null, holidays = {}, final = true) {
   if (row?.pickedUpAt) return 'picked';
+  /* 配布ルール 10（2026/11/05）: the allocation runs when the Tamba staff
+     confirm the shipping count, and is not an answer to anybody until
+     they have checked it and pressed 最終確定. Between the two it is
+     「確認中」 — a real state, because a person who read 落選 on Monday
+     morning and 確定 at noon would rightly never trust the screen again.
+     Both sides of a drawn week are affected, so this sits above the
+     got-check rather than beside it. */
+  if (row?.drawnAt && !final) return 'checking';
   if (row?.got > 0) {
     const by = row.ship ? pickupDeadline(mondayOf(row.ship), holidays) : null;
     return todayIso && by && String(todayIso) > by ? 'expired' : 'confirmed';

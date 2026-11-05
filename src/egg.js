@@ -27,17 +27,33 @@
    obvious that adding one would be the bug.
    ========================================================================= */
 
-/* 配布ルール 1:「本社（神戸）、東京、大阪、三田、姫路、京都、新長田、尼崎
-   技術研修所」. The head office gained its 「（神戸）」 in the 11/03 rules
-   and in 佐野's dictionary, and the two names have to be the same string:
-   the allocation decides where leftovers go by matching it, so 本社 and
+/* 配布ルール 1（2026/11/05）:「本社（神戸）、東京、大阪、三田、姫路、京都、
+   尼崎技術研修所」 — seven, 新長田 having been dropped when every shipment
+   moved to a courier.
+
+   The head office gained its 「（神戸）」 in the 11/03 rules and in 佐野's
+   dictionary, and the two names have to be the same string: the
+   allocation decides where leftovers go by matching it, so 本社 and
    本社（神戸）being different offices would quietly lose every spare egg.
    One list, imported everywhere, including by egg-allot.js. */
 export const HQ_OFFICE = '本社（神戸）';
 export const TOKYO_OFFICE = '東京';
 export const EGG_OFFICES = [
-  HQ_OFFICE, TOKYO_OFFICE, '大阪', '三田', '姫路', '京都', '新長田', '尼崎技術研修所',
+  HQ_OFFICE, TOKYO_OFFICE, '大阪', '三田', '姫路', '京都', '尼崎技術研修所',
 ];
+
+/* 仕様書 4.10「最低パック数の初期値：本社 1、姫路・京都 2、東京・大阪・三田・
+   尼崎技術研修所 4」. A starting point only — every one of them is editable
+   per office in 事業所の設定, which is where the live number comes from. */
+export const OFFICE_MIN_DEFAULT = {
+  [HQ_OFFICE]: 1,
+  姫路: 2,
+  京都: 2,
+  [TOKYO_OFFICE]: 4,
+  大阪: 4,
+  三田: 4,
+  尼崎技術研修所: 4,
+};
 
 /* 4.1 問1 の最後の選択肢。An office is where you would collect; this is the
    answer from somebody who would not. It is counted and reported like any

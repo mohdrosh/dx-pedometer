@@ -17,11 +17,11 @@
 
 import React, { useState } from 'react';
 import { mg, officeList } from './moraegg-text.js';
-import { HQ_OFFICE, TOKYO_OFFICE } from './egg.js';
+import { HQ_OFFICE } from './egg.js';
 
 const TERMS = ['t1', 't2', 't3', 't4'];
 
-export default function EggSignup({ lang, user, dates, onDone, api, img }) {
+export default function EggSignup({ lang, user, dates, onDone, api, img, offices: rows = [] }) {
   const t = (k, vars) => mg(k, lang, vars);
   const [step, setStep] = useState(1);
   const [agreed, setAgreed] = useState(false);
@@ -32,6 +32,12 @@ export default function EggSignup({ lang, user, dates, onDone, api, img }) {
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(null);     /* 'joined' | 'notNow' */
 
+  /* 仕様書 4.1:「事業所名の下に、所在地を小さく表示する」. The name comes
+     from her dictionary and the address from 事業所の設定, so an office
+     whose address nobody has filled in yet simply shows no second line —
+     never the word "undefined", and never a placeholder that reads like
+     an address. */
+  const where = new Map((rows || []).map((o) => [o.name, o.address || '']));
   const offices = officeList(lang);
   const workMail = user?.email || '';
 
@@ -130,9 +136,7 @@ export default function EggSignup({ lang, user, dates, onDone, api, img }) {
                 onClick={() => { setOffice(o.name); setErr(''); }}
               >
                 {o.label}
-                {/* 「東京へは宅急便でお届けします」 — said where it is chosen,
-                    not after. */}
-                {o.name === TOKYO_OFFICE && <small>{t('tokyoNote')}</small>}
+                {where.get(o.name) && <small className="eg-opt-loc">{where.get(o.name)}</small>}
               </button>
             ))}
           </div>

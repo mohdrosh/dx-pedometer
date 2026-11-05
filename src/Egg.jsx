@@ -307,6 +307,7 @@ export default function EggTab({
           <div className="mg-body">
             <EggSignup
               lang={lang} user={user} dates={p1.dates} img={img}
+              offices={p1.officeRows || []}
               api={async (path, method, body) => {
                 try {
                   const res = await fetch(`${apiRoot()}/egg${path}`, {

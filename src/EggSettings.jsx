@@ -19,7 +19,6 @@
 
 import React, { useState } from 'react';
 import { mg, officeList } from './moraegg-text.js';
-import { TOKYO_OFFICE } from './egg.js';
 import { apiRoot } from './storage';
 
 const TERMS = ['t1', 't2', 't3', 't4'];
@@ -35,6 +34,8 @@ export default function EggSettings({ d, reload, lang, toast, img }) {
   const [err, setErr] = useState('');
 
   if (!s) return null;
+  /* Same second line as the sign-up: 「事業所名の下に、所在地を小さく表示」. */
+  const where = new Map((d?.officeRows || []).map((o) => [o.name, o.address || '']));
   const offices = officeList(lang);
   const dirty = office !== s.office
     || (priv || '') !== (s.privateMail || '')
@@ -101,7 +102,7 @@ export default function EggSettings({ d, reload, lang, toast, img }) {
               onClick={() => { setOffice(o.name); setErr(''); }}
             >
               {o.label}
-              {o.name === TOKYO_OFFICE && <small>{t('tokyoNote')}</small>}
+              {where.get(o.name) && <small className="eg-opt-loc">{where.get(o.name)}</small>}
             </button>
           ))}
         </div>

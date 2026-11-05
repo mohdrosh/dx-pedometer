@@ -57,6 +57,7 @@ const HERS = {
   pack: 'pack',
   /* 申請 */
   agreeTick: 'agree',
+  st_checking: 'checking',
   request: 'reqTitle',
   howMany: 'packs',
   eggsEach: 'packHint',
@@ -135,6 +136,8 @@ const L = {
   /* 状況 */
   mine: ['あなたの申請', 'Your request'],
   st_received: ['受付済', 'Received'],
+  /* 仕様書 4.7: between the allocation and 最終確定. Her word for it. */
+  st_checking: ['確認中', 'Being checked'],
   st_confirmed: ['確定', 'Confirmed'],
   st_missed: ['落選', 'Not this week'],
   st_picked: ['受け取り済み', 'Collected'],
@@ -218,6 +221,7 @@ const L = {
   fixShut: ['この週は配分が確定したため、修正できません。',
     'This week has been decided, so the count can no longer be changed.'],
   fixAhead: ['これからの日は登録できません。', 'A day that has not happened yet cannot be registered.'],
+  shipDone: ['この週はすでに最終確定しています。', 'This week has already been confirmed.'],
 
   /* 事務所 */
   office: ['事務所', 'Office'],
@@ -444,10 +448,12 @@ function OfficeRace({ offices, packs, lang, t, img }) {
       <ul className="eg-vs-rows">
         {ranked.map((r) => {
           const met = r.min === 0 || r.asked >= r.min;
-          /* 東京 is reachable only by courier, so a business request sends
-             a box however short the week is. Said here because this is
-             where somebody looks to find out whether theirs is coming. */
-          const courier = !met && r.name === TOKYO_OFFICE && r.work > 0;
+          /* 配布ルール 6（2026/11/05）: a business request ships from one
+             pack at any office, Tokyo included — which is no longer a
+             special case, because every office goes by courier now. Said
+             here because this is where somebody looks to find out whether
+             theirs is coming. */
+          const courier = !met && r.work > 0;
           const state = r.asked === 0 ? 'miss'
             : met ? 'go' : courier ? 'free' : 'wait';
           return (
@@ -835,11 +841,12 @@ export default function EggPortal({ d, reload: load, lang, toast, screen = 'all'
                 </label>
               )}
 
-              {/* 配布ルール 6.1:「東京で仕事用を申請する人には、周りの人にも
-                  声をかけるようお願いする」 — shown when both are true, since
-                  it is asking for something only they can do. */}
-              {d.signup?.office === TOKYO_OFFICE && form.purpose === 'work' && (
-                <p className="eg-tokyo-note">{mgs('tokyoWork')}</p>
+              {/* 配布ルール 6.1（2026/11/05）:「1パックでも発送できますが、
+                  できるだけ2パック以上でお願いします」 — at every office now,
+                  not only 東京, and shown while the choice is being made
+                  rather than after it. */}
+              {form.purpose === 'work' && (
+                <p className="eg-tokyo-note">{mgs('workNote')}</p>
               )}
 
               <div className="eg-acts">
@@ -978,7 +985,7 @@ export default function EggPortal({ d, reload: load, lang, toast, screen = 'all'
         {/* 「あなたの結果」, once the week is decided: the one line a person
             came to this screen for, said before the office-by-office
             table that explains it. */}
-        {d.decided && mine && mine.got > 0 && (
+        {d.final && mine && mine.got > 0 && (
           <div className="card eg-mine-res">
             <em>{mgs('resMine')}</em>
             <strong>
@@ -987,15 +994,25 @@ export default function EggPortal({ d, reload: load, lang, toast, screen = 'all'
           </div>
         )}
 
-        {/* 今週の確定結果. Until the deadline the race above is the whole
-            story; once the week is decided it is history, and what people
-            came to find out is how many packs are coming to them. Her
-            words: 「締切の時点で確定した、事業所ごとの発送数です」. */}
+        {/* 今週の結果. Until the deadline the race above is the whole
+            story; once the week is allocated it is history, and what
+            people came to find out is how many packs are coming to them.
+
+            Two headings, because there are two states (仕様書 4.7): the
+            numbers appear as soon as the system has worked them out, but
+            they are 「振り分け結果」 and 「ただいま最終の確認を行っています」
+            until the Tamba staff have checked them. Showing them earlier
+            than that is deliberate — people can see the week moving —
+            and calling them 確定 earlier would not be. */}
         {d.decided && (
           <>
-            <div className="sechead"><span>{mgs('resTitle')}</span></div>
+            <div className="sechead">
+              <span>{mgs(d.final ? 'resTitle' : 'resTitleCheck')}</span>
+              {!d.final && <span className="eg-chk">{mgs('checking')}</span>}
+            </div>
             <div className="card eg-done">
-              <p className="muted sm">{mgs('resLead')}</p>
+              <p className="muted sm">{mgs(d.final ? 'resLead' : 'resLeadCheck')}</p>
+              {!d.final && <p className="eg-chk-msg">{mgs('checkingMsg')}</p>}
               <ul className="eg-res-l">
                 {d.offices.filter((o) => (o.sent || 0) > 0).map((o) => (
                   <li key={o.name}>
@@ -1059,12 +1076,210 @@ export default function EggPortal({ d, reload: load, lang, toast, screen = 'all'
    week under it. 「同日中であれば取り消し・修正ができる」, and only today,
    which is why every other day in the list is a figure and not a control.
 --------------------------------------------------------------------------- */
+/* ---------------------------------------------------------------------------
+   今週の結果 — 仕様書 4.7 と 4.9, in her columns: 事業所 / 発送するパック数 /
+   内訳, then 合計, then the list of who is collecting.
+
+   One component on two screens. The Tamba staff check it before pressing
+   最終確定 and the committee reads it afterwards, and the two have to be
+   the same table — a difference between them would mean one of them was
+   looking at something nobody shipped.
+   --------------------------------------------------------------------- */
+function WeekResult({ r, lang, t, ship, final = true, withNames = false }) {
+  const mgs = (k, vars) => mg(k, lang, vars);
+  if (!r?.lines?.length) return null;
+  const file = `moraegg-${ship || r.ship || ''}`;
+  return (
+    <>
+      <div className="sechead">
+        <span>{mgs(final ? 'resTitle' : 'resTitleCheck')}</span>
+        {!final && <span className="eg-chk">{mgs('checking')}</span>}
+      </div>
+      <div className="card eg-res">
+        {r.needsAdmin && <p className="eg-warn sm">{t('resNeeds')}</p>}
+        <p className="muted sm">{mgs(final ? 'resLead' : 'resLeadCheck')}</p>
+        <ul className="eg-res-l eg-res-h">
+          <li className="head">
+            <b>{mgs('resOffice')}</b>
+            <span className="eg-res-n">{mgs('resPacks')}</span>
+            <small>{mgs('resNote')}</small>
+          </li>
+          {r.lines.map((l) => (
+            <li key={l.office} className={l.underMin ? 'warn' : ''}>
+              <b>{l.office}</b>
+              <span className="eg-res-n">{packs(l.packs, lang)}</span>
+              <small>
+                {l.extra > 0
+                  ? mgs('resHq', { a: String(l.requested), b: String(l.extra) })
+                  : l.status === 'skip' ? mgs('resSkip')
+                    : l.status === 'work' ? mgs('resTokyo')
+                      : l.status === 'none' ? mgs('cNone')
+                        : l.underMin ? t('resUnder') : ''}
+              </small>
+            </li>
+          ))}
+          <li className="total">
+            <b>{mgs('resTotal')}</b>
+            <span className="eg-res-n">{packs(r.shipped || 0, lang)}</span>
+            <small>{`${mgs('resHarvest')} ${packs(r.packs || 0, lang)}`}</small>
+          </li>
+        </ul>
+        {r.moved > 0 && <p className="muted sm">{t('resMoved').replace('{n}', String(r.moved))}</p>}
+        <p className="muted sm">{t('resMiss').replace('{n}', String(r.missed || 0))}</p>
+      </div>
+
+      {withNames && !!r.list?.length && (
+        <>
+          <div className="sechead"><span>{mgs('shipList')}</span></div>
+          <div className="card">
+            {/* 「PDFとCSVで印刷・ダウンロードできる」. Both are the server's,
+                so what is printed is what was allocated and not what a
+                browser still had on screen. */}
+            <div className="eg-exp">
+              <a className="btn sm" href={`${apiRoot()}/egg/list?ship=${ship || r.ship}`}
+                target="_blank" rel="noreferrer">{mgs('pdf')}</a>
+              <a className="btn sm" href={`${apiRoot()}/egg/list.csv?ship=${ship || r.ship}`}
+                download={`${file}.csv`}>{mgs('csv')}</a>
+            </div>
+            <ul className="eg-res-who">
+              <li className="head">
+                <b>{mgs('adminWho')}</b>
+                <span>{mgs('resOffice')}</span>
+                <span>{mgs('adminPurpose')}</span>
+                <em>{mgs('confirmed')}</em>
+              </li>
+              {r.list.map((x, i) => (
+                <li key={`${x.name}-${i}`}>
+                  <b>{x.name}</b>
+                  <span>{x.office}{x.moved ? ' ←' : ''}</span>
+                  <span>{mgs(x.purpose === 'work' ? 'pWork' : 'pPersonal')}</span>
+                  <em>{packs(x.got, lang)}</em>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </>
+      )}
+    </>
+  );
+}
+
+/* ---------------------------------------------------------------------------
+   発送の確定 — 仕様書 4.6, 配布ルール 10.
+
+   Two presses on a Monday morning, and they are deliberately not one.
+
+   The first says how many packs can actually go today, which is not
+   always what the register says was laid: a cracked tray, a van with no
+   room. That number starts the allocation.
+
+   The second says the result has been looked at and is right. Only then
+   does the site stop saying 確認中, and only then do 171 letters go out.
+   A single button would mean a miscount reaching everybody's inbox
+   before anybody had read it.
+   --------------------------------------------------------------------- */
+function EggShip({ lang, toast, t, onDone }) {
+  const mgs = (k, vars) => mg(k, lang, vars);
+  const [d, setD] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [packs, setPacks] = useState('');
+
+  const load = useCallback(async () => {
+    const res = await fetch(`${apiRoot()}/egg/ship`, { credentials: 'same-origin' });
+    if (!res.ok) return;
+    const j = await res.json();
+    setD(j);
+    /* The box starts at what the shed actually registered this week, so
+       the common Monday is a glance and a press rather than arithmetic. */
+    setPacks(String(j.packs ?? j.harvested ?? 0));
+  }, []);
+  useEffect(() => { load(); }, [load]);
+
+  const post = async (path, body) => {
+    setBusy(true);
+    try {
+      const res = await fetch(`${apiRoot()}/egg${path}`, {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const j = await res.json().catch(() => null);
+      if (!res.ok) {
+        toast?.(j?.error === 'already_final' ? t('shipDone')
+          : j?.error === 'already_collected' ? t('fixShut') : t('failed'));
+        return null;
+      }
+      await load();
+      onDone?.();
+      return j;
+    } finally { setBusy(false); }
+  };
+
+  if (!d) return <div className="pad muted">…</div>;
+  const n = Math.max(0, Math.floor(Number(packs) || 0));
+
+  return (
+    <div className="eg-ship">
+      <div className="sechead"><span>{mgs('shipTitle')}</span></div>
+
+      {/* 「月曜9時の締切後に、発送できるパック数を入力して確定します」 — said
+          while the week is still open, so nobody presses it on Friday. */}
+      {d.open && !d.drawn && (
+        <div className="card"><p className="muted sm">{mgs('beforeShip')}</p></div>
+      )}
+
+      {!d.open && (
+        <div className="card eg-ship-1">
+          <label className="fld"><span>{mgs('shipStep1')}</span>
+            <input
+              type="number" min={0} max={999} value={packs} disabled={d.final}
+              onChange={(e) => setPacks(e.target.value)}
+            />
+          </label>
+          {d.drawn && <p className="eg-ship-ok">{mgs('shipConfirmed')}</p>}
+          <button
+            className="btn primary" disabled={busy || d.final}
+            onClick={() => post('/draw', { ship: d.ship, packs: n })}
+          >{d.drawn ? t('drawAgain') : t('draw')}</button>
+        </div>
+      )}
+
+      {/* Step two only exists once there is something to check. */}
+      {d.drawn && !d.final && (
+        <div className="card eg-ship-2">
+          <p>{mgs('shipStep2')}</p>
+          <button
+            className="btn primary" disabled={busy}
+            onClick={async () => {
+              const j = await post('/final', { ship: d.ship });
+              if (j) toast?.(mgs('finalDone'));
+            }}
+          >{mgs('doFinal')}</button>
+        </div>
+      )}
+      {d.final && <div className="card"><p className="eg-ship-ok">{mgs('finalDone')}</p></div>}
+
+      {d.result && (
+        <WeekResult
+          r={d.result} lang={lang} t={t} ship={d.ship} final={d.final} withNames
+        />
+      )}
+    </div>
+  );
+}
+
 export function EggFarm({ lang, toast }) {
   const t = useCallback((k) => (HERS[k] ? mg(HERS[k], lang)
     : L[k] ? L[k][lang === 'ja' ? 0 : 1] || L[k][0] : k), [lang]);
   const img = (n) => `${import.meta.env.BASE_URL}moraegg/${n}.webp`;
   const [d, setD] = useState(null);
   const [busy, setBusy] = useState(false);
+  /* 仕様書 3: 取れ高の入力 and 発送の確定 are two jobs on one screen, done at
+     two different times — the first every day, the second on a Monday
+     morning. Two tabs rather than one long page, so neither is scrolled
+     past while looking for the other. */
+  const [at, setAt] = useState('input');
 
   /* `day` is only ever sent for a correction to another day — the common
      case is a thumb on ＋1パック, and that should not depend on the
@@ -1095,6 +1310,17 @@ export function EggFarm({ lang, toast }) {
   useEffect(() => { bump(0); }, [bump]);
 
   if (!d) return <div className="pad muted">…</div>;
+  if (at === 'ship') {
+    return (
+      <div className="eg-farm-one">
+        <nav className="eg-sub eg-sub2">
+          <button type="button" onClick={() => setAt('input')}>{mg('tabInput', lang)}</button>
+          <button type="button" className="on">{mg('tabShip', lang)}</button>
+        </nav>
+        <EggShip lang={lang} toast={toast} t={t} onDone={() => bump(0)} />
+      </div>
+    );
+  }
   /* Today, not the day the last tap changed: correcting the Tuesday must
      not make the screen think Tuesday is today and drop it out of the
      list of days that can be corrected. */
@@ -1103,6 +1329,10 @@ export function EggFarm({ lang, toast }) {
 
   return (
     <div className="eg-farm">
+     <nav className="eg-sub eg-sub2 eg-farm-tabs">
+       <button type="button" className="on">{mg('tabInput', lang)}</button>
+       <button type="button" onClick={() => setAt('ship')}>{mg('tabShip', lang)}</button>
+     </nav>
       {/* The picture matches the job: eggs in the nest box before any have
           been registered today, the day's haul once they have. Its speech
           bubble says 9個 — the live number is printed by the page below it,
@@ -1571,74 +1801,8 @@ export function EggAdmin({ lang, toast, cfg = {}, setCfg, people = [], onDone, t
         <p className="muted sm">{t('drawNote')}</p>
       </div>
 
-      {/* 今週の確定結果, in her words and her columns: 事業所 / 発送する
-          パック数 / 内訳, then 合計, then the list of people the boxes are
-          checked against. Shown here because this is the one screen that
-          holds the whole week at once, which is what「管理者が個別に調整
-          する」needs. */}
       {last && !!last.lines?.length && (
-        <>
-          <div className="sechead"><span>{mg('resTitle', lang)}</span></div>
-          <div className="card eg-res">
-            {last.needsAdmin && <p className="eg-warn sm">{t('resNeeds')}</p>}
-            <p className="muted sm">{mg('resLead', lang)}</p>
-            <ul className="eg-res-l eg-res-h">
-              <li className="head">
-                <b>{mg('resOffice', lang)}</b>
-                <span className="eg-res-n">{mg('resPacks', lang)}</span>
-                <small>{mg('resNote', lang)}</small>
-              </li>
-              {last.lines.map((l) => (
-                <li key={l.office} className={l.status === 'adjust' || l.underMin ? 'warn' : ''}>
-                  <b>{l.office}</b>
-                  <span className="eg-res-n">{packs(l.packs, lang)}</span>
-                  <small>
-                    {l.extra > 0
-                      ? mg('resHq', lang, { a: String(l.requested), b: String(l.extra) })
-                      : l.status === 'skip' ? mg('resSkip', lang)
-                        : l.status === 'tokyo' ? mg('resTokyo', lang)
-                          : l.status === 'adjust' ? t('resAdjust')
-                            : l.status === 'none' ? mg('cNone', lang)
-                              : l.underMin ? t('resUnder') : ''}
-                  </small>
-                </li>
-              ))}
-              <li className="total">
-                <b>{mg('resTotal', lang)}</b>
-                <span className="eg-res-n">{packs(last.shipped || 0, lang)}</span>
-                <small>{`${mg('resHarvest', lang)} ${packs(last.packs || 0, lang)}`}</small>
-              </li>
-            </ul>
-            {last.moved > 0 && (
-              <p className="muted sm">{t('resMoved').replace('{n}', String(last.moved))}</p>
-            )}
-            <p className="muted sm">{t('resMiss').replace('{n}', String(last.missed || 0))}</p>
-          </div>
-
-          {!!last.list?.length && (
-            <>
-              <div className="sechead"><span>{mg('adminList', lang)}</span></div>
-              <div className="card">
-                <ul className="eg-res-who">
-                  <li className="head">
-                    <b>{mg('adminWho', lang)}</b>
-                    <span>{mg('resOffice', lang)}</span>
-                    <span>{mg('adminPurpose', lang)}</span>
-                    <em>{mg('confirmed', lang)}</em>
-                  </li>
-                  {last.list.map((r, i) => (
-                    <li key={`${r.name}-${i}`}>
-                      <b>{r.name}</b>
-                      <span>{r.office}{r.moved ? ' ←' : ''}</span>
-                      <span>{mg(r.purpose === 'work' ? 'pWork' : 'pPersonal', lang)}</span>
-                      <em>{packs(r.got, lang)}</em>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </>
-          )}
-        </>
+        <WeekResult r={last} lang={lang} t={t} ship={last.ship} final={last.final} withNames />
       )}
 
      </div>
@@ -1646,30 +1810,9 @@ export function EggAdmin({ lang, toast, cfg = {}, setCfg, people = [], onDone, t
      <div className="eg-adm-r">
       <div className="sechead"><span>{t('rules2')}</span></div>
       <div className="card ad-set">
-        {/* 配布ルール 5 と 6. The four rules the survey was going to choose
-            between are gone — the company settled the sequence, and these
-            are the two numbers inside it the committee is still
-            confirming with them. */}
-        <label className="fld"><span>{t('minSet')}</span>
-          <select
-            value={String(cfg.egg?.minPacks ?? 3)}
-            onChange={(e) => saveCfg({ minPacks: Number(e.target.value) })}
-          >
-            {[1, 2, 3, 4, 5, 6].map((n) => (
-              <option key={n} value={n}>{lang === 'ja' ? `${n}パック` : `${n} pack${n === 1 ? '' : 's'}`}</option>
-            ))}
-          </select>
-          <small className="muted sm">{t('minSetNote')}</small>
-        </label>
-        <label className="check"><span>
-          <input
-            type="checkbox" checked={cfg.egg?.tokyoRule !== false}
-            onChange={(e) => saveCfg({ tokyoRule: e.target.checked })}
-          />
-          {' '}{t('tokyoSet')}
-        </span>
-          <small className="muted sm">{t('tokyoOn')}</small>
-        </label>
+        {/* 最低パック数 moved to 事業所の設定 on 2026/11/05, because it is
+            per office now; the 東京の特例 switch went with the rule it
+            turned on. What is left here is what is the same everywhere. */}
         <label className="fld"><span>{t('deadlineHour')}</span>
           <select
             value={String(cfg.egg?.deadlineHour ?? 9)}

@@ -742,6 +742,26 @@ export const MG_CSS = `
 .mg .eg-vs-req{display:flex;align-items:baseline;gap:6px;margin-left:auto;
   font-size:12px;color:#5B6B86}
 .mg .eg-vs-req b{font-size:14px;font-weight:800;color:var(--mg-navy)}
+/* 所在地 under the office name: a second line, quieter, and it wraps
+   rather than stretching the button it sits in. */
+.mg .eg-opt-loc{display:block;margin-top:2px;font-size:10.5px;font-weight:600;
+  line-height:1.35;color:#5B6B86;white-space:normal}
+.mg .eg-opt.on .eg-opt-loc{color:rgba(255,255,255,.85)}
+/* 確認中: a quiet badge beside the heading and a line under the lead, so
+   the numbers below can be read while it is clear they are not yet an
+   answer. Not a warning colour — nothing is wrong, it is just not done. */
+/* 発送の確定: two steps, and the second is only reachable once the first
+   has happened, so they read down rather than sitting side by side. */
+.mg .eg-sub2{margin:0 0 12px}
+.mg .eg-ship-1,.mg .eg-ship-2{display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap}
+.mg .eg-ship-1 .fld{margin:0}
+.mg .eg-ship-1 input{width:7em}
+.mg .eg-ship-2 p{flex:1 1 100%;margin:0;font-size:13px;font-weight:700}
+.mg .eg-ship-ok{margin:0;font-size:12px;font-weight:800;color:var(--mg-leaf)}
+.mg .eg-exp{display:flex;gap:8px;margin-bottom:10px}
+.mg .eg-chk{margin-left:auto;padding:2px 9px;border-radius:999px;
+  background:var(--mg-sun);font-size:11px;font-weight:800;color:var(--mg-navy)}
+.mg .eg-chk-msg{margin:0 0 8px;font-size:12px;font-weight:700;color:var(--mg-navy)}
 .mg .eg-go{display:flex;flex-direction:column;align-items:flex-start;gap:8px;margin:0 0 14px}
 .mg .eg-go .btn{font-size:14px;padding:11px 20px}
 .mg .eg-bub{position:relative;margin:0;padding:8px 12px;border-radius:12px;
