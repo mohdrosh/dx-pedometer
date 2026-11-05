@@ -446,6 +446,30 @@ export async function initSchema() {
      of the same name. Either way the references are updated first. The
      survey answers are left alone: they are a record of what people
      typed in October, not a list of live offices. */
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS egg_signup (
+      employee_id  TEXT PRIMARY KEY REFERENCES employees(id) ON DELETE CASCADE,
+      office       TEXT NOT NULL,
+      private_mail TEXT,
+      notify_priv  BOOLEAN NOT NULL DEFAULT FALSE,
+      points       INTEGER NOT NULL DEFAULT 0,
+      joined_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `);
+
+  /* ------------------------------------------------------------------
+     Everything from here reads or writes tables, so it has to come after
+     every CREATE TABLE above and not next to the column it is about.
+
+     This was learnt the hard way: these ran before egg_signup was
+     created, which worked on every database that already had the
+     previous release and killed the one that did not — the server exited
+     on 「relation "egg_signup" does not exist」 before it ever listened,
+     and systemd restarted it into the same wall seventy times.
+     ------------------------------------------------------------------ */
+
   /* 仕様書 4.10 の連絡担当者は「名前・メールアドレス」. The name comes from
      the employee record, as it always has; this is for the address when
      the registry's is not the one the parcel notice should go to — an
@@ -531,18 +555,6 @@ export async function initSchema() {
   ]) {
     await pool.query(q[0], q[1]);
   }
-
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS egg_signup (
-      employee_id  TEXT PRIMARY KEY REFERENCES employees(id) ON DELETE CASCADE,
-      office       TEXT NOT NULL,
-      private_mail TEXT,
-      notify_priv  BOOLEAN NOT NULL DEFAULT FALSE,
-      points       INTEGER NOT NULL DEFAULT 0,
-      joined_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      updated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    );
-  `);
 
   /* The consent used to be a checkbox on the sign-in screen, and signing in
      without noticing it recorded a "no". That is not an answer, so everyone
