@@ -227,6 +227,48 @@ export const MG_CSS = `
   padding-top:13px;border-top:2px dotted #D9CFB0}
 .mg .mg-reg-go .btn.primary{margin-left:auto}
 
+/* ---- 社員番号の確認 — 佐野 2026/11/05 ------------------------------------
+   The name that the typed employee number belongs to, shown before
+   anything else on the sign-up can be used. It is the first card on the
+   screen and it should read as the thing holding the rest up, so it has
+   the sun border rather than the quiet one the other cards use. */
+/* .card.mg-who and not .mg-who alone: the generic .mg .card rule is
+   further down this same stylesheet, so at equal weight it would win and
+   the colour would silently not apply.
+   (No backticks in here — this stylesheet is a template literal, and one
+   stray backtick ends the string and takes the whole page with it.) */
+.mg .card.mg-who{border-color:var(--mg-navy);background:var(--mg-sun);margin-bottom:12px}
+.mg .mg-who-rows{
+  display:grid;grid-template-columns:auto 1fr;gap:4px 14px;
+  margin:0 0 12px;padding:10px 13px;
+  background:var(--mg-paper);border:2px solid var(--mg-navy);border-radius:12px;
+}
+.mg .mg-who-rows dt{font-size:11.5px;font-weight:800;color:#5A6880;align-self:center}
+.mg .mg-who-rows dd{margin:0;font-size:14px;font-weight:800;color:var(--mg-navy)}
+/* The name is the one thing on this card a person is being asked to
+   read, so it is the only thing set large. */
+.mg .mg-who-rows dd.mg-who-name{font-size:19px;line-height:1.35}
+
+.mg .mg-who-lead{margin:0 0 10px;font-size:13px;font-weight:800;
+  color:var(--mg-navy);line-height:1.6}
+.mg .mg-who-ok{min-width:118px}
+/* 「名前が違う場合は…」 sits below the OK, divided from it, because it is
+   the other answer to the same question and not a footnote to it. */
+.mg .mg-who-ng{margin:13px 0 9px;padding-top:12px;border-top:2px dotted #C9A93A;
+  font-size:12px;font-weight:700;color:#6B5A1E;line-height:1.65}
+.mg .mg-who-redo{font-size:12.5px}
+.mg .mg-who-done{margin:0;font-size:13px;font-weight:800;color:var(--mg-green)}
+.mg .mg-who-done::before{content:'✓';margin-right:6px;font-weight:900}
+
+/* The terms card while the name is still unconfirmed: legible, plainly
+   not yet in use. Not display:none — somebody has to be able to read
+   the terms before they agree to them, and somebody who cannot see what
+   is coming next does not know the OK button leads anywhere. */
+.mg .card.mg-reg-wait{opacity:.72}
+.mg .mg-tick-off{background:#EEF1F6;border-color:#B9C4D4;color:#7A879B;cursor:default}
+.mg .mg-tick-off input{cursor:default}
+.mg .mg-who-why{margin:-5px 0 0;font-size:11.5px;font-weight:700;color:#7A879B}
+
 .mg .mg-reg-done{text-align:center;padding-top:22px}
 .mg .mg-reg-done img{width:120px;height:120px;margin-bottom:10px}
 .mg .mg-reg-done h2{margin:0 0 8px;font-size:19px;font-weight:900;color:var(--mg-navy)}

@@ -307,6 +307,11 @@ export default function EggTab({
           <div className="mg-body">
             <EggSignup
               lang={lang} user={user} dates={p1.dates} img={img}
+              /* 「再度正しい社員番号を入力してください」— the way back to a
+                 field that takes an employee number is the sign-in
+                 screen, so the sign-up needs the same handler the header
+                 uses. */
+              onSignOut={onSignOut}
               offices={p1.officeRows || []}
               api={async (path, method, body) => {
                 try {

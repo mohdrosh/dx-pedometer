@@ -12,7 +12,33 @@
    noticed and added rather than quietly shipped.
    ========================================================================= */
 
+/* ---------------------------------------------------------------------------
+   Added to the JSON after she sent it — 2026/11/05, for the name check on
+   the sign-up. Listed here because the rule above is that the file is her
+   file, so anything of mine in it should be impossible to miss on review.
+
+   Hers, word for word, from the request:
+
+     whoLead   お名前に間違いがなければOKボタンを押してください
+     whoNg     名前が違う場合は、社員番号を確認し、再度正しい社員番号を
+               入力してください
+     whoOk     OK                     ——「OKボタン」, so she named it
+
+   Mine, and the four that need her nod. Two are words lifted straight out
+   of her own two sentences; two I had to write:
+
+     whoNo     社員番号               —— her word, as a field label
+     whoName   お名前                 —— her word, as a field label
+     whoRedo   社員番号を入力し直す      —— the button under 「名前が違う場合
+                                        は…」, from her 再度…入力してください
+     whoDone   お名前を確認しました      —— what the card says once OK is pressed
+     whoErr    はじめにお名前をご確認ください。 —— why the tick-box is greyed
+
+   English throughout is mine: 「日本語が正で、英語は日本語からの訳である」.
+   --------------------------------------------------------------------- */
 import STRINGS from './moraegg-strings.json';
+
+const PENDING_1105 = ['whoNo', 'whoName', 'whoRedo', 'whoDone', 'whoErr'];
 
 /**
  * One string, in the current language.
@@ -21,6 +47,9 @@ import STRINGS from './moraegg-strings.json';
  * 入る」. Missing keys come back as the key itself rather than as an empty
  * space, because an empty space on a screen is a bug nobody reports.
  */
+/** The keys above that she has not signed off yet, for anyone checking. */
+export const pendingKeys = () => PENDING_1105.slice();
+
 export function mg(key, lang = 'ja', vars = null) {
   const row = STRINGS[key];
   if (!row) return key;

@@ -21,9 +21,16 @@ import { HQ_OFFICE } from './egg.js';
 
 const TERMS = ['t1', 't2', 't3', 't4'];
 
-export default function EggSignup({ lang, user, dates, onDone, api, img, offices: rows = [] }) {
+export default function EggSignup({
+  lang, user, dates, onDone, api, img, onSignOut, offices: rows = [],
+}) {
   const t = (k, vars) => mg(k, lang, vars);
   const [step, setStep] = useState(1);
+  /* 佐野, 2026/11/05:「社員番号を間違えて入力する人がいるかもしれないので、
+     モラエッグの参加登録の最初を次のように変えてほしい」— the number is
+     typed, the name it belongs to is shown, and nothing else on the
+     screen works until the person says that name is theirs. */
+  const [idOk, setIdOk] = useState(false);
   const [agreed, setAgreed] = useState(false);
   const [office, setOffice] = useState('');
   const [priv, setPriv] = useState('');
@@ -104,15 +111,70 @@ export default function EggSignup({ lang, user, dates, onDone, api, img, offices
       </ol>
 
       {step === 1 && (
-        <section className="card mg-reg-card">
+        <>
+        {/* 「1. 社員番号を入力する 2. その社員番号の名前を表示する
+            3.『お名前に間違いがなければOKボタンを押してください』と出す
+            4. OKを押したあとでなければ、受け取りの条件に同意するチェックは
+            入れられない」.
+
+            The number itself was typed at the door — signing in is a
+            number and nothing else, so by the time anybody reaches this
+            screen the session already belongs to whoever they typed.
+            What was missing is the part that catches a slip: the name
+            that number belongs to, in front of them, before they agree
+            to anything.
+
+            So if the name is wrong the way on is not forward. 「再度正しい
+            社員番号を入力してください」 means going back to where a number
+            is entered, which is the sign-in screen, and that is what this
+            button does. Letting them retype a number here instead would
+            be worse than useless: the server takes who you are from the
+            session and never from a form, so a second number typed into
+            this page would change the name on the screen and not the
+            person being registered. */}
+        <section className="card mg-reg-card mg-who">
+          <dl className="mg-who-rows">
+            <dt>{t('whoNo')}</dt><dd>{user?.id || '—'}</dd>
+            <dt>{t('whoName')}</dt><dd className="mg-who-name">{user?.name || '—'}</dd>
+          </dl>
+          {idOk ? (
+            <p className="mg-who-done">{t('whoDone')}</p>
+          ) : (
+            <>
+              <p className="mg-who-lead">{t('whoLead')}</p>
+              <button
+                type="button" className="btn primary mg-who-ok"
+                onClick={() => { setIdOk(true); setErr(''); }}
+              >{t('whoOk')}</button>
+              <p className="mg-who-ng">{t('whoNg')}</p>
+              {onSignOut && (
+                <button type="button" className="btn ghost mg-who-redo" onClick={onSignOut}>
+                  {t('whoRedo')}
+                </button>
+              )}
+            </>
+          )}
+        </section>
+
+        <section className={`card mg-reg-card${idOk ? '' : ' mg-reg-wait'}`}>
           <p className="mg-reg-lead">{t('termsLead')}</p>
           <ul className="mg-terms">
             {TERMS.map((k) => <li key={k}>{t(k)}</li>)}
           </ul>
-          <label className="check mg-tick">
-            <input type="checkbox" checked={agreed} onChange={(e) => { setAgreed(e.target.checked); setErr(''); }} />
+          {/* Disabled rather than hidden: a tick-box that is not there
+              yet reads as a page still loading, and one that is there
+              and greyed reads as a thing with a condition on it — which
+              is what it is. The line under it says what the condition
+              is, because a greyed control with no reason given is the
+              other way to lose somebody. */}
+          <label className={`check mg-tick${idOk ? '' : ' mg-tick-off'}`}>
+            <input
+              type="checkbox" checked={agreed} disabled={!idOk}
+              onChange={(e) => { setAgreed(e.target.checked); setErr(''); }}
+            />
             <span>{t('agree')}</span>
           </label>
+          {!idOk && <p className="mg-who-why">{t('whoErr')}</p>}
           {err && <p className="eg-warn sm">{err}</p>}
           <div className="mg-reg-go">
             <button
@@ -122,6 +184,7 @@ export default function EggSignup({ lang, user, dates, onDone, api, img, offices
             <button className="btn ghost" onClick={() => setDone('notNow')}>{t('notNow')}</button>
           </div>
         </section>
+        </>
       )}
 
       {step === 2 && (

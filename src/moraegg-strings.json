@@ -315,6 +315,38 @@
     "ja": "発送した週の金曜日までに受け取ってください。",
     "en": "Please pick them up by Friday of the week they’re shipped."
   },
+  "whoLead": {
+    "ja": "お名前に間違いがなければOKボタンを押してください",
+    "en": "If your name is correct, please press OK."
+  },
+  "whoNg": {
+    "ja": "名前が違う場合は、社員番号を確認し、再度正しい社員番号を入力してください",
+    "en": "If the name is wrong, please check your employee number and enter the correct one."
+  },
+  "whoNo": {
+    "ja": "社員番号",
+    "en": "Employee number"
+  },
+  "whoName": {
+    "ja": "お名前",
+    "en": "Name"
+  },
+  "whoOk": {
+    "ja": "OK",
+    "en": "OK"
+  },
+  "whoRedo": {
+    "ja": "社員番号を入力し直す",
+    "en": "Enter a different employee number"
+  },
+  "whoDone": {
+    "ja": "お名前を確認しました",
+    "en": "Name confirmed"
+  },
+  "whoErr": {
+    "ja": "はじめにお名前をご確認ください。",
+    "en": "Please confirm your name first."
+  },
   "agree": {
     "ja": "上記の条件に同意します",
     "en": "I agree to the terms above"
