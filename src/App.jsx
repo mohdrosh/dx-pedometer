@@ -883,8 +883,10 @@ function TrialForm({ cfg, onDone, onCancel, toast }) {
     onDone({ id: f.id.trim(), name: f.name.trim(), region: f.region, gender: f.gender, email: f.email, trial: true });
   };
 
+  /* Skinned with the sign-in it is reached from, so stepping into お試し登録
+     from モラエッグ does not flip the colours out from under somebody. */
   return (
-    <div className="login">
+    <div className={`login${AT_EGG_DOOR ? ' mg mg-page mg-door' : ''}`}>
       <div className="login-inner">
         <div className="login-top">
           <img className="logo" src={`${import.meta.env.BASE_URL}morabu-logo.png`} alt="" />
@@ -1028,8 +1030,14 @@ function Login({ onLogin, onTrial, lang, setLang, notice, cfg }) {
     if (r?.error) setErr(t(r.error === 'too_many' ? 'tooMany' : 'notFound'));
   };
 
+  /* Somebody arriving by QR code lands here before they land on モラエッグ,
+     and the first screen of a site is part of the site. The markup is the
+     same markup — same fields, same button, same company logo — wearing
+     the egg palette, so there is one sign-in to maintain and not two.
+     `mg` carries the colour variables and the rounded typeface, `mg-page`
+     the cream ground and her dots. */
   return (
-    <div className="login">
+    <div className={`login${AT_EGG_DOOR ? ' mg mg-page mg-door' : ''}`}>
       <div className="login-inner">
         <div className="login-top">
           <img className="logo" src={`${import.meta.env.BASE_URL}morabu-logo.png`} alt={t('company')} />

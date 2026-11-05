@@ -53,6 +53,80 @@ export const MG_CSS = `
   padding-bottom:40px;
 }
 
+/* ---------------------------------------------------------------------------
+   The sign-in screen at /egg.
+
+   The same component as the pedometer's — one sign-in to maintain, not
+   two — wearing モラエッグ's clothes: the cream ground with her dots, navy
+   on sun, the sticker shadow under the card and the button. Nothing is
+   moved and nothing is added, so a person who signs in to both sites
+   finds the fields exactly where they were.
+
+   Every selector starts .login.mg-door rather than .mg-door, and that is
+   not decoration: this stylesheet is concatenated BEFORE the app's own,
+   so at equal specificity the app wins. Plain .mg-door rules lost to
+   .login{background:#fff} and the screen came back unstyled apart from
+   the buttons, which were heavier by accident.
+   --------------------------------------------------------------------- */
+.login.mg-door{
+  border-top:0;
+  /* The ground has to be set here and not left to .mg-page: that rule and
+     .login are both one class, and .login is in the stylesheet that comes
+     second. */
+  background:
+    radial-gradient(var(--mg-dot) 1.6px, transparent 1.7px) 0 0/19px 19px,
+    var(--mg-cream);
+  background-attachment:fixed;
+}
+.login.mg-door .login-inner{
+  max-width:428px;margin:26px auto 34px;padding:26px 24px 28px;
+  background:var(--mg-paper);
+  border:2px solid var(--mg-navy);border-radius:20px;
+  box-shadow:0 5px 0 rgba(11,41,106,.16);
+}
+@media(min-width:600px){ .login.mg-door .login-inner{margin-top:46px} }
+
+/* The company logo stays as it is — this is still モラブ阪神's site — but
+   the language button joins the rest of the furniture. */
+.login.mg-door .lang{
+  background:var(--mg-sun);color:var(--mg-navy);border:2px solid var(--mg-navy);
+  border-radius:999px;padding:4px 13px;font-size:12px;font-weight:800;
+  box-shadow:0 2px 0 rgba(11,41,106,.2);
+}
+.login.mg-door .lang:hover{background:#FFD45E;color:var(--mg-navy);border-color:var(--mg-navy)}
+
+.login.mg-door .login-hello .bubble{
+  background:var(--mg-sky);border:2px solid var(--mg-navy);border-radius:14px;
+  color:var(--mg-navy);font-weight:700;
+}
+.login.mg-door .eyebrow{color:var(--mg-royal);font-weight:800}
+.login.mg-door .login-title h1{font-weight:900;color:var(--mg-navy);letter-spacing:0}
+/* The underline she puts under every heading inside the site. */
+.login.mg-door .login-title h1::after{
+  content:'';display:block;width:2.1em;height:7px;margin-top:7px;border-radius:999px;
+  background:var(--mg-sun);
+}
+
+.login.mg-door .fld>span{color:var(--mg-navy);font-weight:700;font-size:12.5px}
+.login.mg-door .fld input{
+  border:2px solid var(--mg-navy);border-radius:12px;background:#FFFDF6;
+  color:var(--mg-navy);font-weight:700;
+}
+.login.mg-door .fld input:focus{background:#fff;box-shadow:0 0 0 3px rgba(255,198,47,.55)}
+.login.mg-door .fld input::placeholder{color:#9AA7BC;font-weight:600}
+
+.login.mg-door .err{color:#B3261E;font-weight:800}
+.login.mg-door .notice{
+  background:var(--mg-sky);border:2px solid var(--mg-royal);border-radius:12px;
+  color:var(--mg-navy);font-weight:700;padding:9px 12px;
+}
+/* The card ends where its content ends. .login stretches its child to
+   the full height of the viewport, which on the pedometer's edge-to-edge
+   white is invisible and inside a bordered card is a hand's width of
+   nothing above the footer. */
+.login.mg-door{align-items:flex-start}
+.login.mg-door .login-foot{color:#6B7A93;font-weight:600;margin-top:30px;padding-top:0}
+
 /* ------------------------------ the header ------------------------------
    A quiet bar. The first version shouted: a 4px yellow rule under it and
    every control a thick outlined pill, which is a lot of border for three
