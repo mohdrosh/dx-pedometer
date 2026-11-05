@@ -9,6 +9,7 @@ import {
   dowOf, mondayOf, openShipMonday, shipDay, arrivalDay,
   requestDeadline, requestsOpen,
   pickupDeadline, weekInfo, missedFrom, statusOf, dueShip, weekPlan, weekOff,
+  harvestWindow,
 } from '../src/egg-week.js';
 
 let n = 0;
@@ -222,6 +223,24 @@ const ALLOFF = { egg: { weeks: Object.fromEntries(
   Array.from({ length: 40 }, (_, i) => [`2027-0${1 + Math.floor(i / 28)}-01`, { off: true }]),
 ) } };
 is('a hopeless schedule still answers', typeof openShipMonday('2026-12-07', 10, ALLOFF, {}), 'string');
+
+/* --------------- which days' eggs go out on a given Monday ---------------- */
+/* 仕様書 4.2:「前回の締切から今回の締切までに入力されたパック数」. */
+is('an ordinary week is the seven days before it',
+  harvestWindow('2026-11-30', CFG9, {}), { from: '2026-11-23', to: '2026-11-29' });
+/* 勤労感謝の日 on Monday 11/23 pushes that week's deadline to the Tuesday,
+   so the eggs laid on the Monday go out with it. A Monday-to-Monday
+   window would have left them uncounted on the very first shipment. */
+is('a holiday Monday is counted into the week it ships with',
+  harvestWindow('2026-11-23', CFG9, HOL), { from: '2026-11-16', to: '2026-11-23' });
+is('and the week after it starts where that one ended',
+  harvestWindow('2026-11-30', CFG9, HOL), { from: '2026-11-24', to: '2026-11-29' });
+/* No day is counted twice, and none is missed, across a holiday. */
+{
+  const a = harvestWindow('2026-11-23', CFG9, HOL);
+  const b = harvestWindow('2026-11-30', CFG9, HOL);
+  is('the two weeks meet exactly', new Date(b.from) - new Date(a.to), 86400000);
+}
 
 /* ------------------- which week the clock has to decide ------------------ */
 /* 仕様書 5「締切後に配分を確定する」. The run is unattended, so the only

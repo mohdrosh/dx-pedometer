@@ -47,7 +47,7 @@ import {
 } from './src/egg.js';
 import {
   mondayOf, openShipMonday, requestDeadline, requestsOpen, pickupDeadline,
-  weekInfo, shiftDay, statusOf, dueShip, weekPlan,
+  weekInfo, shiftDay, statusOf, dueShip, weekPlan, harvestWindow,
 } from './src/egg-week.js';
 import { allot } from './src/egg-allot.js';
 import { requesterMail, contactMail, adminMail } from './src/egg-mail.js';
@@ -314,8 +314,10 @@ async function runAllot(ship, { packs = null, by = null, dry = false } = {}) {
   const already = await eggWeekRequests(ship);
   if (!dry && already.some((r) => r.pickedUpAt)) return { error: 'already_collected' };
 
-  /* The harvest that ships on this Monday is the week before it. */
-  const harvested = (await eggHarvest(shiftDay(ship, -7), shiftDay(ship, -1)))
+  /* 仕様書 4.2: deadline to deadline, which is not Monday to Monday in a
+     week whose Monday is a holiday. */
+  const span = harvestWindow(ship, cfg, { ...PUBLIC_HOLIDAYS, ...closureMap(cfg, null) });
+  const harvested = (await eggHarvest(span.from, span.to))
     .reduce((a, d) => a + d.packs, 0);
   /* The points this week is decided on are the ones it was first decided
      on: a re-run reads the snapshot rather than the live table, which its
@@ -885,8 +887,9 @@ const server = http.createServer(async (req, res) => {
          today. The two were the same thing under the old Friday deadline;
          they are not on a Monday morning, when the week open for requests
          is this one and the eggs filling it were laid last week. */
-      const harvestFrom = shiftDay(ship, -7);
-      const harvest = await eggHarvest(harvestFrom, shiftDay(ship, -1));
+      const span = harvestWindow(ship, cfg, holidays);
+      const harvestFrom = span.from;
+      const harvest = await eggHarvest(span.from, span.to);
 
       /* Once the week has been decided, every screen stops showing what
          was asked for and starts showing what is coming — the same
@@ -1457,7 +1460,8 @@ const server = http.createServer(async (req, res) => {
       const info = weekInfo(ship, cfg, holidays);
       /* The harvest actually recorded for the week these eggs come from,
          which is what the pack-count box starts at. */
-      const harvested = (await eggHarvest(shiftDay(ship, -7), shiftDay(ship, -1)))
+      const span = harvestWindow(ship, cfg, holidays);
+      const harvested = (await eggHarvest(span.from, span.to))
         .reduce((a, d) => a + d.packs, 0);
       return sendJson(res, 200, {
         ship,

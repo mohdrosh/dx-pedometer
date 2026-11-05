@@ -143,6 +143,32 @@ export function requestDeadline(shipMonday, cfg, holidays = {}) {
 }
 
 /**
+ * The days whose eggs go out on this shipping Monday.
+ *
+ * 仕様書 4.2:「『今週の取れ高』は、前回の締切から今回の締切までに入力された
+ * パック数とする」 — counted deadline to deadline, not Monday to Monday.
+ *
+ * In an ordinary week those are the same seven days and this looks like
+ * a long way round. They come apart exactly when a Monday is a holiday
+ * and the deadline moves to the Tuesday: the eggs laid on that Monday
+ * belong to the shipment that goes out the next morning, and a window
+ * that stopped on the Sunday would leave them out of the count people
+ * are looking at and out of the number the shed confirms. The first
+ * shipment of all, 11/23, is such a week.
+ *
+ * Inclusive of both ends: `to` is the day before this week's deadline,
+ * because the deadline day's own eggs are counted on the day they are
+ * registered, which is after the van has gone.
+ */
+export function harvestWindow(shipMonday, cfg, holidays = {}) {
+  const from = requestDeadline(shift(shipMonday, -7), cfg, holidays).date;
+  const to = shift(requestDeadline(shipMonday, cfg, holidays).date, -1);
+  /* A schedule edited into knots must not ask the database for a range
+     that runs backwards, which returns nothing and reads as "no eggs". */
+  return to < from ? { from, to: from } : { from, to };
+}
+
+/**
  * The shipping week whose request deadline has just passed, or null.
  *
  * 仕様書 5「締切後に配分を確定する」 is a job for the clock, and the clock
