@@ -2185,10 +2185,17 @@ initSchema()
       if (!DRY_RUN && EGG_MAIL_FROM !== MAIL_FROM) {
         /* Said at start-up because the difference between these two is
            the difference between モラエッグ's mail arriving and bouncing,
-           and nobody will think to check it on the morning it matters. */
+           and nobody will think to check it on the morning it matters.
+
+           A test send on 2026/11/05 went out as admin_egg@morabu.com over
+           the pedometer's own login and arrived, so the shared connection
+           is not a warning any more — it is how this is set up. The line
+           still says which login carries the letters, because if that
+           ever stops being accepted this is the one place it is written
+           down. */
         console.log(`  Eggs mail: ${EGG_MAIL_FROM} ${process.env.EGG_SMTP_USER
-          ? `(signed in as ${process.env.EGG_SMTP_USER})`
-          : `(signed in as ${process.env.SMTP_USER || 'nobody'} — the host may refuse this sender)`}`);
+          ? `(its own login, ${process.env.EGG_SMTP_USER})`
+          : `(sent over ${process.env.SMTP_USER || 'no login'})`}`);
       }
       console.log(`  Jobs     : reminder on the 26th, auto-submit on the 2nd, 09:00 JST`);
       console.log(`  Eggs     : the week is decided at its request deadline`);

@@ -66,6 +66,31 @@ export const OFFICE_MIN_DEFAULT = {
   尼崎技術研修所: 4,
 };
 
+/* 所在地 — 仕様書 4.1「事業所名の下に、所在地を小さく表示する」.
+   The seven as the company gave them, 2026/11/05, checked by 佐野.
+
+   Here rather than typed into 事業所の設定 by hand so that every database
+   starts with them — but seeded once and never reasserted, because the
+   screen is where they are maintained from the moment somebody opens it.
+
+   No telephone numbers: this line sits under an office's name while
+   somebody is choosing where to collect, and nobody rings an office to
+   collect eggs from it. The company's list has them if they are ever
+   wanted.
+
+   システム開発事業部 is not among these. It is a Kobe address two doors
+   from 本社 and it is not one of the seven 受取事業所 in her documents,
+   so its people collect at 本社 — confirmed rather than assumed. */
+export const OFFICE_ADDRESS = {
+  [HQ_OFFICE]: '〒650-0034 兵庫県神戸市中央区京町75-1 京町栄光ビルディング9階',
+  [TOKYO_OFFICE]: '〒100-0005 東京都千代田区丸の内2-2-1 岸本ビルヂング3階',
+  大阪: '〒530-0001 大阪府大阪市北区梅田1-11-4-500 大阪駅前第4ビル5階18号',
+  三田: '〒669-1529 兵庫県三田市中央町4-5 三田ビル3階',
+  姫路: '〒670-0964 兵庫県姫路市豊沢町137 姫路センタービル9階',
+  京都: '〒600-8495 京都府京都市下京区四条通油小路西入ル藤本寄町26-1 朝日生命京都第二ビル8階',
+  尼崎技術研修所: '〒661-0976 兵庫県尼崎市潮江1-20-1 アミング潮江イースト4階',
+};
+
 /* 4.1 問1 の最後の選択肢。An office is where you would collect; this is the
    answer from somebody who would not. It is counted and reported like any
    other answer — knowing how many people do not want eggs is the point of

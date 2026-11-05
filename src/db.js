@@ -23,7 +23,7 @@
 ========================================================================== */
 
 import pg from 'pg';
-import { OFFICE_MIN_DEFAULT, EGG_OFFICES } from './egg.js';
+import { OFFICE_MIN_DEFAULT, OFFICE_ADDRESS, EGG_OFFICES } from './egg.js';
 
 const { Pool } = pg;
 
@@ -554,6 +554,32 @@ export async function initSchema() {
     ['DELETE FROM egg_offices WHERE name = $1', [hqOld]],
   ]) {
     await pool.query(q[0], q[1]);
+  }
+
+  /* The addresses, once. Same shape as the minimums above and for the
+     same reason: from the moment this has run they belong to whoever
+     opens 事業所の設定, and a migration that reasserted itself on every
+     restart would undo their work. Only an office with no address yet is
+     given one, so a correction typed in before this ships survives it.
+
+     After the rename and not before it, because 本社 is one of the seven
+     and the row this writes to has to be the one that survives. It does
+     work before — the insert loop above has already created 本社（神戸）
+     by then — but only if you follow three separate steps to see why,
+     and a migration should not need that. */
+  const addrDone = await pool.query("SELECT 1 FROM config WHERE key = 'job:officeAddr1105'");
+  if (!addrDone.rowCount) {
+    for (const [name, address] of Object.entries(OFFICE_ADDRESS)) {
+      await pool.query(
+        "UPDATE egg_offices SET address = $2 WHERE name = $1 AND COALESCE(address, '') = ''",
+        [name, address],
+      );
+    }
+    await pool.query(
+      `INSERT INTO config (key, value) VALUES ('job:officeAddr1105', $1)
+       ON CONFLICT (key) DO NOTHING`,
+      [JSON.stringify(new Date().toISOString())],
+    );
   }
 
   /* The consent used to be a checkbox on the sign-in screen, and signing in
