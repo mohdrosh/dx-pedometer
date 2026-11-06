@@ -255,6 +255,14 @@
     "ja": "EN",
     "en": "日本語"
   },
+  "tabOpen": {
+    "ja": "リクエスト受付中",
+    "en": "Requests open"
+  },
+  "tabPre": {
+    "ja": "受付前",
+    "en": "Not open yet"
+  },
   "tabHome": {
     "ja": "配布状況",
     "en": "Distribution"
@@ -432,8 +440,8 @@
     "en": "Requests for the first delivery open on Sat, Nov 21. The deadline is Tue, Nov 24, 9:00 AM."
   },
   "toHome": {
-    "ja": "配布状況を見る",
-    "en": "See distribution"
+    "ja": "トップページへ",
+    "en": "To the top page"
   },
   "notNowTitle": {
     "ja": "今回は参加しない設定にしました",

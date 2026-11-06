@@ -249,13 +249,44 @@ export default function EggTab({
      anything — the answers are still worth reading, so the screen stays
      and the route to it moves to 管理, where the committee is. */
   const mine4 = p1 && p1.signup;
+
+  /* 佐野, 2026/11/06:「『配布状況』ではなく、『リクエスト受付中』なのか
+     『確定』なのかが、はっきり分かるようにしたいです。確定＝受け付けは終了
+     しました」.
+
+     So the tab says which of those it is, rather than a word that is
+     true in every state and therefore answers nothing. The question a
+     person opens this page with is whether they can still ask for eggs,
+     and now the tab strip answers it before they read a card.
+
+     Four states, not two, because two would make the tab lie twice a
+     week. 確認中 is the gap between the Monday deadline and the Tamba
+     staff's final word — the page already distinguishes it (仕様書 4.7)
+     and a tab reading 確定 above a card reading 確認中 is worse than the
+     word she is replacing. And 受付前 is where the site sits until the
+     21st: neither open nor decided, and not a state 配布状況 described
+     either.
+
+     The last line matters: after the Monday deadline the week is closed
+     but may not be drawn for another three hours, and 受付前 there would
+     be flatly wrong on the one morning everybody looks. */
+  const portalTab = () => {
+    if (!p1) return mg('tabHome', lang);
+    if (p1.open) return mg('tabOpen', lang);
+    if (p1.final) return mg('confirmed', lang);
+    if (p1.decided) return mg('checking', lang);
+    const from = p1.dates?.requestsFrom;
+    if (from && p1.today && p1.today < from) return mg('tabPre', lang);
+    return mg('checking', lang);
+  };
+
   const views = [
     /* 配布状況 and リクエスト were two tabs until 2026/11/06. They were
        built from one component and differed, on most days, by one panel
        — so a person read the same page twice looking for the difference,
        and the thing they came to do was behind a tab that looked like
        the one they were already on. One page now. */
-    ...(mine4 ? [['portal', t('v_portal')]] : []),
+    ...(mine4 ? [['portal', portalTab()]] : []),
     ...(p1 ? [['dish', t('v_dish')]] : []),
     ...(mine4 ? [['settings', t('v_set')]] : []),
     ...(p1?.role?.farm ? [['farm', t('v_farm')]] : []),

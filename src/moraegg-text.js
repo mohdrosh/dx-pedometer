@@ -48,7 +48,21 @@ const PENDING_1105 = ['whoNo', 'whoName', 'whoRedo', 'whoDone', 'whoErr'];
    Her own words for the thing are 「事業所ごとのまとめ」 and 「箱ごとに入れ
    やすいように」; this is a button label, which has to be shorter than
    either, so it says what the paper is for rather than what is on it. */
-const PENDING_1106 = ['boxSheet'];
+const PENDING_1106 = ['boxSheet', 'tabPre'];
+
+/* 2026/11/06, later: the tab now says which state the week is in rather
+   than 配布状況, which she said reads oddly.
+
+   Hers, from the message: リクエスト受付中 (tabOpen) and 確定
+   (confirmed, already in the file). 確認中 (checking) is hers too and
+   already there. Mine, and needing her nod:
+
+     tabPre    受付前  —— before the window opens at all, which is where
+                         the site sits until the 21st and is neither of
+                         the two states she named.
+
+   トップページへ replaced 配布状況を見る on her instruction, so toHome's
+   Japanese is hers and is not listed here. */
 
 /**
  * One string, in the current language.
