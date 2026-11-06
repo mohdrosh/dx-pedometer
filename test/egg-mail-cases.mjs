@@ -5,7 +5,7 @@
    already in 171 inboxes. What matters is that the facts in them are the
    week's facts, and that the letter to somebody who missed out never
    reads like the letter to somebody who did. */
-import { requesterMail, contactMail, adminMail, jpDate } from '../src/egg-mail.js';
+import { requesterMail, adminMail, jpDate } from '../src/egg-mail.js';
 
 let n = 0; let bad = 0;
 const is = (what, got, want) => {
@@ -27,6 +27,7 @@ is('as is a malformed one', jpDate('tomorrow'), '');
 {
   const m = requesterMail({
     name: '佐野 ちいほ', got: 2, office: '本社（神戸）',
+    address: '〒650-0034 兵庫県神戸市中央区京町75-1 京町栄光ビルディング9階',
     arrive: '2026-11-25', pickup: '2026-11-27',
   });
   ok('the subject says how many', m.subject.includes('2パック'), m.subject);
@@ -37,7 +38,12 @@ is('as is a malformed one', jpDate('tomorrow'), '');
     ['how many', '2パック'],
     ['when it arrives', '11月25日（水）'],
     ['the pickup deadline', '11月27日（金）'],
+    /* 佐野, 2026/11/06:「リクエストした方への結果メールにも、受け取る事業所
+       の住所を入れてください」 */
+    ['the address of the office', '京町栄光ビルディング9階'],
   ]) ok(`it says ${what}`, m.body.includes(text), m.body);
+  ok('the address is its own line, under the office name',
+    /受け取り場所：本社（神戸）\n\s+〒650-0034/.test(m.body), JSON.stringify(m.body));
   ok('and never tells them they missed out', !m.body.includes('お届けできません'), m.body);
 }
 
@@ -59,22 +65,27 @@ is('as is a malformed one', jpDate('tomorrow'), '');
     m.body.includes('今回はお届けできませんでした'), m.body);
 }
 
-/* ---- to an office contact ---------------------------------------------- */
+/* ---- an office with no address on file --------------------------------- */
 {
-  const m = contactMail({ office: '大阪', packs: 6, arrive: '2026-11-25', people: 4 });
-  ok('the subject names the office and the count',
-    m.subject.includes('大阪') && m.subject.includes('6パック'), m.subject);
-  ok('the body gives the arrival date', m.body.includes('11月25日（水）'), m.body);
-  ok('and says how many people are coming', m.body.includes('4名'), m.body);
-  /* 「荷物の受け取りは各事業所に任せる」 — so the one thing asked of them
-     is the arrival tick, and the letter says where to do it. */
-  ok('it asks for the arrival to be confirmed', m.body.includes('到着の確認'), m.body);
-  ok('nobody is named to the contact', !m.body.includes('さん'), m.body);
+  const m = requesterMail({
+    name: '山田', got: 1, office: '京都', arrive: '2026-11-25', pickup: '2026-11-27',
+  });
+  ok('the office line still reads cleanly without one',
+    m.body.includes('受け取り場所：京都') && !/受け取り場所：京都\n\s+\n/.test(m.body), m.body);
+  ok('and nothing empty is printed under it',
+    !/^\s+$/m.test(m.body.split('受け取り場所：京都\n')[1]?.split('\n')[0] ?? 'x'), m.body);
 }
+
+/* ---- the letter to an office contact, which is gone -------------------- */
 {
-  const m = contactMail({ office: '京都', packs: 2, arrive: '2026-11-25' });
-  ok('a count of people is left out when it is not known',
-    !m.body.includes('受け取る方'), m.body);
+  /* 佐野, 2026/11/06:「各事業所に卵を受け取る担当者は決まっていない…
+     連絡担当者へのメールも不要です」. Asserted rather than simply deleted,
+     because the way this comes back by accident is somebody restoring an
+     export and nobody noticing a third letter went out. */
+  const mod = await import('../src/egg-mail.js');
+  ok('there is no contact letter to send', typeof mod.contactMail === 'undefined');
+  ok('and no dictionary keys reserved for one',
+    !mod.MAIL_KEYS.some((k) => k.startsWith('mailOffice')), mod.MAIL_KEYS.join(' '));
 }
 
 /* ---- to the administrators --------------------------------------------- */
@@ -116,8 +127,8 @@ is('as is a malformed one', jpDate('tomorrow'), '');
      like. It must not throw: the week is already confirmed by the time
      these run, and an exception here would take the response with it. */
   ok('every letter survives being called empty', !!requesterMail().subject
-    && !!contactMail().subject && !!adminMail().subject);
+    && !!adminMail().subject);
 }
 
-console.log(bad ? `\n  ${bad} of ${n} failed\n` : `  ${n} checks — the three letters say the week's facts\n`);
+console.log(bad ? `\n  ${bad} of ${n} failed\n` : `  ${n} checks — the two letters say the week's facts\n`);
 process.exit(bad ? 1 : 0);

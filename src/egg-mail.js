@@ -3,10 +3,17 @@
 
    Three letters, sent at the moment the Tamba staff press 最終確定:
 
-     requester  did you get eggs, how many, where, when it arrives, when
-                to collect by — and, if not, that next week prefers you
-     contact    how many packs are coming to your office and when
+     requester  did you get eggs, how many, where (with the address),
+                when it arrives, when to collect by — and, if not, that
+                next week prefers you
      admin      the confirmed week, as a table
+
+   There was a third, to each office's 連絡担当者. 佐野, 2026/11/06:
+   「各事業所に卵を受け取る担当者は決まっていないため、事業所宛てに卵を
+   届けるかたちにします。事業所の連絡担当者（名前・メールアドレス）は
+   設定画面から削除してください。連絡担当者へのメールも不要です」— so
+   there is nobody for it to be to, and it is gone rather than left
+   addressed to a role that no longer exists.
 
    ---------------------------------------------------------------------
    佐野へ：このファイルの日本語は、まだ辞書にない文面です。仕様書 6 のとおり
@@ -47,7 +54,8 @@ const SUBJECT = 'モラエッグ';
  * there are eggs at all, then how many and where, then the two dates.
  */
 export function requesterMail({
-  name = '', got = 0, office = '', arrive = '', pickup = '', missed = false,
+  name = '', got = 0, office = '', address = '', arrive = '', pickup = '',
+  missed = false,
 } = {}) {
   const who = name ? `${name} さん` : 'お疲れさまです';
   if (missed || !got) {
@@ -72,37 +80,20 @@ export function requesterMail({
       '',
       '今週のモラエッグが確定しました。',
       '',
+      /* 佐野, 2026/11/06:「リクエストした方への結果メールにも、受け取る
+         事業所の住所を入れてください」. Under the office name and
+         indented, not on the same line: somebody reading this on a
+         phone to find a building wants the address as its own thing to
+         look at, and an office whose address nobody has filled in still
+         prints a clean line rather than a dangling colon. */
       `受け取り場所：${office}`,
+      ...(address ? [`　　　　　　　${address}`] : []),
       `パック数：${packs(got)}`,
       `到着予定：${jpDate(arrive)}`,
       `受け取り期限：${jpDate(pickup)}`,
       '',
       '期限までに受け取りをお願いします。',
     ].join('\n'),
-  };
-}
-
-/**
- * To an office's contact. (mailOfficeSubject / mailOfficeBody)
- *
- * 「その事業所に届くパック数と到着日」 and nothing else — they are not
- * responsible for who gets what, only for the box arriving safely.
- */
-export function contactMail({ office = '', packs: n = 0, arrive = '', people = 0 } = {}) {
-  return {
-    subject: `${SUBJECT}：${office}に${packs(n)}届きます`,
-    body: [
-      'お疲れさまです。',
-      '',
-      `今週のモラエッグを ${office} にお届けします。`,
-      '',
-      `パック数：${packs(n)}`,
-      `到着予定：${jpDate(arrive)}`,
-      people ? `受け取る方：${people}名` : '',
-      '',
-      '到着しましたら、モラエッグの「事務所」画面で到着の確認をお願いします。',
-      '受け取りは今週の金曜日までです。',
-    ].filter((l) => l !== '').join('\n'),
   };
 }
 
@@ -147,6 +138,5 @@ export function adminMail({
 export const MAIL_KEYS = [
   'mailGotSubject', 'mailGotBody',
   'mailMissSubject', 'mailMissBody',
-  'mailOfficeSubject', 'mailOfficeBody',
   'mailAdminSubject', 'mailAdminBody',
 ];

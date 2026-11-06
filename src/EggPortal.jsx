@@ -994,13 +994,14 @@ export default function EggPortal({ d, reload: load, lang, toast, screen = 'all'
             card and a lot of nothing. */}
         {onRequest && (status === 'confirmed' || status === 'picked') && (() => {
           const o = d.offices.find((x) => x.name === mine.office);
-          return o && (o.address || o.contactName) ? (
+          /* The address and nothing else: there is no 連絡担当者 to name
+             since 2026/11/06, and the parcel is simply at the office. */
+          return o && o.address ? (
             <>
               <div className="sechead"><span>{t('whereTo')}</span></div>
               <div className="card eg-where">
                 <b>{o.name}</b>
-                {o.address && <span>{o.address}</span>}
-                {o.contactName && <em>{t('contact')}：{o.contactName}</em>}
+                <span>{o.address}</span>
                 <span className="eg-where-by">{t('pickupBy')} {md(d.week.pickup, lang)}</span>
               </div>
             </>
@@ -1152,6 +1153,13 @@ function WeekResult({ r, lang, t, ship, final = true, withNames = false }) {
                 target="_blank" rel="noreferrer">{mgs('pdf')}</a>
               <a className="btn sm" href={`${apiRoot()}/egg/list.csv?ship=${ship || r.ship}`}
                 download={`${file}.csv`}>{mgs('csv')}</a>
+              {/* 箱に入れる紙. Only once the week is final: the route
+                  refuses a week still 確認中, and a button that returns
+                  an error is worse than one that is not there yet. */}
+              {final && (
+                <a className="btn sm eg-dl-box" href={`${apiRoot()}/egg/list.pdf?ship=${ship || r.ship}`}
+                  download={`${file}.pdf`}>{mgs('boxSheet')}</a>
+              )}
             </div>
             <ul className="eg-res-who">
               <li className="head">
@@ -1698,11 +1706,15 @@ function EggSchedule({ cfg, save, lang, today }) {
   );
 }
 
-export function EggAdmin({ lang, toast, cfg = {}, setCfg, people = [], onDone, today = null }) {
+/* `people` was a prop here, for the 連絡担当者 dropdown. That field went
+   on 2026/11/06 and with it the only reason this screen needed the
+   roster, so the prop went too rather than sitting in the signature
+   suggesting the component still wants it. */
+export function EggAdmin({ lang, toast, cfg = {}, setCfg, onDone, today = null }) {
   const t = useCallback((k) => (HERS[k] ? mg(HERS[k], lang)
     : L[k] ? L[k][lang === 'ja' ? 0 : 1] || L[k][0] : k), [lang]);
   const [offices, setOffices] = useState([]);
-  const [draft, setDraft] = useState({ name: '', address: '', contactId: '', active: true });
+  const [draft, setDraft] = useState({ name: '', address: '', active: true });
   const [busy, setBusy] = useState(false);
   const [last, setLast] = useState(null);
 
@@ -1809,27 +1821,13 @@ export function EggAdmin({ lang, toast, cfg = {}, setCfg, people = [], onDone, t
                     && put({ name: o.name, minPacks: Number(e.target.value) })}
                 />
               </label>
-              <label className="fld"><span>{mg('offContact', lang)}</span>
-                <select
-                  value={o.contactId || ''}
-                  onChange={(e) => put({ name: o.name, contactId: e.target.value })}
-                >
-                  <option value="">—</option>
-                  {people.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}
-                </select>
-              </label>
-              {/* The address the parcel notice goes to. Empty means the
-                  contact's own, from the employee record — which is
-                  right nearly always, and wrong for an office that
-                  wants it in a shared inbox. */}
-              <label className="fld"><span>{mg('offMail', lang)}</span>
-                <input
-                  type="email" defaultValue={o.contactMailOwn || ''}
-                  placeholder={o.contactMail || ''} maxLength={120}
-                  onBlur={(e) => e.target.value !== (o.contactMailOwn || '')
-                    && put({ name: o.name, contactMail: e.target.value })}
-                />
-              </label>
+              {/* 連絡担当者（名前・メールアドレス）was here. 佐野,
+                  2026/11/06:「各事業所に卵を受け取る担当者は決まっていない
+                  ため、事業所宛てに卵を届けるかたちにします。事業所の連絡
+                  担当者（名前・メールアドレス）は設定画面から削除してくだ
+                  さい」. The parcel goes to the office, so there is nobody
+                  to name here, and a field for a person who does not
+                  exist is a question nobody can answer correctly. */}
               <button className="btn ghost sm" onClick={() => drop(o.name)}>{t('remove')}</button>
             </li>
           ))}
@@ -1845,7 +1843,7 @@ export function EggAdmin({ lang, toast, cfg = {}, setCfg, people = [], onDone, t
           />
           <button
             className="btn" disabled={busy || !draft.name.trim()}
-            onClick={async () => { await put(draft); setDraft({ name: '', address: '', contactId: '', active: true }); }}
+            onClick={async () => { await put(draft); setDraft({ name: '', address: '', active: true }); }}
           >{t('add')}</button>
         </div>
       </div>

@@ -51,6 +51,10 @@
     "ja": "PDFで印刷",
     "en": "Print as PDF"
   },
+  "boxSheet": {
+    "ja": "箱に入れる紙（事業所ごと）",
+    "en": "Sheet for each box (one page per office)"
+  },
   "csv": {
     "ja": "CSVでダウンロード",
     "en": "Download CSV"

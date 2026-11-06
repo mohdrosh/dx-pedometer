@@ -142,7 +142,10 @@ function Bars({ rows, total, lead, t }) {
 }
 
 export default function EggTab({
-  user, cfg = {}, setCfg, lang, setLang, toast, people = [], onBack, onSignOut,
+  /* The roster came in here only to fill the 連絡担当者 dropdown on the
+     admin screen. That field is gone, and a page about eggs has no
+     other reason to hold every employee's name. */
+  user, cfg = {}, setCfg, lang, setLang, toast, onBack, onSignOut,
 }) {
   /* 仕様書 6: her dictionary is the Japanese, so a key she has written
      is answered from it and L is only the fallback. */
@@ -361,7 +364,7 @@ export default function EggTab({
       {at === 'admin' && (
         <EggAdmin
           lang={lang} toast={toast} cfg={cfg} setCfg={setCfg}
-          people={people} onDone={loadP1} today={p1?.today || null}
+          onDone={loadP1} today={p1?.today || null}
         />
       )}
 

@@ -3216,7 +3216,7 @@ export default function App() {
           <Styles />
           <EggTab
             user={user} cfg={cfg} setCfg={setCfg} lang={lang} setLang={setLang}
-            toast={toast} people={roster || []}
+            toast={toast}
             onBack={() => { showUrl(false); setMod('steps'); setTab(landingTab(user)); }}
             onSignOut={signOut}
           />

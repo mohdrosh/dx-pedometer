@@ -40,6 +40,16 @@ import STRINGS from './moraegg-strings.json';
 
 const PENDING_1105 = ['whoNo', 'whoName', 'whoRedo', 'whoDone', 'whoErr'];
 
+/* 2026/11/06, for the sheet that goes in each box. Mine, and needing her
+   nod like the five above:
+
+     boxSheet  箱に入れる紙（事業所ごと）  —— the button the 丹波 staff press
+
+   Her own words for the thing are 「事業所ごとのまとめ」 and 「箱ごとに入れ
+   やすいように」; this is a button label, which has to be shorter than
+   either, so it says what the paper is for rather than what is on it. */
+const PENDING_1106 = ['boxSheet'];
+
 /**
  * One string, in the current language.
  *
@@ -48,7 +58,7 @@ const PENDING_1105 = ['whoNo', 'whoName', 'whoRedo', 'whoDone', 'whoErr'];
  * space, because an empty space on a screen is a bug nobody reports.
  */
 /** The keys above that she has not signed off yet, for anyone checking. */
-export const pendingKeys = () => PENDING_1105.slice();
+export const pendingKeys = () => [...PENDING_1105, ...PENDING_1106];
 
 export function mg(key, lang = 'ja', vars = null) {
   const row = STRINGS[key];

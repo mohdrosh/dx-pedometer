@@ -1083,16 +1083,15 @@ export async function eggAudience() {
 /** The offices actually receiving eggs, with the contact who signs for them. */
 export async function eggOfficeRows(activeOnly = false) {
   const { rows } = await pool.query(
-    `SELECT o.name, o.address, o.contact_id AS "contactId", o.note, o.active,
-            o.min_packs AS "minPacks", e.name AS "contactName",
-            /* 仕様書 4.10: the contact is a name and an address. The name
-               is the employee record's; the address is the record's too
-               unless an office has been given one of its own, which is
-               what a shared inbox needs. */
-            COALESCE(NULLIF(o.contact_mail, ''), e.email) AS "contactMail",
-            o.contact_mail AS "contactMailOwn"
+    /* The 連絡担当者 columns are deliberately not selected since
+       2026/11/06. The join that fetched them read an employee's name and
+       email address out of the roster and handed both to every caller of
+       the offices and portal routes — which was the point while a
+       contact existed, and is a person's details travelling for no
+       reason now that one does not. The columns stay in the table; they
+       just stop leaving it. */
+    `SELECT o.name, o.address, o.note, o.active, o.min_packs AS "minPacks"
        FROM egg_offices o
-       LEFT JOIN employees e ON e.id = o.contact_id
       ${activeOnly ? 'WHERE o.active' : ''}
       ORDER BY o.name`,
   );
@@ -1154,12 +1153,24 @@ export async function eggOfficeDelete(name) {
 }
 
 /** Which office this person is the contact for, if any. */
-export async function eggContactFor(employeeId) {
-  const { rows } = await pool.query(
-    'SELECT name FROM egg_offices WHERE contact_id = $1 AND active',
-    [String(employeeId)],
-  );
-  return rows.map((r) => r.name);
+export async function eggContactFor() {
+  /* 佐野, 2026/11/06:「各事業所に卵を受け取る担当者は決まっていないため、
+     事業所宛てに卵を届けるかたちにします」. There is no 連絡担当者 any
+     more, so nobody holds this role and this is empty for everyone.
+
+     Empty rather than deleted, and the contact_id column is left alone
+     with whatever is in it. Two reasons. The rows are a record of who
+     was named while the role existed and deleting them answers a
+     question nobody asked. And the role still has to be *closed*: the
+     screen it unlocked is reached by a privilege check, so if this went
+     on reading the column, an assignment made before today would keep
+     granting a screen that no setting on any page can now show or
+     revoke. A field you cannot see is not a field you can manage.
+
+     The 事務所 screen itself stays, for administrators, who may still
+     need to tick off a collection for somebody. If contacts ever come
+     back, they come back here. */
+  return [];
 }
 
 /* ------------------------------- 収穫 ------------------------------------ */

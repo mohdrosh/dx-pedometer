@@ -40,6 +40,7 @@ import { DEFAULT_CFG, ROSTER_SEED, orderRegions } from './src/defaults.js';
 import { inSubmissionWindow } from './src/submission-window.js';
 import { rulesForPerson, closureMap } from './src/company.js';
 import { xlsxToPdf, pdfReady } from './src/topdf.js';
+import { buildSheet } from './src/egg-sheet.js';
 import {
   cleanVote, eggOpen, eggWindow, eggOffices, tally, EGG_RULES, EGG_NAMES,
   cleanRequest, eggMaxPacks, eggTerms, consentOk, requestTotals,
@@ -50,7 +51,7 @@ import {
   weekInfo, shiftDay, statusOf, dueShip, weekPlan, harvestWindow,
 } from './src/egg-week.js';
 import { allot } from './src/egg-allot.js';
-import { requesterMail, contactMail, adminMail } from './src/egg-mail.js';
+import { requesterMail, adminMail } from './src/egg-mail.js';
 import {
   REACTIONS, PHOTOS_MAX, PHOTO_BYTES, PHOTO_EDGE, THUMB_EDGE,
   cleanPost, cleanComment, cleanReaction, photoOk, badgeFor, topDish, postCounts,
@@ -517,11 +518,16 @@ async function eggMail(ship, cfg, holidays) {
   for (const r of rows) {
     const person = await getEmployee(r.employeeId);
     const reg = await eggSignup(r.employeeId);
+    /* The office they collect from, which for somebody moved to 本社 is
+       not the one they asked at — and its address, so the letter says
+       where to walk to and not only the name of a building. */
+    const at = r.atOffice || r.office;
     const m = requesterMail({
       name: person?.name || '',
       got: r.got || 0,
       missed: !(r.got > 0),
-      office: r.atOffice || r.office,
+      office: at,
+      address: offices.find((x) => x.name === at)?.address || '',
       arrive: info.arrive,
       pickup: info.pickup,
     });
@@ -529,20 +535,10 @@ async function eggMail(ship, cfg, holidays) {
     if (reg?.notifyPriv && reg?.privateMail) await post(reg.privateMail, m);
   }
 
-  /* 「各事業所の連絡担当者へ、その事業所に届くパック数と到着日を送る」. Only
-     the offices actually being shipped to: a contact whose office is not
-     getting a box this week has nothing to do about it. */
-  for (const line of week.lines || []) {
-    if (!(line.packs > 0)) continue;
-    const o = offices.find((x) => x.name === line.office);
-    if (!o?.contactMail) continue;
-    await post(o.contactMail, contactMail({
-      office: line.office,
-      packs: line.packs,
-      arrive: info.arrive,
-      people: (week.list || []).filter((x) => x.office === line.office).length,
-    }));
-  }
+  /* The letter to each office's 連絡担当者 used to go here. 佐野,
+     2026/11/06:「連絡担当者へのメールも不要です」— there is no longer a
+     person at the other end of it, so it is not sent and the paper that
+     replaced it goes in the box instead (/api/egg/list.pdf). */
 
   /* 「管理者向けのメールは会社のアドレスのみに送る。送り先は追って連絡する」
      — so it goes to ADMIN_EMAIL for now, which is where every other
@@ -890,7 +886,7 @@ const server = http.createServer(async (req, res) => {
         admin: false,
         egg: !!person?.egg,
         farm: !!person?.eggFarm,
-        contactFor: await eggContactFor(sess.employeeId),
+        contactFor: await eggContactFor(),
         person,
       };
     };
@@ -986,7 +982,7 @@ const server = http.createServer(async (req, res) => {
            making, and how many packs have been asked for so far — the two
            numbers the 「今週タマゴが届きます！」 verdict is made of. */
         offices: offices.map((o) => ({
-          name: o.name, address: o.address || '', contactName: o.contactName || '',
+          name: o.name, address: o.address || '',
           note: o.note || '', minPacks: o.minPacks || 0,
           asked: requests.filter((r) => r.office === o.name)
             .reduce((a, r) => a + (r.packs || 0), 0),
@@ -1337,17 +1333,14 @@ const server = http.createServer(async (req, res) => {
          it never had on it. */
       const patch = { name };
       if ('address' in (b || {})) patch.address = String(b.address || '').slice(0, 200);
-      if ('contactId' in (b || {})) patch.contactId = b.contactId ? String(b.contactId) : null;
       if ('note' in (b || {})) patch.note = String(b.note || '').slice(0, 200);
       if ('active' in (b || {})) patch.active = b.active !== false;
       if ('minPacks' in (b || {})) patch.minPacks = b.minPacks;
-      if ('contactMail' in (b || {})) {
-        const m = String(b.contactMail || '').trim().slice(0, 120);
-        if (m && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(m)) {
-          return sendJson(res, 400, { error: 'bad_mail' });
-        }
-        patch.contactMail = m || null;
-      }
+      /* contactId and contactMail are no longer taken. 佐野, 2026/11/06:
+         the parcel goes to the office and there is no 連絡担当者 to name,
+         so the fields are off the screen — and off the route too, since
+         a field removed from a form but still accepted by its endpoint
+         is a field that is still there for anyone who posts to it. */
       await eggOfficeSave(patch);
       return sendJson(res, 200, { offices: await eggOfficeRows(false) });
     }
@@ -1442,6 +1435,66 @@ const server = http.createServer(async (req, res) => {
 </body></html>`;
       res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
       res.end(html);
+      return undefined;
+    }
+
+    /**
+     * 箱に入れる紙 — one page per office, as a real PDF.
+     *
+     * 佐野, 2026/11/06:「丹波では、事業所ごとのパック数と、リクエストした人
+     * の一覧を印刷して、荷物の中に入れたいです。最終確定のあと…できれば
+     * 事業所ごとに改ページして、箱ごとに入れやすいように」.
+     *
+     * 丹波 and the administrators, and only after 最終確定 — the whole
+     * point of the two stages is that nothing leaves the building on a
+     * week still marked 確認中, and a sheet printed from a draft is the
+     * one copy nobody would think to check again.
+     */
+    if (url.pathname === '/api/egg/list.pdf' && req.method === 'GET') {
+      if (!sess) return deny(res);
+      const whoNow = await eggWho();
+      if (!whoNow.admin && !whoNow.farm) return deny(res, 403);
+      if (rateLimited(`eggpdf:${sess.sid}`, 20, 3600_000)) {
+        return sendJson(res, 429, { error: 'too_many' });
+      }
+
+      const { cfg, holidays } = await eggCfgNow();
+      const now = tokyoNow();
+      const q = url.searchParams.get('ship');
+      const ship = /^\d{4}-\d{2}-\d{2}$/.test(String(q || ''))
+        ? String(q) : openShipMonday(now.stamp, now.h, cfg, holidays);
+      const week = await weekResult(ship);
+      if (week?.error) return sendJson(res, 409, { error: week.error });
+      if (!week.final) return sendJson(res, 409, { error: 'not_final' });
+
+      const info = weekInfo(ship, cfg, holidays);
+      const book = await buildSheet({
+        ship,
+        arrive: info.arrive,
+        pickup: info.pickup,
+        lines: week.lines || [],
+        list: week.list || [],
+        offices: await eggOfficeRows(false),
+      });
+      if (!book) return sendJson(res, 409, { error: 'nothing_to_ship' });
+
+      let pdf;
+      try {
+        pdf = await xlsxToPdf(book);
+      } catch (e) {
+        /* The machine cannot convert — say which half is missing rather
+           than a bare 500, because the fix is different for each and
+           the person reading this is not standing next to the server. */
+        if (e?.code === 'pdf_unavailable') return sendJson(res, 503, { error: 'pdf_unavailable' });
+        throw e;
+      }
+      res.writeHead(200, {
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': `attachment; filename="moraegg-${ship}.pdf"`,
+        'Content-Length': pdf.length,
+        'Cache-Control': 'no-store',
+      });
+      res.end(pdf);
       return undefined;
     }
 
