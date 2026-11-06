@@ -733,8 +733,13 @@ export const MG_CSS = `
 
 /* 配布 */
 .mg .eg-p2{display:grid}
-.mg .eg-p2-r{order:-1}           /* the chart first on a phone: it is the answer */
-.mg .eg-p2-news{order:9}         /* and the artwork last, under the useful part */
+/* On a phone the person's own column comes first, then the charts.
+   The charts led until 2026/11/06, and on 配布状況 that was right —
+   the chart was the page and the answer. Now that the request form
+   lives here too, leading with them meant a full screen of other
+   people's offices before you reached your own week or the thing you
+   came to do. Desktop is unaffected: there they are side by side. */
+.mg .eg-p2-news{order:9}         /* the artwork last, under the useful part */
 .mg .eg-row2{display:grid;gap:13px}
 .mg .eg-acts{display:flex;gap:9px;flex-wrap:wrap;margin-top:13px}
 .mg .eg-req .fld{margin-top:12px}

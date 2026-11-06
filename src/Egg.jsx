@@ -250,8 +250,12 @@ export default function EggTab({
      and the route to it moves to 管理, where the committee is. */
   const mine4 = p1 && p1.signup;
   const views = [
+    /* 配布状況 and リクエスト were two tabs until 2026/11/06. They were
+       built from one component and differed, on most days, by one panel
+       — so a person read the same page twice looking for the difference,
+       and the thing they came to do was behind a tab that looked like
+       the one they were already on. One page now. */
     ...(mine4 ? [['portal', t('v_portal')]] : []),
-    ...(mine4 ? [['request', t('v_req')]] : []),
     ...(p1 ? [['dish', t('v_dish')]] : []),
     ...(mine4 ? [['settings', t('v_set')]] : []),
     ...(p1?.role?.farm ? [['farm', t('v_farm')]] : []),
@@ -348,13 +352,12 @@ export default function EggTab({
       )}
 
       <div className="mg-body">
+      {/* `all`: what is happening this week and what you do about it, on
+          one screen. No onGo — it crossed to a tab that no longer
+          exists. */}
       {at === 'portal' && (
-        <EggPortal
-          d={p1} reload={loadP1} lang={lang} toast={toast} screen="status"
-          onGo={() => setView('request')}
-        />
+        <EggPortal d={p1} reload={loadP1} lang={lang} toast={toast} screen="all" />
       )}
-      {at === 'request' && <EggPortal d={p1} reload={loadP1} lang={lang} toast={toast} screen="request" />}
       {at === 'settings' && (
         <EggSettings d={p1} reload={loadP1} lang={lang} toast={toast} img={img} />
       )}

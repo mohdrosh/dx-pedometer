@@ -216,6 +216,26 @@ const L = {
   weekTotal: ['今週の累計', 'This week so far'],
   farmNote: ['10個そろったら1パックです。端数は登録しません。本日分のみ修正できます。',
     'One pack is ten eggs. Leftovers are not registered. Only today can be corrected.'],
+  /* Six labels that were being asked of t() without being written in
+     either table, so the 丹波 screen printed the key names — a staff
+     screen reading "fixDay" and "weekSum" in English, eighteen days
+     before the shed has to use it for real. They belong here rather
+     than in her dictionary: 仕様書 6 gives her the employee-facing
+     text, and this table is what it leaves over — 丹波, 事務所, 管理.
+
+     Found by checking every t('…') in this file against both tables
+     rather than by reading the screen, because a key that renders as
+     itself looks like a label until somebody who reads Japanese
+     notices it is not one. */
+  fixDay: ['ほかの日を修正する', 'Correct another day'],
+  fixNote: ['日付を選んで、数を直してください。', 'Pick a day and correct its count.'],
+  weekSum: ['今週の合計', 'This week'],
+  weekAsked: ['リクエスト合計', 'Requested'],
+  fixAdmin: ['数が合わないときは、健康対策委員会にご連絡ください。',
+    'If the numbers do not add up, please tell the committee.'],
+  reasonBad: ['仕事用のときは、理由を入力してください。',
+    'Business requests need a reason.'],
+
   /* Refusals, which she has not written: both are about a correction
      arriving too late or too early to mean anything. */
   fixShut: ['この週は配分が確定したため、修正できません。',
@@ -713,19 +733,20 @@ export default function EggPortal({ d, reload: load, lang, toast, screen = 'all'
             against the left's 555, so the page was as long as its least
             useful half and the answer somebody came for was below the
             fold. */}
-        {/* 「今週のリクエストをする」. 配布状況 is where people land and the
-            request is on the next tab, so the way across is on this
-            screen rather than only in the strip above it — and only
-            while there is a week open to ask for. */}
-        {onGo && d.open && !mine && (
+        {/* 「あと少しで届く事業所があるよ！」 — an office within two packs
+            of its line, which is the week a word to a colleague actually
+            changes.
+
+            This used to hang under a 「今週のリクエストをする」 button that
+            crossed to the リクエスト tab. The tab is gone and so is the
+            button; the nudge is not, because it was never about the
+            button — it is the one line on this page that asks somebody
+            to do something for a colleague rather than for themselves.
+            It sits above the form it is nudging towards. */}
+        {d.open && !mine && (d.offices || []).some((o) => o.minPacks > 0
+          && o.asked > 0 && o.minPacks - o.asked > 0 && o.minPacks - o.asked <= 2) && (
           <div className="eg-go">
-            <button className="btn primary" onClick={onGo}>{mgs('goReq')}</button>
-            {/* 「あと少しで届く事業所があるよ！」 — shown when it is true:
-                an office within two packs of its line, which is the week
-                a word to a colleague actually changes. */}
-            {(d.offices || []).some((o) => o.minPacks > 0
-              && o.asked > 0 && o.minPacks - o.asked > 0 && o.minPacks - o.asked <= 2)
-              && <p className="eg-bub">{mgs('homeBubble')}</p>}
+            <p className="eg-bub">{mgs('homeBubble')}</p>
           </div>
         )}
 
@@ -739,57 +760,6 @@ export default function EggPortal({ d, reload: load, lang, toast, screen = 'all'
               {mgs('resMineText', { a: mine.atOffice || mine.office, b: String(mine.got) })}
             </strong>
           </div>
-        )}
-
-        {/* 今週の結果. Until the deadline the race above is the whole
-            story; once the week is allocated it is history, and what
-            people came to find out is how many packs are coming to them.
-
-            Two headings, because there are two states (仕様書 4.7): the
-            numbers appear as soon as the system has worked them out, but
-            they are 「振り分け結果」 and 「ただいま最終の確認を行っています」
-            until the Tamba staff have checked them. Showing them earlier
-            than that is deliberate — people can see the week moving —
-            and calling them 確定 earlier would not be. */}
-        {d.decided && (
-          <>
-            <div className="sechead">
-              <span>{mgs(d.final ? 'resTitle' : 'resTitleCheck')}</span>
-              {!d.final && <span className="eg-chk">{mgs('checking')}</span>}
-            </div>
-            <div className="card eg-done">
-              <p className="muted sm">{mgs(d.final ? 'resLead' : 'resLeadCheck')}</p>
-              {!d.final && <p className="eg-chk-msg">{mgs('checkingMsg')}</p>}
-              <ul className="eg-res-l">
-                {d.offices.filter((o) => (o.sent || 0) > 0).map((o) => (
-                  <li key={o.name}>
-                    <b>{o.name}</b>
-                    <span className="eg-res-n">{packs(o.sent, lang)}</span>
-                    {o.spare > 0 && (
-                      <small>
-                        {mgs('resHq', { a: String(o.sent - o.spare), b: String(o.spare) })}
-                      </small>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </>
-        )}
-
-        {/* 毎週のルール. Four lines that do not change from week to week,
-            so they sit under the dates that do — and on リクエスト, where
-            somebody is about to act on them. 佐野:「毎週のルールをリクエスト
-            ページに出してほしい」. */}
-        {onRequest && (
-          <>
-            <div className="sechead"><span>{mgs('rules')}</span></div>
-            <div className="card">
-              <ul className="eg-rules">
-                {['r1', 'r2', 'r3', 'r4'].map((k) => <li key={k}>{mgs(k)}</li>)}
-              </ul>
-            </div>
-          </>
         )}
 
         {/* 「今週はお休みです」. About the week people are in, which during
@@ -851,7 +821,10 @@ export default function EggPortal({ d, reload: load, lang, toast, screen = 'all'
                   マイ設定で行う」. It used to be eight buttons here and a
                   different answer every week; the company settled on one
                   registered office, so this reports it rather than asks. */}
-              <div className="eg-q">{t('pickup')}</div>
+              {/* mgs, not t: 受取場所 is in her dictionary and not in the
+                  local table, so t() found nothing and the form showed
+                  the word "pickup" to every employee. */}
+              <div className="eg-q">{mgs('pickup')}</div>
               <div className="eg-req-at">
                 <b>{d.signup?.office || '—'}</b>
                 <span className="muted sm">{mgs('locChange')}</span>
@@ -1008,23 +981,50 @@ export default function EggPortal({ d, reload: load, lang, toast, screen = 'all'
           ) : null;
         })()}
 
-        {onRequest && !!d.history?.length && (
+        {/* 今週の確定結果 and 毎週のルール sit here, under the person's own
+           row, since 配布状況 and リクエスト became one page on
+           2026/11/06. On two tabs they were each near the top of their
+           own; on one page that put the whole company's table and four
+           lines of standing rules between 「あなたの結果」 and 「あなたの
+           申請」, which are the same fact about the same person. The
+           reader's own week reads straight through now, and everybody
+           else's follows it. */}
+        {/* 今週の結果. Until the deadline the race above is the whole
+            story; once the week is allocated it is history, and what
+            people came to find out is how many packs are coming to them.
+
+            Two headings, because there are two states (仕様書 4.7): the
+            numbers appear as soon as the system has worked them out, but
+            they are 「振り分け結果」 and 「ただいま最終の確認を行っています」
+            until the Tamba staff have checked them. Showing them earlier
+            than that is deliberate — people can see the week moving —
+            and calling them 確定 earlier would not be. */}
+        {d.decided && (
           <>
-            <div className="sechead"><span>{t('history')}</span></div>
-            <div className="card">
-              <ul className="eg-hist">
-                {d.history.map((h) => (
-                  <li key={h.ship}>
-                    <span>{md(h.ship, lang)}</span>
-                    <span>{h.office}</span>
-                    <b>{h.got === null ? `${h.packs} ${t('pack')}` : `${h.got}/${h.packs}`}</b>
-                    <em>{t(`st_${h.status || 'received'}`)}</em>
+            <div className="sechead">
+              <span>{mgs(d.final ? 'resTitle' : 'resTitleCheck')}</span>
+              {!d.final && <span className="eg-chk">{mgs('checking')}</span>}
+            </div>
+            <div className="card eg-done">
+              <p className="muted sm">{mgs(d.final ? 'resLead' : 'resLeadCheck')}</p>
+              {!d.final && <p className="eg-chk-msg">{mgs('checkingMsg')}</p>}
+              <ul className="eg-res-l">
+                {d.offices.filter((o) => (o.sent || 0) > 0).map((o) => (
+                  <li key={o.name}>
+                    <b>{o.name}</b>
+                    <span className="eg-res-n">{packs(o.sent, lang)}</span>
+                    {o.spare > 0 && (
+                      <small>
+                        {mgs('resHq', { a: String(o.sent - o.spare), b: String(o.spare) })}
+                      </small>
+                    )}
                   </li>
                 ))}
               </ul>
             </div>
           </>
         )}
+
       </div>
 
       {/* ------------------------------ right ----------------------------- */}
@@ -1060,6 +1060,49 @@ export default function EggPortal({ d, reload: load, lang, toast, screen = 'all'
             </ul>
           </div>
         </div>
+
+        {/* 毎週のルール and これまでの申請 live in this column, under the
+            charts, since the two tabs became one on 2026/11/06.
+
+            They are reference: four lines that never change, and a list
+            of weeks already dealt with. Left where they were, the one
+            column carried the whole page — 1463px against the charts'
+            1068 — so the reader's own week ran on past an empty half of
+            the screen. Reading across now: the left is you, the right is
+            everything else. */}
+        {/* 毎週のルール. Four lines that do not change from week to week,
+            so they sit under the dates that do — and on リクエスト, where
+            somebody is about to act on them. 佐野:「毎週のルールをリクエスト
+            ページに出してほしい」. */}
+        {onRequest && (
+          <>
+            <div className="sechead"><span>{mgs('rules')}</span></div>
+            <div className="card">
+              <ul className="eg-rules">
+                {['r1', 'r2', 'r3', 'r4'].map((k) => <li key={k}>{mgs(k)}</li>)}
+              </ul>
+            </div>
+          </>
+        )}
+
+
+        {onRequest && !!d.history?.length && (
+          <>
+            <div className="sechead"><span>{t('history')}</span></div>
+            <div className="card">
+              <ul className="eg-hist">
+                {d.history.map((h) => (
+                  <li key={h.ship}>
+                    <span>{md(h.ship, lang)}</span>
+                    <span>{h.office}</span>
+                    <b>{h.got === null ? `${h.packs} ${t('pack')}` : `${h.got}/${h.packs}`}</b>
+                    <em>{t(`st_${h.status || 'received'}`)}</em>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </>
+        )}
 
       </div>
 
