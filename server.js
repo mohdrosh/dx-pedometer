@@ -968,7 +968,18 @@ const server = http.createServer(async (req, res) => {
            having them written into the markup twice. */
         dates: {
           signupFrom: cfg.egg?.signupFrom || null,
-          locDeadline: cfg.egg?.locDeadline || null,
+          /* 受取場所の登録締切 is a one-off: the date by which somebody has
+             to have chosen a pickup office before the first shipment.
+             Sent only while it is still ahead of us, so the badge takes
+             itself down on the 18th instead of sitting on two screens
+             announcing a deadline that has passed — which is the kind of
+             thing nobody reports and everybody stops reading.
+
+             Compared on the Tokyo date, like every other date in this
+             app: a badge that vanishes at 09:00 because the server
+             thinks in UTC is worse than one that stays. */
+          locDeadline: cfg.egg?.locDeadline && cfg.egg.locDeadline >= tokyoNow().stamp
+            ? cfg.egg.locDeadline : null,
           requestsFrom: cfg.egg?.requestsFrom || null,
         },
         /* Every office with its address, for the two screens that let
