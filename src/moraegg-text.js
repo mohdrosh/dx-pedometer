@@ -50,6 +50,16 @@ const PENDING_1105 = ['whoNo', 'whoName', 'whoRedo', 'whoDone', 'whoErr'];
    either, so it says what the paper is for rather than what is on it. */
 const PENDING_1106 = ['boxSheet', 'tabPre', 'tHint'];
 
+/* 2026/11/08, for the harvest card. Mine, and needing her nod:
+
+     remainPct  残り{n}%  —— how much of this week's harvest is still
+                           unclaimed, as a share rather than a count.
+                           The pack count is already in her own 「あと{n}
+                           パック余裕があります」 underneath; this is the
+                           same fact at a glance, which is what a number
+                           at the top of a page is for. */
+const PENDING_1108 = ['remainPct'];
+
 /* 2026/11/08: tHint is HERS, and it is the one string on the 丹波 screen
    that had to change rather than one I wanted to add. It read 「10個詰める
    ごとに「＋1パック」を押してください」 — an instruction to press a button
@@ -80,7 +90,7 @@ const PENDING_1106 = ['boxSheet', 'tabPre', 'tHint'];
  * space, because an empty space on a screen is a bug nobody reports.
  */
 /** The keys above that she has not signed off yet, for anyone checking. */
-export const pendingKeys = () => [...PENDING_1105, ...PENDING_1106];
+export const pendingKeys = () => [...PENDING_1105, ...PENDING_1106, ...PENDING_1108];
 
 export function mg(key, lang = 'ja', vars = null) {
   const row = STRINGS[key];

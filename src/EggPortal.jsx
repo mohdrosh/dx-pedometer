@@ -435,6 +435,14 @@ function HarvestVs({ offices, packs, lang, t }) {
   const harvest = Math.max(0, Number(packs) || 0);
   const asked = (offices || []).reduce((a, o) => a + Math.max(0, Number(o.asked) || 0), 0);
   const short = asked > harvest && harvest > 0;
+  /* The same comparison as a share of the week rather than a subtraction.
+     Two numbers side by side say which is bigger; they do not say by how
+     much without arithmetic, and 45% is the answer to the question people
+     are actually asking — is there still room for me. Clamped at both
+     ends: over-requested reads 残り0%, not a negative. */
+  const left = Math.max(0, harvest - asked);
+  const pct = harvest > 0 ? Math.round((left / harvest) * 100) : 0;
+  const used = harvest > 0 ? Math.min(100, (asked / harvest) * 100) : 0;
   return (
     <div className="card eg-hvs">
       <div className="eg-hvs-row">
@@ -454,11 +462,20 @@ function HarvestVs({ offices, packs, lang, t }) {
           <span>{t('pack')}</span>
         </div>
       </div>
-      <p className={`eg-hvs-say${short ? ' warn' : ''}`}>
-        {short ? mgs('short', { n: String(asked - harvest) })
-          : asked === harvest ? mgs('even')
-            : mgs('spare', { n: String(harvest - asked) })}
-      </p>
+      {/* One track, the whole week's harvest. What has been asked for
+          fills it from the left, so what is left over is the empty part —
+          the shape of the answer, under the number that states it. */}
+      <div className={`eg-hvs-bar${short ? ' warn' : ''}`}>
+        <i style={{ width: `${used}%` }} />
+      </div>
+      <div className="eg-hvs-foot">
+        <b className={short ? 'warn' : ''}>{mgs('remainPct', { n: String(pct) })}</b>
+        <p className={short ? 'warn' : ''}>
+          {short ? mgs('short', { n: String(asked - harvest) })
+            : asked === harvest ? mgs('even')
+              : mgs('spare', { n: String(harvest - asked) })}
+        </p>
+      </div>
     </div>
   );
 }
@@ -694,16 +711,14 @@ export default function EggPortal({ d, reload: load, lang, toast, screen = 'all'
             look at, the live dates are what they act on, and swapping the
             picture is how the rule changes when the schedule does.
 
-            初回の受付スタート while the first shipment is the one open, the
-            ordinary weekly card after that. Wide beside a desk, square on
-            a phone: the two are the same drawing laid out for the shape of
-            the screen, so neither is a crop of the other. */}
-        {d.firstRound ? (
-          /* 初回の受付スタート. She drew this one square only, so it is shown
-             square at every width rather than cropped into a banner — the
-             dates are inside the picture and a crop would take them. */
-          <img src={img('first-round')} alt={t('schedHead')} className="mg-pic mg-sched-sq" />
-        ) : (
+            The ordinary weekly card is a wide strip, so it fills this
+            column edge to edge. 初回の受付スタート is square — she drew it
+            that way and the dates are inside it, so it cannot be cropped
+            into a strip — and a square in a 780px column is a picture with
+            a hand's width of empty cream either side of it. That one is
+            shown in the right-hand column instead, under the 対決 banner,
+            where the column is its own width and nothing is left over. */}
+        {!d.firstRound && (
           <picture className="mg-sched-pic">
             <source media="(min-width:620px)" srcSet={img('week-strip')} />
             <img src={img('week-schedule')} alt={t('schedHead')} className="mg-pic mg-sched-sq" />
@@ -1043,57 +1058,15 @@ export default function EggPortal({ d, reload: load, lang, toast, screen = 'all'
           </>
         )}
 
-      </div>
-
-      {/* ------------------------------ right ----------------------------- */}
-      {onStatus && (
-      <div className="eg-p2-r">
-        {/* 佐野:「丹波の取れ高をもっと目立たせてほしい」 — her artwork is the
-            heading, so the harvest announces itself before any number is
-            read. Swappable like the rest: the file is what changes when
-            the schedule does, not this screen. */}
-        <img src={img('harvest-vs')} alt={t('race')} className="mg-pic mg-vs-pic" />
-        {/* The week in one line, then the same week office by office. */}
-        <HarvestVs offices={d.offices} packs={d.harvestPacks} lang={lang} t={t} />
-        <div className="card">
-          <OfficeRace
-            offices={d.offices} packs={d.harvestPacks} lang={lang} t={t} img={img}
-          />
-        </div>
-
-        <div className="sechead"><span>{t('byDay')}</span></div>
-        <div className="card">
-          <Race
-            harvest={d.harvest} week0={d.week0} packs={d.harvestPacks}
-            want={d.totals.packs} today={d.today} lang={lang} t={t} img={img}
-          />
-          {/* 事務所の内訳 used to sit beside this as a list of the same
-              numbers the 事務所対決 above now draws. Two places to read one
-              thing is one too many, so only 目的 stays — it is the one
-              nothing else reports. */}
-          <div>
-            <h3 className="eg-ch">{t('byPurpose')}</h3>
-            <ul className="eg-mini eg-mini2">
-              {d.totals.purposes.map((p) => (
-                <li key={p.id}><span>{lang === 'ja' ? p.ja : p.en}</span><b>{p.count}</b></li>
-              ))}
-            </ul>
-          </div>
-        </div>
-
-        {/* 毎週のルール and これまでの申請 live in this column, under the
-            charts, since the two tabs became one on 2026/11/06.
-
-            They are reference: four lines that never change, and a list
-            of weeks already dealt with. Left where they were, the one
-            column carried the whole page — 1463px against the charts'
-            1068 — so the reader's own week ran on past an empty half of
-            the screen. Reading across now: the left is you, the right is
-            everything else. */}
-        {/* 毎週のルール. Four lines that do not change from week to week,
-            so they sit under the dates that do — and on リクエスト, where
-            somebody is about to act on them. 佐野:「毎週のルールをリクエスト
-            ページに出してほしい」. */}
+        {/* 毎週のルール and これまでの申請: reference, and both of them
+            about YOU — the rules you are about to act on and the weeks
+            you have already had. They sat in the right-hand column from
+            2026/11/06 to 11/08, which balanced the two columns at the
+            time and stopped doing so once the 初回 card joined that side:
+            the charts ran to 1900px against this column's 730 and the
+            left half of the screen was empty from the request form down.
+            Back here, where they are also the better fit for what the
+            column is. */}
         {onRequest && (
           <>
             <div className="sechead"><span>{mgs('rules')}</span></div>
@@ -1104,7 +1077,6 @@ export default function EggPortal({ d, reload: load, lang, toast, screen = 'all'
             </div>
           </>
         )}
-
 
         {onRequest && !!d.history?.length && (
           <>
@@ -1126,6 +1098,64 @@ export default function EggPortal({ d, reload: load, lang, toast, screen = 'all'
 
       </div>
 
+      {/* ------------------------------ right ----------------------------- */}
+      {onStatus && (
+      <div className="eg-p2-r">
+        {/* 佐野:「丹波の取れ高をもっと目立たせてほしい」 — her artwork is the
+            heading, so the harvest announces itself before any number is
+            read. Swappable like the rest: the file is what changes when
+            the schedule does, not this screen. */}
+        <img src={img('harvest-vs')} alt={t('race')} className="mg-pic mg-vs-pic" />
+        {/* 初回の受付スタート, moved here from the left column: square, so
+            it fits the width of this one exactly. The dates printed inside
+            it are repeated live in the 今週の予定 card on the left, which
+            is what the system will actually act on. */}
+        {d.firstRound && (
+          <img src={img('first-round')} alt={t('schedHead')} className="mg-pic mg-first-pic" />
+        )}
+        {/* The week in one line, then the same week office by office. */}
+        <HarvestVs offices={d.offices} packs={d.harvestPacks} lang={lang} t={t} />
+        <div className="card">
+          <OfficeRace
+            offices={d.offices} packs={d.harvestPacks} lang={lang} t={t} img={img}
+          />
+        </div>
+
+
+      </div>
+
+      )}
+
+      {/* 日ごとの取れ高, as a third child of the grid rather than the
+          bottom of either column. The right-hand column carries the 対決
+          banner, 初回の受付スタート, the harvest card and the seven-office
+          table — nearly twice the left column's height, which left the
+          bottom half of the left side as bare cream. CSS puts this one
+          back under the left column at a desk; in the markup it stays
+          after both, so a phone still reads you, then everyone else,
+          then the week's chart. */}
+      {onStatus && (
+        <div className="eg-p2-day">
+          <div className="sechead"><span>{t('byDay')}</span></div>
+          <div className="card">
+            <Race
+              harvest={d.harvest} week0={d.week0} packs={d.harvestPacks}
+              want={d.totals.packs} today={d.today} lang={lang} t={t} img={img}
+            />
+            {/* 事務所の内訳 used to sit beside this as a list of the same
+                numbers the 事務所対決 above now draws. Two places to read
+                one thing is one too many, so only 目的 stays — it is the
+                one nothing else reports. */}
+            <div>
+              <h3 className="eg-ch">{t('byPurpose')}</h3>
+              <ul className="eg-mini eg-mini2">
+                {d.totals.purposes.map((p) => (
+                  <li key={p.id}><span>{lang === 'ja' ? p.ja : p.en}</span><b>{p.count}</b></li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* 丹波の鶏舎だより was here: a photo collage of the coop, under
@@ -1565,7 +1595,11 @@ export function EggOffice({ lang, toast }) {
 
   return (
     <div className="eg-off">
-     <div className="eg-off-l">
+      {/* The pickers run across the top of both columns rather than down
+          a 340px one: seven office names and three weeks in a column that
+          narrow wrapped three-then-four-then-two-then-one, which is ten
+          chips at four different right-hand edges. Full width they are
+          two tidy rows, and both columns below start at the same line. */}
       <div className="card eg-off-bar">
         {d.offices.length > 1 && (
           <div className="eg-opts">
@@ -1588,6 +1622,7 @@ export function EggOffice({ lang, toast }) {
         <span className="muted sm">{t('pickupBy')} {md(d.pickup, lang)}</span>
       </div>
 
+     <div className="eg-off-l">
       <div className="sechead"><span>{t('arrivals')}</span></div>
       <div className="card eg-arr">
         {d.arrival?.arrivedAt

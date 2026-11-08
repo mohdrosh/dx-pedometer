@@ -834,5 +834,9 @@
       "kyoto": "Kyoto",
       "ama": "Amagasaki Technical Training Center"
     }
+  },
+  "remainPct": {
+    "ja": "残り{n}%",
+    "en": "{n}% left"
   }
 }

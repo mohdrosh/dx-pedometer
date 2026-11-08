@@ -34,21 +34,27 @@ export const MG_CSS = `
   --mg-sun:#FFC62F; --mg-leaf:#15860A; --mg-paper:#fff;
   --mg-dot:#F2E6C4; --mg-sky:#EAF0FB;
   --mg-round:14px;
-  /* The sticker shadow: a hard offset in the border colour, no blur. It is
-     what makes a card look stuck on rather than floating. */
-  --mg-pop:0 3px 0 rgba(11,41,106,.16);
+  /* Hairlines. Every border on this page is one of these three, at 1px.
+     They are the palette's own navy, royal and sun let down to the weight
+     a line needs: present when you look for it, silent when you do not. */
+  --mg-line:#E2E7F1; --mg-line-s:#CCD6E8; --mg-line-b:#C4D2EC;
+  --mg-line-y:#F0DCA8;
+  /* The lift: a soft, short shadow. The old one was a hard 3px offset in
+     the border colour, which stuck every card onto the page like a vinyl
+     sticker and is most of what made the site look like an arcade. */
+  --mg-pop:0 1px 2px rgba(11,41,106,.05), 0 6px 16px -8px rgba(11,41,106,.16);
+  --mg-pop-s:0 1px 2px rgba(11,41,106,.05);
   font-family:"Zen Maru Gothic","Noto Sans JP","Hiragino Maru Gothic ProN",
     "Inter",system-ui,sans-serif;
 }
 
-/* The dotted ground, straight off her artwork. Fixed, so it does not slide
-   under the cards as the page scrolls. */
+/* The ground. It used to carry her printed dot screen at 19px, which is
+   charming on a poster and restless behind a page of numbers: the dots
+   sit under every card edge and the whole screen reads as texture.
+   Flat cream instead — the colour is hers, the noise is gone. */
 .mg-page{
   min-height:100vh;
-  background:
-    radial-gradient(var(--mg-dot) 1.6px, transparent 1.7px) 0 0/19px 19px,
-    var(--mg-cream);
-  background-attachment:fixed;
+  background:var(--mg-cream);
   color:var(--mg-navy);
   padding-bottom:40px;
 }
@@ -73,30 +79,27 @@ export const MG_CSS = `
   /* The ground has to be set here and not left to .mg-page: that rule and
      .login are both one class, and .login is in the stylesheet that comes
      second. */
-  background:
-    radial-gradient(var(--mg-dot) 1.6px, transparent 1.7px) 0 0/19px 19px,
-    var(--mg-cream);
-  background-attachment:fixed;
+  background:var(--mg-cream);
 }
 .login.mg-door .login-inner{
   max-width:428px;margin:26px auto 34px;padding:26px 24px 28px;
   background:var(--mg-paper);
-  border:2px solid var(--mg-navy);border-radius:20px;
-  box-shadow:0 5px 0 rgba(11,41,106,.16);
+  border:1px solid var(--mg-line-s);border-radius:20px;
+  box-shadow:var(--mg-pop);
 }
 @media(min-width:600px){ .login.mg-door .login-inner{margin-top:46px} }
 
 /* The company logo stays as it is — this is still モラブ阪神's site — but
    the language button joins the rest of the furniture. */
 .login.mg-door .lang{
-  background:var(--mg-sun);color:var(--mg-navy);border:2px solid var(--mg-navy);
+  background:var(--mg-sun);color:var(--mg-navy);border:1px solid var(--mg-line-s);
   border-radius:999px;padding:4px 13px;font-size:12px;font-weight:800;
-  box-shadow:0 2px 0 rgba(11,41,106,.2);
+  box-shadow:var(--mg-pop-s);
 }
 .login.mg-door .lang:hover{background:#FFD45E;color:var(--mg-navy);border-color:var(--mg-navy)}
 
 .login.mg-door .login-hello .bubble{
-  background:var(--mg-sky);border:2px solid var(--mg-navy);border-radius:14px;
+  background:var(--mg-sky);border:1px solid var(--mg-line-s);border-radius:14px;
   color:var(--mg-navy);font-weight:700;
 }
 .login.mg-door .eyebrow{color:var(--mg-royal);font-weight:800}
@@ -109,7 +112,7 @@ export const MG_CSS = `
 
 .login.mg-door .fld>span{color:var(--mg-navy);font-weight:700;font-size:12.5px}
 .login.mg-door .fld input{
-  border:2px solid var(--mg-navy);border-radius:12px;background:#FFFDF6;
+  border:1px solid var(--mg-line-s);border-radius:12px;background:#FFFDF6;
   color:var(--mg-navy);font-weight:700;
 }
 .login.mg-door .fld input:focus{background:#fff;box-shadow:0 0 0 3px rgba(255,198,47,.55)}
@@ -117,7 +120,7 @@ export const MG_CSS = `
 
 .login.mg-door .err{color:#B3261E;font-weight:800}
 .login.mg-door .notice{
-  background:var(--mg-sky);border:2px solid var(--mg-royal);border-radius:12px;
+  background:var(--mg-sky);border:1px solid var(--mg-line-b);border-radius:12px;
   color:var(--mg-navy);font-weight:700;padding:9px 12px;
 }
 /* The card ends where its content ends. .login stretches its child to
@@ -195,7 +198,7 @@ export const MG_CSS = `
 /* 1 2 3, because a gate with no end in sight is the one people abandon. */
 .mg .mg-steps3{list-style:none;display:flex;gap:7px;margin:0 0 14px;padding:0}
 .mg .mg-steps3 li{flex:1;display:flex;align-items:center;gap:7px;
-  padding:7px 10px;border:2px solid var(--mg-navy);border-radius:999px;
+  padding:7px 10px;border:1px solid var(--mg-line-s);border-radius:999px;
   background:var(--mg-paper);font-size:12px;font-weight:700;color:#6B7A92}
 .mg .mg-steps3 li b{display:inline-flex;align-items:center;justify-content:center;
   width:20px;height:20px;flex:none;border-radius:999px;
@@ -215,16 +218,27 @@ export const MG_CSS = `
    are a list with room, not a paragraph of small print. */
 .mg .mg-terms{list-style:none;margin:0 0 14px;padding:0;display:grid;gap:7px}
 .mg .mg-terms li{position:relative;padding:9px 12px 9px 30px;
-  background:var(--mg-cream);border:2px solid var(--mg-navy);border-radius:11px;
+  background:var(--mg-cream);border:1px solid var(--mg-line-s);border-radius:11px;
   font-size:12.5px;line-height:1.65;color:var(--mg-ink)}
 .mg .mg-terms li::before{content:'✓';position:absolute;left:11px;top:9px;
   font-weight:900;color:var(--mg-green)}
-.mg .mg-reg-offs{margin-bottom:12px}
+/* 受取場所: one office per row, not a wrapped bag of pills. Each one
+   carries a full postal address, so they are rows of very different
+   widths — as chips they ragged down the card at seven different lengths,
+   which is the scattered look. One column, every row the same width, the
+   name over the address. */
+.mg .eg-opts.mg-reg-offs{margin-bottom:12px;display:grid;gap:7px}
+.mg .eg-opts.mg-reg-offs .eg-opt{
+  flex-direction:column;align-items:flex-start;gap:0;
+  border-radius:11px;padding:9px 13px 10px;text-align:left;
+}
+.mg .eg-opts.mg-reg-offs .eg-opt.on::before{position:absolute;right:13px;top:9px}
+.mg .eg-opts.mg-reg-offs .eg-opt{position:relative;padding-right:34px}
 .mg .mg-reg-offs .eg-opt small{display:block;margin-top:2px;font-size:11px;
   font-weight:600;color:#6B7A92}
 .mg .mg-reg-mail{margin:0 0 2px}
 .mg .mg-reg-go{display:flex;gap:9px;flex-wrap:wrap;margin-top:14px;
-  padding-top:13px;border-top:2px dotted #D9CFB0}
+  padding-top:13px;border-top:1px solid var(--mg-line)}
 .mg .mg-reg-go .btn.primary{margin-left:auto}
 
 /* ---- 社員番号の確認 — 佐野 2026/11/05 ------------------------------------
@@ -241,7 +255,7 @@ export const MG_CSS = `
 .mg .mg-who-rows{
   display:grid;grid-template-columns:auto 1fr;gap:4px 14px;
   margin:0 0 12px;padding:10px 13px;
-  background:var(--mg-paper);border:2px solid var(--mg-navy);border-radius:12px;
+  background:var(--mg-paper);border:1px solid var(--mg-line-s);border-radius:12px;
 }
 .mg .mg-who-rows dt{font-size:11.5px;font-weight:800;color:#5A6880;align-self:center}
 .mg .mg-who-rows dd{margin:0;font-size:14px;font-weight:800;color:var(--mg-navy)}
@@ -254,7 +268,7 @@ export const MG_CSS = `
 .mg .mg-who-ok{min-width:118px}
 /* 「名前が違う場合は…」 sits below the OK, divided from it, because it is
    the other answer to the same question and not a footnote to it. */
-.mg .mg-who-ng{margin:13px 0 9px;padding-top:12px;border-top:2px dotted #C9A93A;
+.mg .mg-who-ng{margin:13px 0 9px;padding-top:12px;border-top:1px solid var(--mg-line-y);
   font-size:12px;font-weight:700;color:#6B5A1E;line-height:1.65}
 .mg .mg-who-redo{font-size:12.5px}
 .mg .mg-who-done{margin:0;font-size:13px;font-weight:800;color:var(--mg-green)}
@@ -278,14 +292,14 @@ export const MG_CSS = `
 /* The registered office, reported rather than asked for. */
 .mg .eg-req-at{display:flex;align-items:baseline;gap:11px;flex-wrap:wrap;
   margin:0 0 14px;padding:9px 13px;background:var(--mg-sky);
-  border:2px solid var(--mg-royal);border-radius:11px}
+  border:1px solid var(--mg-line-b);border-radius:11px}
 .mg .eg-req-at b{font-size:16px;font-weight:900;color:var(--mg-navy)}
 .mg .eg-hq{margin-top:12px}
 /* 東京の特例: a request for help, so it reads as a sentence rather than
    as a warning about something going wrong. */
 .mg .eg-tokyo-note{margin:11px 0 0;padding:10px 13px;font-size:12.5px;
   line-height:1.7;font-weight:600;color:var(--mg-navy);
-  background:#FFF6DF;border:2px solid var(--mg-sun);border-radius:11px}
+  background:#FFF6DF;border:1px solid var(--mg-line-y);border-radius:11px}
 
 /* ------------------------------ マイ設定 -------------------------------- */
 .mg .mg-set{max-width:680px}
@@ -293,8 +307,14 @@ export const MG_CSS = `
   color:var(--mg-navy);background:var(--mg-sun);border-radius:999px;padding:3px 12px}
 .mg .mg-set-agreed{margin:0 0 9px;font-size:13px;font-weight:900;color:var(--mg-green)}
 .mg .mg-set-terms{margin-top:11px}
-.mg .mg-set-go{position:sticky;bottom:0;padding:11px 0;background:linear-gradient(
-  to bottom, rgba(254,246,223,0) 0%, var(--mg-cream) 38%)}
+/* The save bar. It was a gradient from transparent to cream, which left
+   whatever it was over half-visible through it — a heading reading
+   through the button is worse than one hidden behind it. Solid cream with
+   a hairline above, so it is a bar and the page clearly ends at it. */
+.mg .mg-set-go{position:sticky;bottom:0;z-index:2;margin-top:4px;
+  padding:12px 0;pointer-events:none}
+.mg .mg-set-go>*{pointer-events:auto}
+.mg .mg-set-go .btn{box-shadow:0 2px 10px rgba(11,41,106,.22)}
 
 /* ------------------------------- the tabs ------------------------------- */
 .mg .eg-sub{
@@ -303,77 +323,84 @@ export const MG_CSS = `
 }
 .mg .eg-sub::-webkit-scrollbar{display:none}
 .mg .eg-sub button{
-  padding:6px 14px 7px;border:2.5px solid var(--mg-navy);border-radius:999px;
+  padding:6px 14px 7px;border:1px solid var(--mg-line-s);border-radius:999px;
   background:var(--mg-paper);color:var(--mg-navy);
   font:inherit;font-size:12.5px;font-weight:700;white-space:nowrap;
-  box-shadow:var(--mg-pop);transition:transform .12s, background .12s;
+  box-shadow:none;transition:background .14s, border-color .14s;
 }
-.mg .eg-sub button:hover{background:var(--mg-sky);transform:translateY(-1px)}
+.mg .eg-sub button:hover{background:var(--mg-sky);border-color:var(--mg-line-b)}
 /* The chosen tab used to carry a solid navy slab under it, which ran into
    the navy border and read as a squared-off bottom on a pill that is round
    everywhere else. A tab that is already chosen has nothing left to press,
    so it is recessed rather than raised: the lift comes off, the shadow goes
    inside, and the bottom edge is just the border again. */
 .mg .eg-sub button.on{
-  background:var(--mg-sun);
-  box-shadow:inset 0 3px 5px rgba(11,41,106,.22), inset 0 -1px 0 rgba(255,255,255,.4);
-  transform:none;
+  background:var(--mg-sun);border-color:#EBC77A;
+  box-shadow:none;transform:none;font-weight:800;
 }
 
 .mg-body{padding:12px 14px 0;max-width:1240px}
 
 /* ------------------------------- the cards ------------------------------ */
-/* One shape for everything: white, a thick navy outline, a hard shadow. */
+/* One shape for everything: white, a hairline, a soft lift. The spacing
+   is a scale, not a guess — 14/16 inside, 12 between — so a column of
+   cards reads as one list rather than a pile of unrelated boxes. */
 .mg .card{
   background:var(--mg-paper);
-  border:2.5px solid var(--mg-navy);border-radius:var(--mg-round);
+  border:1px solid var(--mg-line-s);border-radius:var(--mg-round);
   box-shadow:var(--mg-pop);
-  padding:12px 13px;margin-bottom:11px;
+  padding:14px 16px;margin-bottom:12px;
 }
 .mg .card.soft{background:var(--mg-sky)}
 
-/* A heading is a label stuck to the top of what it names, not a grey bar. */
+/* A heading is a label for what it names. It used to be struck through
+   with a yellow marker-pen gradient, which on a page with a dozen of them
+   reads as highlighter all the way down. The yellow stays, as a short
+   upright tick at the left — an accent you notice once per section. */
 .mg .sechead{
-  display:flex;align-items:baseline;gap:10px;justify-content:space-between;
-  background:none;border:0;padding:0;margin:14px 0 7px;
+  display:flex;align-items:center;gap:10px;justify-content:space-between;
+  background:none;border:0;padding:0;margin:18px 0 9px;
 }
 .mg .sechead:first-child{margin-top:2px}
 .mg .sechead>span:first-child{
-  font-size:13.5px;font-weight:900;color:var(--mg-navy);
-  /* the yellow marker-pen underline */
-  background:linear-gradient(transparent 62%,var(--mg-sun) 62%,var(--mg-sun) 94%,transparent 94%);
-  padding:0 3px;
+  position:relative;padding-left:11px;
+  font-size:13.5px;font-weight:800;color:var(--mg-navy);letter-spacing:.005em;
+}
+.mg .sechead>span:first-child::before{
+  content:'';position:absolute;left:0;top:50%;transform:translateY(-50%);
+  width:3px;height:1.05em;border-radius:2px;background:var(--mg-sun);
 }
 .mg .sechead>span+span{font-size:11.5px;font-weight:700;color:var(--mg-royal)}
 
 /* ------------------------------ the buttons ----------------------------- */
 .mg .btn{
-  padding:7px 15px 8px;border:2.5px solid var(--mg-navy);border-radius:999px;
+  padding:7px 15px 8px;border:1px solid var(--mg-line-s);border-radius:999px;
   background:var(--mg-paper);color:var(--mg-navy);
   font:inherit;font-size:13px;font-weight:700;
-  box-shadow:0 2px 0 var(--mg-navy);transition:transform .07s,box-shadow .07s;
+  box-shadow:var(--mg-pop-s);transition:transform .07s,box-shadow .07s;
 }
-.mg .btn:hover{background:var(--mg-sky);border-color:var(--mg-navy)}
-/* Pressed buttons go down and the shadow goes with them. */
-.mg .btn:active{transform:translateY(2px);box-shadow:0 0 0 var(--mg-navy)}
+.mg .btn:hover{background:var(--mg-sky);border-color:var(--mg-line-b)}
+/* A press moves the button a hair. It used to drop two pixels and lose
+   its shadow, which is an arcade cabinet, not a web page. */
+.mg .btn:active{transform:translateY(1px);box-shadow:none}
 .mg .btn.primary{background:var(--mg-royal);color:#fff}
 .mg .btn.primary:hover{background:#1A449E}
 .mg .btn.ghost{background:var(--mg-paper)}
 .mg .btn.big{width:auto;padding:10px 24px 11px;font-size:14.5px;font-weight:900}
-.mg .btn.sm{padding:4px 11px 5px;font-size:11.5px;box-shadow:0 2px 0 var(--mg-navy)}
-.mg .btn.sm:active{transform:translateY(2px)}
+.mg .btn.sm{padding:4px 11px 5px;font-size:11.5px;box-shadow:var(--mg-pop-s)}
+.mg .btn.sm:active{transform:translateY(1px)}
 .mg .btn:disabled{
   background:#E7E9EE;color:#9AA3B2;border-color:#C3C9D4;
-  box-shadow:0 2px 0 #C3C9D4;cursor:not-allowed;transform:none;
+  box-shadow:none;cursor:not-allowed;transform:none;
 }
-.mg .btn.danger{color:#B3261E;border-color:#B3261E;box-shadow:0 3px 0 #B3261E}
+.mg .btn.danger{color:#B3261E;border-color:#B3261E;box-shadow:var(--mg-pop-s)}
 
 /* ------------------------------- the fields ----------------------------- */
 .mg .fld{margin-bottom:13px}
 .mg .fld>span{font-size:12.5px;font-weight:700;color:var(--mg-navy);margin-bottom:5px}
 .app.mg .fld input,.app.mg .fld select,.app.mg .fld textarea,
 .app.mg .eg-offs-add input,.app.mg .eg-offs-a,.app.mg .eg-offs select{
-  border:2px solid var(--mg-navy);border-radius:10px;background:#FFFDF6;
+  border:1px solid var(--mg-line-s);border-radius:10px;background:#FFFDF6;
   padding:7px 11px;font:inherit;font-size:13.5px;color:var(--mg-navy);outline:none;
 }
 .app.mg .fld input:focus,.app.mg .fld select:focus,.app.mg .fld textarea:focus{
@@ -399,13 +426,13 @@ export const MG_CSS = `
 .mg .check{display:flex;align-items:center;gap:8px;font-size:13.5px;
   font-weight:700;color:var(--mg-navy);cursor:pointer}
 .mg .mg-tick{
-  background:var(--mg-sky);border:2px solid var(--mg-royal);border-radius:12px;
+  background:var(--mg-sky);border:1px solid var(--mg-line-b);border-radius:12px;
   padding:10px 13px;margin:0 0 11px;
 }
 .mg .eg-exp{
   font-style:normal;font-size:10.5px;font-weight:900;margin-left:7px;
   color:var(--mg-navy);background:var(--mg-sun);
-  border:1.5px solid var(--mg-navy);border-radius:999px;padding:1px 7px 2px;
+  border:1px solid var(--mg-line-y);border-radius:999px;padding:1px 7px 2px;
 }
 
 /* ------------------------------- the chips ------------------------------ */
@@ -413,14 +440,14 @@ export const MG_CSS = `
 .mg .eg-opts{display:flex;flex-wrap:wrap;gap:8px}
 .mg .eg-opt{
   display:inline-flex;align-items:center;gap:5px;
-  padding:6px 13px 7px;border:2.5px solid var(--mg-navy);border-radius:999px;
+  padding:6px 13px 7px;border:1px solid var(--mg-line-s);border-radius:999px;
   background:var(--mg-paper);color:var(--mg-navy);
-  font:inherit;font-size:13px;font-weight:700;box-shadow:0 2px 0 var(--mg-navy);
+  font:inherit;font-size:13px;font-weight:700;box-shadow:none;
 }
 .mg .eg-opt:hover{background:var(--mg-sky)}
 .mg .eg-opt.on{background:var(--mg-sun)}
 .mg .eg-opt.on::before{content:"✓";font-weight:900;font-size:13px}
-.mg .eg-opt.none{color:#5B6B86;border-color:#8C96A8;box-shadow:0 2px 0 #8C96A8}
+.mg .eg-opt.none{color:#5B6B86;border-color:#B8C0CD;box-shadow:none}
 .mg .eg-opt.none.on{background:#E7E9EE;color:var(--mg-navy)}
 .mg .eg-opt small{display:block;font-size:10.5px;font-weight:500;opacity:.8}
 
@@ -428,11 +455,11 @@ export const MG_CSS = `
 .mg .eg-rules{display:grid;gap:10px}
 .mg .eg-rule{
   display:grid;gap:2px;text-align:left;padding:12px 14px;
-  border:2.5px solid var(--mg-navy);border-radius:14px;
-  background:var(--mg-paper);box-shadow:0 2px 0 var(--mg-navy);
+  border:1px solid var(--mg-line-s);border-radius:14px;
+  background:var(--mg-paper);box-shadow:none;
 }
-.mg .eg-rule:hover{background:var(--mg-sky)}
-.mg .eg-rule.on{background:var(--mg-sun);box-shadow:0 2px 0 var(--mg-navy)}
+.mg .eg-rule:hover{background:var(--mg-sky);border-color:var(--mg-line-b)}
+.mg .eg-rule.on{background:var(--mg-sun);border-color:var(--mg-line-y);box-shadow:none}
 .mg .eg-rule strong{font-size:13.5px;font-weight:900;color:var(--mg-navy)}
 .mg .eg-rule span{font-size:12.5px;font-weight:500;color:#3E4F6E}
 .mg .eg-rule em{font-style:normal;font-size:11.5px;font-weight:700}
@@ -444,7 +471,7 @@ export const MG_CSS = `
 /* -------------------------------- notices ------------------------------- */
 .mg .eg-anon{
   font-size:12.5px;font-weight:500;color:var(--mg-navy);
-  background:var(--mg-sky);border:2px dashed var(--mg-royal);
+  background:var(--mg-sky);border:1px dashed var(--mg-line-b);
   border-radius:12px;padding:9px 13px;margin:0 0 14px;
 }
 .mg .eg-q{font-size:13.5px;font-weight:900;color:var(--mg-navy);margin:0 0 9px}
@@ -455,7 +482,7 @@ export const MG_CSS = `
 .mg .eg-qnote.lead{color:var(--mg-green)}
 .mg .pill{
   border-radius:999px;font-size:11.5px;font-weight:900;padding:3px 11px 4px;
-  border:2px solid var(--mg-navy);background:var(--mg-paper);color:var(--mg-navy);
+  border:1px solid var(--mg-line-s);background:var(--mg-paper);color:var(--mg-navy);
 }
 .mg .pill.ok{background:var(--mg-leaf);border-color:var(--mg-leaf);color:#fff}
 .mg .pill.warn{background:var(--mg-sun);border-color:var(--mg-navy);color:var(--mg-navy)}
@@ -465,7 +492,7 @@ export const MG_CSS = `
 /* Shown whole, never cropped: each one carries its own words and its own
    background, and a crop would cut the speech bubble off. */
 .mg-pic{display:block;width:100%;height:auto;border-radius:14px;
-  border:2.5px solid var(--mg-navy);box-shadow:var(--mg-pop)}
+  border:1px solid var(--mg-line-s);box-shadow:var(--mg-pop)}
 /* Capped by HEIGHT, not width: the artwork comes square (1400×1400) and
    wide (1600×977), and a width cap that suits one makes the other own the
    screen. Never cropped — the speech bubble is part of the picture. */
@@ -483,7 +510,7 @@ export const MG_CSS = `
    届かなかったら残念賞のメッセージ」 */
 .mg-verdict{
   display:flex;align-items:center;gap:14px;
-  border:3px solid var(--mg-navy);border-radius:var(--mg-round);
+  border:1px solid var(--mg-line-s);border-radius:var(--mg-round);
   padding:13px 16px;margin-bottom:14px;box-shadow:var(--mg-pop);
 }
 .mg-verdict img{width:66px;height:66px;flex:none}
@@ -512,18 +539,25 @@ export const MG_CSS = `
   color:var(--mg-royal);text-align:right}
 .mg .eg-vs-top p.warn{color:#B3261E}
 
-.mg .eg-vs-rows{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.mg .eg-vs-rows{list-style:none;margin:0;padding:0;display:grid;gap:0}
 /* Name, bar and count on one line; the verdict on its own underneath, at
    every width. 佐野's wording is a sentence —「あと2パックでお届け」 — and a
    column narrow enough to sit beside the bar clipped it to 「あと2パックで
    お…」, which is the half that does not say anything. */
-.mg .eg-vs-rows li{display:grid;grid-template-columns:5.6em minmax(0,1fr) 1.8em;
-  grid-template-areas:'n t v' 's s s';align-items:center;gap:2px 9px}
+/* A ruled list, not a stack of free-floating rows. The status used to be
+   right-aligned on its own full-width line, which left every row ending
+   at a different place down the card; it now starts where the bar starts
+   and runs left, so the whole table has two edges and not five. */
+.mg .eg-vs-rows li{display:grid;grid-template-columns:5.6em minmax(0,1fr) 2.4em;
+  grid-template-areas:'n t v' '. s s';align-items:center;gap:3px 10px;
+  padding:9px 0;border-bottom:1px solid var(--mg-line)}
+.mg .eg-vs-rows li:first-child{padding-top:2px}
+.mg .eg-vs-rows li:last-child{border-bottom:0;padding-bottom:2px}
 .mg .eg-vs-n{grid-area:n} .mg .eg-vs-t{grid-area:t} .mg .eg-vs-v{grid-area:v}
 .mg .eg-vs-n{font-size:12.5px;font-weight:900;color:var(--mg-navy);
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .mg .eg-vs-t{position:relative;display:block;height:18px;background:#FFFDF6;
-  border:2px solid var(--mg-navy);border-radius:7px;overflow:hidden}
+  border:1px solid var(--mg-line-s);border-radius:7px;overflow:hidden}
 .mg .eg-vs-t i{display:block;height:100%;background:var(--mg-royal);
   border-radius:0 4px 4px 0;transition:width .45s cubic-bezier(.34,1.3,.64,1)}
 /* The minimum, drawn ON the bar: the distance left to a delivery is then
@@ -535,10 +569,10 @@ export const MG_CSS = `
 .mg .eg-vs-v{font-size:14px;font-weight:900;color:var(--mg-navy);
   font-variant-numeric:tabular-nums;text-align:right}
 .mg .eg-vs-s{grid-area:s;font-style:normal;font-size:11.5px;font-weight:700;
-  color:#5B6B86;text-align:right;margin-bottom:4px}
+  color:#5B6B86;text-align:left}
 .mg .eg-vs-rows li.go .eg-vs-s{color:var(--mg-leaf)}
 @media(max-width:560px){
-  .mg .eg-vs-rows li{grid-template-columns:4.6em minmax(0,1fr) 1.7em}
+  .mg .eg-vs-rows li{grid-template-columns:6.6em minmax(0,1fr) 2.2em}
 }
 @media(prefers-reduced-motion:reduce){.mg .eg-vs-t i{transition:none}}
 
@@ -560,10 +594,14 @@ export const MG_CSS = `
    the height. */
 .mg .mg-sched-pic .mg-sched-sq{max-height:340px}
 @media(min-width:620px){.mg .mg-sched-pic .mg-sched-sq{max-height:140px;width:100%}}
-.mg .eg-sched{padding:10px 12px}
+/* 初回の受付スタート, in the right-hand column since 2026/11/08. That
+   column is its own width (430px at a desk, the screen on a phone), so
+   the square fills it exactly and there is no cream either side. */
+.mg .mg-first-pic{display:block;width:100%;height:auto;margin:0 0 12px}
+.mg .eg-sched{padding:12px 14px}
 .mg .eg-steps{list-style:none;margin:0;padding:0;display:grid;gap:6px}
 .mg .eg-steps li{display:flex;align-items:baseline;gap:9px;
-  padding:5px 10px;border:2px solid var(--mg-navy);border-radius:9px;
+  padding:5px 10px;border:1px solid var(--mg-line-s);border-radius:9px;
   background:var(--mg-paper)}
 .mg .eg-steps li.now{background:var(--mg-sun)}
 .mg .eg-steps em{font-style:normal;font-size:12px;font-weight:900;
@@ -598,7 +636,7 @@ export const MG_CSS = `
 .mg .eg-race-ch{
   position:relative;display:grid;grid-template-columns:repeat(7,1fr);
   gap:6px;height:96px;padding:6px 6px 22px;
-  background:#FFFDF6;border:2.5px solid var(--mg-navy);border-radius:14px;
+  background:#FFFDF6;border:1px solid var(--mg-line-s);border-radius:14px;
 }
 .mg .eg-race-col{display:flex;flex-direction:column;justify-content:flex-end;position:relative}
 .mg .eg-race-track{position:relative;flex:1;border-radius:7px;overflow:hidden}
@@ -619,30 +657,41 @@ export const MG_CSS = `
 .mg .eg-race-col.today em{color:var(--mg-navy);font-weight:900}
 .mg .eg-race-line{
   position:absolute;left:7px;right:7px;height:0;
-  border-top:3px dashed var(--mg-navy);pointer-events:none;
+  border-top:2px dashed rgba(11,41,106,.45);pointer-events:none;
 }
 .mg .eg-race-line b{
   position:absolute;right:0;top:-12px;font-size:11px;font-weight:900;
   color:var(--mg-navy);background:var(--mg-sun);
-  border:2px solid var(--mg-navy);border-radius:999px;padding:1px 9px 2px;
+  border:1px solid var(--mg-line-s);border-radius:999px;padding:1px 9px 2px;
 }
 @media(prefers-reduced-motion:reduce){.mg .eg-race-seg{transition:none}}
 
 /* ------------------------------- the lists ------------------------------ */
 .mg .eg-hist li,.mg .eg-days li,.mg .eg-mini li,.mg .eg-hand li,.mg .eg-offs li{
-  border-top:2px dotted #D9CFB0;font-weight:700;color:var(--mg-navy);
+  border-top:1px solid var(--mg-line);font-weight:700;color:var(--mg-navy);
 }
 .mg .eg-hist li:first-child,.mg .eg-days li:first-child,
 .mg .eg-mini li:first-child,.mg .eg-hand li:first-child,
 .mg .eg-offs li:first-child{border-top:0}
 .mg .eg-mini li,.mg .eg-hist li,.mg .eg-days li{font-size:13px;padding:6px 0}
-/* 目的の内訳 is two rows on its own now. Across rather than down, so it
-   does not read as the start of a longer list. */
-@media(min-width:620px){.mg .eg-mini2{grid-template-columns:1fr 1fr;display:grid;gap:0 20px}}
+/* 目的の内訳 is two figures, not a list. As ruled rows across a wide
+   column they were a label at one edge and a number at the other with
+   400px of nothing between them, which is the scattered look this page
+   was supposed to lose. Two chips instead, sized to their contents.
+   .eg-mini.eg-mini2 and not .eg-mini2 alone: the plain .eg-mini rules
+   set the rule-above and the space-between, and some of them come later
+   in this stylesheet, so at equal weight they would win. */
+.mg .eg-mini.eg-mini2{display:flex;flex-wrap:wrap;gap:8px}
+.mg .eg-mini.eg-mini2 li{
+  display:inline-flex;align-items:baseline;gap:8px;justify-content:flex-start;
+  border-top:0;padding:5px 13px;border-radius:999px;background:var(--mg-sky);
+  font-size:12.5px;
+}
+.mg .eg-mini.eg-mini2 li b{font-size:14px;font-weight:900}
 .mg .eg-days li.on{color:var(--mg-royal)}
 .mg .eg-hand li.done .eg-hand-n{color:#8C96A8}
 .mg .eg-notes li{
-  background:var(--mg-sky);border:2px solid var(--mg-royal);border-radius:10px;
+  background:var(--mg-sky);border:1px solid var(--mg-line-b);border-radius:10px;
   padding:6px 11px;margin-bottom:6px;font-size:12.5px;font-weight:500;
   color:var(--mg-navy);list-style:none;
 }
@@ -662,7 +711,7 @@ export const MG_CSS = `
 .mg .eg-bl{font-size:12px;font-weight:700;color:#3E4F6E;text-align:right;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .mg .eg-bt{display:block;height:16px;background:#FFFDF6;
-  border:2px solid var(--mg-navy);border-radius:6px;overflow:hidden}
+  border:1px solid var(--mg-line-s);border-radius:6px;overflow:hidden}
 .mg .eg-bt i{display:block;height:100%;background:var(--mg-royal);
   border-radius:0 4px 4px 0;transition:width .4s cubic-bezier(.34,1.3,.64,1)}
 .mg .eg-bars li.lead .eg-bt i{background:var(--mg-leaf)}
@@ -712,8 +761,8 @@ export const MG_CSS = `
 .mg-print a span{min-width:0}
 .mg-print a{
   display:flex;align-items:center;gap:11px;text-decoration:none;
-  border:2.5px solid var(--mg-navy);border-radius:14px;padding:9px 13px;
-  background:var(--mg-paper);box-shadow:0 2px 0 var(--mg-navy);color:var(--mg-navy);
+  border:1px solid var(--mg-line-s);border-radius:14px;padding:9px 13px;
+  background:var(--mg-paper);box-shadow:var(--mg-pop-s);color:var(--mg-navy);
 }
 .mg-print a:hover{background:var(--mg-sky)}
 .mg-print img{width:74px;height:auto;border-radius:7px;flex:none}
@@ -800,12 +849,12 @@ export const MG_CSS = `
 .mg .eg-send .fld{width:100%}
 .mg .eg-note-why{margin:-6px 0 0}
 .mg .eg-sv-go{display:flex;align-items:center;gap:15px;flex-wrap:wrap;
-  padding-top:14px;margin-top:4px;border-top:2px dotted #D9CFB0}
+  padding-top:14px;margin-top:4px;border-top:1px solid var(--mg-line)}
 .mg .eg-sv-go p{margin:0;order:2}
 .mg .eg-win{display:block;font-size:12.5px;font-weight:900;color:var(--mg-royal);margin-top:5px}
 .mg .mg-win{display:flex;align-items:center;gap:11px;padding:8px 11px}
 .mg .mg-win-pic{width:46px;height:46px;flex:none;border-radius:10px;
-  border:2px solid var(--mg-navy)}
+  border:1px solid var(--mg-line-s)}
 .mg .mg-win b{font-size:14px;font-weight:900}
 .mg .mg-win p{margin:0;display:inline}
 /* Title, what it is for and the dates on one line apiece rather than a
@@ -851,7 +900,7 @@ export const MG_CSS = `
 
 .mg .eg-n,.mg .eg-n-big{
   font-family:inherit;font-weight:900;color:var(--mg-navy);text-align:right;
-  background:#FFFDF6;border:2px solid var(--mg-navy);border-radius:11px;
+  background:#FFFDF6;border:1px solid var(--mg-line-s);border-radius:11px;
 }
 .mg .eg-n{width:5.2em;padding:5px 9px;font-size:14px}
 /* The one number this screen exists to take, so it is the size of the
@@ -878,15 +927,33 @@ export const MG_CSS = `
 .mg .eg-hvs-side span{font-size:12.5px;font-weight:700;color:#3E4F6E}
 .mg .eg-hvs-vs{flex:none;width:50px;height:50px;border-radius:50%;
   display:flex;align-items:center;justify-content:center;
-  background:var(--mg-sun);border:2.5px solid var(--mg-navy);
+  background:var(--mg-sun);border:1px solid var(--mg-line-s);
   color:var(--mg-navy);font-size:17px;font-weight:900;letter-spacing:.02em;
-  box-shadow:0 2px 0 rgba(11,41,106,.2)}
+  box-shadow:var(--mg-pop-s)}
 /* The sentence that says what the difference means, across the full
    width — it is a sentence, not a caption, and a shortfall says what
    happens next. */
-.mg .eg-hvs-say{margin:12px 0 0;padding-top:11px;border-top:2px dotted #D9CFB0;
-  text-align:center;font-size:13px;font-weight:800;color:var(--mg-green);line-height:1.6}
-.mg .eg-hvs-say.warn{color:#B3261E}
+/* The week as one track: requests fill it from the left, what is left
+   over is the empty part. A dotted rule used to separate the sentence
+   from the numbers; the bar does that job and carries information too. */
+.mg .eg-hvs-bar{position:relative;height:10px;margin:14px 0 9px;border-radius:999px;
+  background:#EDF1F8;border:1px solid var(--mg-line);overflow:hidden}
+.mg .eg-hvs-bar i{display:block;height:100%;background:var(--mg-royal);
+  border-radius:999px 0 0 999px;
+  transition:width .45s cubic-bezier(.34,1.3,.64,1)}
+.mg .eg-hvs-bar.warn i{background:#B3261E}
+@media(prefers-reduced-motion:reduce){.mg .eg-hvs-bar i{transition:none}}
+/* 残り45% at the left, her sentence at the right. Baseline-aligned, so
+   the big number and the sentence sit on one line rather than two blocks
+   of centred text stacked on each other. */
+.mg .eg-hvs-foot{display:flex;align-items:baseline;justify-content:space-between;
+  gap:12px;flex-wrap:wrap}
+.mg .eg-hvs-foot b{font-size:17px;font-weight:900;color:var(--mg-navy);
+  font-variant-numeric:tabular-nums;white-space:nowrap}
+.mg .eg-hvs-foot b.warn{color:#B3261E}
+.mg .eg-hvs-foot p{margin:0;font-size:12.5px;font-weight:700;
+  color:var(--mg-green);line-height:1.55;text-align:right;flex:1 1 11em}
+.mg .eg-hvs-foot p.warn{color:#B3261E}
 
 /* 丹波: the unit beside each day's figure. */
 .mg .eg-day-v{display:inline-flex;align-items:baseline;gap:6px}
@@ -902,7 +969,7 @@ export const MG_CSS = `
    enough that a name has to be grepped before it is used. */
 .mg .eg-hv{display:grid;gap:4px}
 .mg .eg-hv-top{display:flex;align-items:flex-end;gap:20px;flex-wrap:wrap;
-  padding-bottom:11px;margin-bottom:4px;border-bottom:2px dotted #D9CFB0}
+  padding-bottom:11px;margin-bottom:4px;border-bottom:1px solid var(--mg-line)}
 .mg .eg-hv-n{display:flex;align-items:baseline;gap:7px;margin-right:auto}
 .mg .eg-hv-n b{font-size:42px;font-weight:900;color:var(--mg-navy);line-height:1}
 .mg .eg-hv-n span{font-size:14px;font-weight:700;color:#3E4F6E}
@@ -931,7 +998,7 @@ export const MG_CSS = `
 .mg .eg-offs-on{display:flex;align-items:center;gap:5px;font-size:12px;font-weight:700}
 .app.mg .eg-offs-m{text-align:center}
 .mg .eg-offs-add{display:grid;grid-template-columns:6.4em minmax(0,1fr) auto;gap:9px;
-  margin-top:11px;padding-top:11px;border-top:2px dotted #D9CFB0}
+  margin-top:11px;padding-top:11px;border-top:1px solid var(--mg-line)}
 .mg .eg-draw{display:flex;align-items:center;gap:13px;flex-wrap:wrap}
 .mg .eg-draw-r{margin:0;font-size:12.5px;font-weight:700}
 .mg .eg-draw>p.muted{flex:1 1 100%;margin:0}
@@ -952,14 +1019,18 @@ export const MG_CSS = `
    rather than stretching the button it sits in. */
 .mg .eg-opt-loc{display:block;margin-top:2px;font-size:10.5px;font-weight:600;
   line-height:1.35;color:#5B6B86;white-space:normal}
-.mg .eg-opt.on .eg-opt-loc{color:rgba(255,255,255,.85)}
+/* The address on the chosen office. It was white, which is what the chip
+   looked like when the selected state was royal; the selected state is
+   her sun yellow and white on #FFC62F is 1.8:1 — the address went blank
+   the moment it was picked. */
+.mg .eg-opt.on .eg-opt-loc{color:#4A5A74}
 /* 確認中: a quiet badge beside the heading and a line under the lead, so
    the numbers below can be read while it is clear they are not yet an
    answer. Not a warning colour — nothing is wrong, it is just not done. */
 /* 事業所の設定: a card per office, two fields across on a desk and one on
    a phone, so nothing has to be scrolled sideways to be set. */
 .mg .eg-offc{list-style:none;margin:10px 0 0;padding:0;display:grid;gap:10px}
-.mg .eg-offc li{display:grid;grid-template-columns:1fr 1fr;gap:8px 12px;
+.mg .eg-offc li{display:grid;grid-template-columns:minmax(0,1fr) 8.5em auto;gap:8px 12px;
   padding:11px 13px;border-radius:12px;background:var(--mg-sky)}
 .mg .eg-offc li.off{opacity:.6}
 .mg .eg-offc-h{grid-column:1/-1;display:flex;align-items:center;gap:12px}
@@ -970,8 +1041,16 @@ export const MG_CSS = `
 .mg .eg-offc input,.mg .eg-offc select{width:100%;box-sizing:border-box;
   padding:6px 8px;border:1px solid var(--mg-dot);border-radius:8px;font-size:12.5px}
 .mg .eg-offc-m input{width:6em}
-.mg .eg-offc>li>button{grid-column:1/-1;justify-self:end}
-@media(max-width:620px){ .mg .eg-offc li{grid-template-columns:1fr} }
+/* 削除 beside the two fields, not on a line of its own under them. The
+   half-and-half columns gave the address box the same width as a
+   two-digit number and then truncated 「兵庫県神戸市中央区京町75-1 京町栄
+   ビル」 to 「…京町栄」 — the one field on this screen where the whole
+   value matters, since it is what the result mail prints. */
+.mg .eg-offc>li>button{align-self:end;margin-bottom:1px}
+@media(max-width:620px){
+  .mg .eg-offc li{grid-template-columns:minmax(0,1fr) 8.5em}
+  .mg .eg-offc>li>button{grid-column:1/-1;justify-self:end}
+}
 
 /* 発送の確定: two steps, and the second is only reachable once the first
    has happened, so they read down rather than sitting side by side. */
@@ -1044,6 +1123,9 @@ export const MG_CSS = `
   .mg .eg-p2-l{grid-column:1;grid-row:1}
   .mg .eg-p2-news{order:0;grid-column:1;grid-row:2}
   .mg .eg-p2-news .mg-pic{max-height:168px;width:auto}
+  /* 日ごとの取れ高 under the left column, filling the half-screen of cream
+     the right-hand column's extra height used to leave. */
+  .mg .eg-p2-day{grid-column:1;grid-row:2}
   .mg .eg-row2{grid-template-columns:auto minmax(0,1fr);gap:24px}
   .mg .eg-fq-row{grid-template-columns:minmax(0,1.55fr) minmax(0,1fr);
     column-gap:24px;align-items:start}
@@ -1052,6 +1134,8 @@ export const MG_CSS = `
   .mg .eg-two .eg-bars li{grid-template-columns:7em minmax(0,230px) 1.9em}
   .mg .eg-off{grid-template-columns:minmax(0,340px) minmax(0,1fr);
     align-items:start;column-gap:22px}
+  /* The office/week pickers span both columns. */
+  .mg .eg-off>.eg-off-bar{grid-column:1/-1}
   .mg .eg-adm{grid-template-columns:minmax(0,1fr) minmax(0,430px);
     align-items:start;column-gap:22px}
   /* 丹波: the week and the shipping decision on the left — that is the
@@ -1063,6 +1147,9 @@ export const MG_CSS = `
   .mg .ad-set,.mg .eg-admin{grid-template-columns:1fr 1fr;gap:4px 14px}
   .mg .ad-set .fld:last-child{grid-column:span 2}
   .mg .eg-admin>p{grid-column:span 2;margin:0}
+  /* 保存 is a button, not a field: it takes the width of its own words
+     rather than half the card. */
+  .mg .eg-admin>.btn{justify-self:start}
 }
 
 /* ======================= 料理写真のタイムライン ==========================
