@@ -1096,6 +1096,37 @@ export default function EggPortal({ d, reload: load, lang, toast, screen = 'all'
           </>
         )}
 
+        {/* 日ごとの取れ高. It lived in the right-hand column, then for a
+            few hours in a grid row of its own under this one — which was
+            wrong: the right column spans both rows, so its height is shared
+            out between them, and on a quiet week (no harvest, no requests)
+            that pushed this card half a screen below the card above it.
+            A grid row cannot be told to hug the row above when something
+            else spans it, so the chart simply belongs to this column. */}
+        {onStatus && (
+          <>
+            <div className="sechead"><span>{t('byDay')}</span></div>
+            <div className="card">
+              <Race
+                harvest={d.harvest} week0={d.week0} packs={d.harvestPacks}
+                want={d.totals.packs} today={d.today} lang={lang} t={t} img={img}
+              />
+              {/* 事務所の内訳 used to sit beside this as a list of the same
+                  numbers the 事務所対決 above now draws. Two places to read
+                  one thing is one too many, so only 目的 stays — it is the
+                  one nothing else reports. */}
+              <div>
+                <h3 className="eg-ch">{t('byPurpose')}</h3>
+                <ul className="eg-mini eg-mini2">
+                  {d.totals.purposes.map((p) => (
+                    <li key={p.id}><span>{lang === 'ja' ? p.ja : p.en}</span><b>{p.count}</b></li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </>
+        )}
+
       </div>
 
       {/* ------------------------------ right ----------------------------- */}
@@ -1124,38 +1155,6 @@ export default function EggPortal({ d, reload: load, lang, toast, screen = 'all'
 
       </div>
 
-      )}
-
-      {/* 日ごとの取れ高, as a third child of the grid rather than the
-          bottom of either column. The right-hand column carries the 対決
-          banner, 初回の受付スタート, the harvest card and the seven-office
-          table — nearly twice the left column's height, which left the
-          bottom half of the left side as bare cream. CSS puts this one
-          back under the left column at a desk; in the markup it stays
-          after both, so a phone still reads you, then everyone else,
-          then the week's chart. */}
-      {onStatus && (
-        <div className="eg-p2-day">
-          <div className="sechead"><span>{t('byDay')}</span></div>
-          <div className="card">
-            <Race
-              harvest={d.harvest} week0={d.week0} packs={d.harvestPacks}
-              want={d.totals.packs} today={d.today} lang={lang} t={t} img={img}
-            />
-            {/* 事務所の内訳 used to sit beside this as a list of the same
-                numbers the 事務所対決 above now draws. Two places to read
-                one thing is one too many, so only 目的 stays — it is the
-                one nothing else reports. */}
-            <div>
-              <h3 className="eg-ch">{t('byPurpose')}</h3>
-              <ul className="eg-mini eg-mini2">
-                {d.totals.purposes.map((p) => (
-                  <li key={p.id}><span>{lang === 'ja' ? p.ja : p.en}</span><b>{p.count}</b></li>
-                ))}
-              </ul>
-            </div>
-          </div>
-        </div>
       )}
 
       {/* 丹波の鶏舎だより was here: a photo collage of the coop, under

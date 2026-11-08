@@ -508,9 +508,6 @@ export const MG_CSS = `
    wide (1600×977), and a width cap that suits one makes the other own the
    screen. Never cropped — the speech bubble is part of the picture. */
 .mg-strip{margin-bottom:12px;max-height:150px;width:auto;max-width:100%}
-/* The 鶏舎だより is a picture, not a page: capped like the rest of her
-   artwork so it stops owning the bottom half of the column. */
-.mg .eg-p2-news .mg-pic{width:100%}
 /* Two full-width pictures stacked on a phone is half a screen of scrolling
    for decoration. The one at the top goes; the 鶏舎だより below stays,
    because it is the one carrying news. */
@@ -802,7 +799,6 @@ export const MG_CSS = `
    lives here too, leading with them meant a full screen of other
    people's offices before you reached your own week or the thing you
    came to do. Desktop is unaffected: there they are side by side. */
-.mg .eg-p2-news{order:9}         /* the artwork last, under the useful part */
 .mg .eg-row2{display:grid;gap:13px}
 .mg .eg-acts{display:flex;gap:9px;flex-wrap:wrap;margin-top:13px}
 .mg .eg-req .fld{margin-top:12px}
@@ -1129,14 +1125,13 @@ export const MG_CSS = `
   /* The harvest, the race and the day-by-day chart all live on the right
      now, which left that column half as long again as the other. The
      coop news moves under the request side, where there was room. */
-  .mg .eg-p2{grid-template-rows:min-content auto}
-  .mg .eg-p2-r{order:0;grid-column:2;grid-row:1/-1}
-  .mg .eg-p2-l{grid-column:1;grid-row:1}
-  .mg .eg-p2-news{order:0;grid-column:1;grid-row:2}
-  .mg .eg-p2-news .mg-pic{max-height:168px;width:auto}
-  /* 日ごとの取れ高 under the left column, filling the half-screen of cream
-     the right-hand column's extra height used to leave. */
-  .mg .eg-p2-day{grid-column:1;grid-row:2}
+  /* Two columns, one row. There used to be a second row for the 鶏舎
+     だより and then for the day chart; a row-spanning right column has
+     its height shared out across every intrinsic row it spans, so the
+     second row opened a gap under the left column whenever the right one
+     was the taller. Both have gone back into their own columns. */
+  .mg .eg-p2-r{order:0;grid-column:2}
+  .mg .eg-p2-l{grid-column:1}
   .mg .eg-row2{grid-template-columns:auto minmax(0,1fr);gap:24px}
   .mg .eg-fq-row{grid-template-columns:minmax(0,1.55fr) minmax(0,1fr);
     column-gap:24px;align-items:start}
