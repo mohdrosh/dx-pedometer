@@ -98,6 +98,17 @@ export const MG_CSS = `
 }
 .login.mg-door .lang:hover{background:#FFD45E;color:var(--mg-navy);border-color:var(--mg-navy)}
 
+/* The character is a picture here, not the MoraBot component, so it
+   sizes by its own aspect ratio rather than the 104x118 box the SVG is
+   given. Height-capped: it is taller than it is wide. */
+.login.mg-door .login-hello{align-items:flex-end;gap:12px;margin:10px 0 10px}
+.login.mg-door .login-hello .mg-door-bot{
+  width:auto;height:150px;flex:0 0 auto;align-self:flex-end;
+}
+@media(max-width:600px){
+  .login.mg-door .login-hello{gap:9px}
+  .login.mg-door .login-hello .mg-door-bot{height:112px}
+}
 .login.mg-door .login-hello .bubble{
   background:var(--mg-sky);border:1px solid var(--mg-line-s);border-radius:14px;
   color:var(--mg-navy);font-weight:700;

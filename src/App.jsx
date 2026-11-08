@@ -1049,7 +1049,24 @@ function Login({ onLogin, onTrial, lang, setLang, notice, cfg }) {
         <MaintenanceBanner cfg={cfg} />
 
         <div className="login-hello">
-          <MoraBot pose="hello" title={t('botAlt')} />
+          {/* モラエッグ's own character on the egg door, モラボット on the
+              others. The two sites share this one sign-in component, and
+              until now both wore モラボット — which is the pedometer's
+              mascot and nothing to do with eggs, so the first thing a
+              person saw at /egg was the wrong character.
+
+              alt is empty on purpose: the bubble beside it carries the
+              greeting in words, so the picture is decoration and a screen
+              reader naming it would only read the mascot twice. */}
+          {AT_EGG_DOOR
+            ? (
+              <img
+                className="mbot mg-door-bot"
+                src={`${import.meta.env.BASE_URL}moraegg/bot-hello.webp`}
+                alt=""
+              />
+            )
+            : <MoraBot pose="hello" title={t('botAlt')} />}
           <p className="bubble">{t(AT_EGG_DOOR ? 'eggDoorHello' : AT_MYPAGE_DOOR ? 'mypageHello' : 'botHello')}</p>
         </div>
 
