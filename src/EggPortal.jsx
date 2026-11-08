@@ -420,6 +420,49 @@ function Race({ harvest, week0, packs, want, today, lang, t, img }) {
    column beside it, so "how far is this office from a delivery" is a
    distance you can see instead of a subtraction you have to do.
 --------------------------------------------------------------------------- */
+/**
+ * 丹波の取れ高 vs みんなのリクエスト — the week in one line.
+ *
+ * It was the header of the office table, sharing a card with seven bars,
+ * and it is the question most people open the page to ask: is there
+ * enough, and how much is left. Its own card, the two numbers either side
+ * of her VS badge, and underneath the one sentence that says what the
+ * difference means — 「{n}パック余裕があります」, 「ちょうど同じです」, or the
+ * shortfall, which also says what happens next.
+ */
+function HarvestVs({ offices, packs, lang, t }) {
+  const mgs = (k, vars) => mg(k, lang, vars);
+  const harvest = Math.max(0, Number(packs) || 0);
+  const asked = (offices || []).reduce((a, o) => a + Math.max(0, Number(o.asked) || 0), 0);
+  const short = asked > harvest && harvest > 0;
+  return (
+    <div className="card eg-hvs">
+      <div className="eg-hvs-row">
+        <div className="eg-hvs-side">
+          <em>{t('harvestNow')}</em>
+          <b>{harvest}</b>
+          <span>{t('pack')}</span>
+        </div>
+        {/* A VS badge, not a mascot: the two numbers are being compared
+            and the thing between them should say so. Which way the
+            comparison went is the sentence underneath, in her words,
+            rather than a picture the reader has to interpret. */}
+        <span className="eg-hvs-vs" aria-hidden="true">VS</span>
+        <div className="eg-hvs-side">
+          <em>{mgs('reqTotal')}</em>
+          <b>{asked}</b>
+          <span>{t('pack')}</span>
+        </div>
+      </div>
+      <p className={`eg-hvs-say${short ? ' warn' : ''}`}>
+        {short ? mgs('short', { n: String(asked - harvest) })
+          : asked === harvest ? mgs('even')
+            : mgs('spare', { n: String(harvest - asked) })}
+      </p>
+    </div>
+  );
+}
+
 function OfficeRace({ offices, packs, lang, t, img }) {
   const mgs = (k, vars) => mg(k, lang, vars);
   const rows = (offices || []).map((o) => ({
@@ -440,29 +483,6 @@ function OfficeRace({ offices, packs, lang, t, img }) {
 
   return (
     <div className="eg-vs">
-      <div className="eg-vs-top">
-        <img src={img(harvest > 0 && asked > harvest ? 'cross' : 'basket')} alt="" />
-        <div>
-          <em>{t('harvestNow')}</em>
-          <b>{harvest}</b>
-          <span>{t('pack')}</span>
-        </div>
-        {/* 取れ高とリクエストの差を、彼女の3つの言い方で。A percentage said
-            how close it was; these say what it means — and the short one
-            says what happens next, which is the question a shortfall
-            actually raises. */}
-        {/* Harvest and request total side by side — they are the two
-            halves of the 対決 — and the verdict under both, where it has
-            the width for a sentence. */}
-        <span className="eg-vs-req"><em>{mgs('reqTotal')}</em><b>{asked}</b></span>
-        <p className={asked > harvest && harvest > 0 ? 'warn' : ''}>
-          {asked > harvest
-            ? mgs('short', { n: String(asked - harvest) })
-            : asked === harvest ? mgs('even')
-              : mgs('spare', { n: String(harvest - asked) })}
-        </p>
-      </div>
-
       <ul className="eg-vs-rows">
         {ranked.map((r) => {
           const met = r.min === 0 || r.asked >= r.min;
@@ -1033,6 +1053,8 @@ export default function EggPortal({ d, reload: load, lang, toast, screen = 'all'
             read. Swappable like the rest: the file is what changes when
             the schedule does, not this screen. */}
         <img src={img('harvest-vs')} alt={t('race')} className="mg-pic mg-vs-pic" />
+        {/* The week in one line, then the same week office by office. */}
+        <HarvestVs offices={d.offices} packs={d.harvestPacks} lang={lang} t={t} />
         <div className="card">
           <OfficeRace
             offices={d.offices} packs={d.harvestPacks} lang={lang} t={t} img={img}
@@ -1106,15 +1128,11 @@ export default function EggPortal({ d, reload: load, lang, toast, screen = 'all'
 
       )}
 
-      {/* News from the coop, and the only thing on this screen nobody is
-          here to do. On a phone it goes to the bottom, under the dates and
-          the request; beside them on a desk, where it costs nothing. */}
-      {onStatus && (
-      <div className="eg-p2-news">
-        <div className="sechead"><span>{t('coopNews')}</span></div>
-        <img src={img('coop-news')} alt="" className="mg-pic" />
-      </div>
-      )}
+      {/* 丹波の鶏舎だより was here: a photo collage of the coop, under
+          everything useful. It is the one thing on the page nobody opened
+          it for, and on a screen that now carries the week, the request
+          and the result it was simply length. The artwork still lives in
+          public/moraegg if she wants it somewhere else. */}
     </div>
   );
 }
@@ -1439,7 +1457,10 @@ export function EggFarm({ lang, toast }) {
             {d.harvest.map((h) => (
               <li key={h.day} className={h.day === todayIso ? 'on' : ''}>
                 <span>{md(h.day, lang)}</span>
-                {packBox(h.day, h.packs)}
+                {/* The unit on every row, not only on the total. A column
+                    of bare numerals beside a column of dates reads as a
+                    form; 「3 パック」 reads as the week. */}
+                <span className="eg-day-v">{packBox(h.day, h.packs)}<i>{t('pack')}</i></span>
               </li>
             ))}
             {!d.harvest.length && <li className="muted"><span>{t('noneYet')}</span><b>0</b></li>}

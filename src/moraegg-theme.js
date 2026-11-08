@@ -862,6 +862,36 @@ export const MG_CSS = `
 .mg .eg-n:disabled,.mg .eg-n-big:disabled{
   background:#EEF1F6;border-color:#B9C4D4;color:#7A879B}
 
+/* 丹波の取れ高 vs みんなのリクエスト — its own card on 配布状況.
+
+   The two numbers are the same size and the same weight because the
+   whole point is the comparison; making the harvest larger would answer
+   the question before the reader has looked. */
+.mg .eg-hvs{padding:15px 16px}
+.mg .eg-hvs-row{display:flex;align-items:center;justify-content:center;gap:clamp(10px,4vw,34px)}
+.mg .eg-hvs-side{display:flex;flex-direction:column;align-items:center;gap:1px;
+  flex:1 1 0;min-width:0}
+.mg .eg-hvs-side em{font-style:normal;font-size:12px;font-weight:700;color:#5B6B86;
+  text-align:center;line-height:1.3}
+.mg .eg-hvs-side b{font-size:clamp(34px,9vw,46px);font-weight:900;color:var(--mg-navy);
+  line-height:1.05}
+.mg .eg-hvs-side span{font-size:12.5px;font-weight:700;color:#3E4F6E}
+.mg .eg-hvs-vs{flex:none;width:50px;height:50px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  background:var(--mg-sun);border:2.5px solid var(--mg-navy);
+  color:var(--mg-navy);font-size:17px;font-weight:900;letter-spacing:.02em;
+  box-shadow:0 2px 0 rgba(11,41,106,.2)}
+/* The sentence that says what the difference means, across the full
+   width — it is a sentence, not a caption, and a shortfall says what
+   happens next. */
+.mg .eg-hvs-say{margin:12px 0 0;padding-top:11px;border-top:2px dotted #D9CFB0;
+  text-align:center;font-size:13px;font-weight:800;color:var(--mg-green);line-height:1.6}
+.mg .eg-hvs-say.warn{color:#B3261E}
+
+/* 丹波: the unit beside each day's figure. */
+.mg .eg-day-v{display:inline-flex;align-items:baseline;gap:6px}
+.mg .eg-day-v i{font-style:normal;font-size:12px;font-weight:700;color:#5B6B86}
+
 /* 今週の取れ高 — the main box, and the figure the shipping decision is
    made on, so the two sit in the same column.
 
