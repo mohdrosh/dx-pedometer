@@ -161,7 +161,20 @@ export default function EggTab({
   const [editing, setEditing] = useState(false);
   const [win, setWin] = useState({ from: '', to: '' });
   const [p1, setP1] = useState(null);
-  const [view, setView] = useState('dish');
+  /* Opens on the first tab — 配布状況, which now names the week's state
+     (リクエスト受付中 / 確認中 / 確定).
+
+     It opened on みんなの料理 because the dishes were made the front of
+     the site back when the request form was a tab away and the photos
+     were the part people came back to. With the request on the first
+     tab, landing on the recipes means everybody arrives one tap from
+     the thing they came to do, in the week when doing it matters.
+
+     'portal' is not in the strip for everyone — a 丹波 account or
+     somebody who has not registered has no such tab — and the line that
+     picks `at` below already falls back to whatever their first tab
+     actually is. So this is the preference, not an assumption. */
+  const [view, setView] = useState('portal');
 
   /* Phase 1's read is done once here rather than inside each screen: the
      roles it carries are what decide which screens exist, so the tab needs
