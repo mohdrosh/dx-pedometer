@@ -705,6 +705,9 @@ export const MG_CSS = `
 
 
 /* print-ready artwork the 丹波 staff can stick on a carton */
+/* No border of its own: every row inside is already a bordered tile, and
+   a box around the three of them drew a second line that met the first at
+   every corner. */
 .mg-print{display:grid;gap:11px}
 .mg-print a span{min-width:0}
 .mg-print a{
@@ -829,9 +832,54 @@ export const MG_CSS = `
 
 /* 丹波 */
 .mg .eg-farm{display:grid}
-.mg .eg-farm-c{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
-.mg .eg-farm-now{display:flex;align-items:baseline;gap:8px;margin-right:auto}
-.mg .eg-farm-c>p{flex:1 1 100%;margin:0}
+/* On a phone the day's entry comes first. The week and the shipping
+   decision are the bigger things, and they sit first on a desk where
+   both columns are visible at once — but six mornings out of seven the
+   only thing anybody does on this screen is type today's count, and on
+   a phone that was third, under two cards about a job done on Mondays.
+   (The portal next door flipped the opposite way for the same reason:
+   there the second column is reference, here it is the work.) */
+.mg .eg-farm-r{order:-1}
+.mg .eg-farm-c{display:grid;gap:9px}
+.mg .eg-farm-c>p{margin:0}
+
+/* 今日の取れ高: a figure to type, not a button to tap thirty times. */
+.mg .eg-today{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.mg .eg-today em{font-style:normal;font-size:12.5px;font-weight:700;color:#5B6B86;
+  flex:1 0 100%}
+.mg .eg-today>span{font-size:13px;font-weight:700;color:#3E4F6E}
+
+.mg .eg-n,.mg .eg-n-big{
+  font-family:inherit;font-weight:900;color:var(--mg-navy);text-align:right;
+  background:#FFFDF6;border:2px solid var(--mg-navy);border-radius:11px;
+}
+.mg .eg-n{width:5.2em;padding:5px 9px;font-size:14px}
+/* The one number this screen exists to take, so it is the size of the
+   answer rather than the size of a form field. */
+.mg .eg-n-big{width:3.4em;padding:4px 10px;font-size:34px;line-height:1.15}
+.mg .eg-n:focus,.mg .eg-n-big:focus{
+  background:#fff;outline:none;box-shadow:0 0 0 3px rgba(255,198,47,.55)}
+.mg .eg-n:disabled,.mg .eg-n-big:disabled{
+  background:#EEF1F6;border-color:#B9C4D4;color:#7A879B}
+
+/* 今週の取れ高 — the main box, and the figure the shipping decision is
+   made on, so the two sit in the same column.
+
+   eg-hv and not eg-wk: .eg-wk and .eg-wk-n are the admin schedule
+   editor's, further up this file, and borrowing the names gave this card
+   that screen's sky background and its full-width grid row. Second time
+   a new class has collided with an old one here — the file is long
+   enough that a name has to be grepped before it is used. */
+.mg .eg-hv{display:grid;gap:4px}
+.mg .eg-hv-top{display:flex;align-items:flex-end;gap:20px;flex-wrap:wrap;
+  padding-bottom:11px;margin-bottom:4px;border-bottom:2px dotted #D9CFB0}
+.mg .eg-hv-n{display:flex;align-items:baseline;gap:7px;margin-right:auto}
+.mg .eg-hv-n b{font-size:42px;font-weight:900;color:var(--mg-navy);line-height:1}
+.mg .eg-hv-n span{font-size:14px;font-weight:700;color:#3E4F6E}
+.mg .eg-hv-ask{display:flex;flex-direction:column;align-items:flex-end}
+.mg .eg-hv-ask em{font-style:normal;font-size:11.5px;color:#5B6B86}
+.mg .eg-hv-ask b{font-size:20px;font-weight:800;color:var(--mg-navy)}
+.mg .eg-hv .eg-days li{align-items:center}
 
 /* 事務所 */
 .mg .eg-off{display:grid}
@@ -976,11 +1024,12 @@ export const MG_CSS = `
     align-items:start;column-gap:22px}
   .mg .eg-adm{grid-template-columns:minmax(0,1fr) minmax(0,430px);
     align-items:start;column-gap:22px}
-  /* 丹波: the picture and the one button on the left, the week's tally and
-     the printables on the right. One column ran to a screen and a half for
-     what is really two short jobs. */
-  .mg .eg-farm{grid-template-columns:minmax(0,1fr) minmax(0,430px);
+  /* 丹波: the week and the shipping decision on the left — that is the
+     main column and the one number everything else serves — with today's
+     entry and the printables beside it. */
+  .mg .eg-farm{grid-template-columns:minmax(0,1fr) minmax(0,400px);
     align-items:start;column-gap:22px}
+  .mg .eg-farm-r{order:0}
   .mg .ad-set,.mg .eg-admin{grid-template-columns:1fr 1fr;gap:4px 14px}
   .mg .ad-set .fld:last-child{grid-column:span 2}
   .mg .eg-admin>p{grid-column:span 2;margin:0}

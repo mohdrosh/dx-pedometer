@@ -756,8 +756,8 @@
     "en": "Today’s harvest"
   },
   "tHint": {
-    "ja": "10個詰めるごとに「＋1パック」を押してください。",
-    "en": "Tap “+1 pack” each time you fill a pack of 10 eggs."
+    "ja": "10個詰めるごとに1パックです。その日のパック数を入力してください。",
+    "en": "A pack is 10 eggs. Enter the number of packs for the day."
   },
   "tPlus": {
     "ja": "＋1パック",

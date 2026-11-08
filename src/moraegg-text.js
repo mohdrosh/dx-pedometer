@@ -48,7 +48,15 @@ const PENDING_1105 = ['whoNo', 'whoName', 'whoRedo', 'whoDone', 'whoErr'];
    Her own words for the thing are 「事業所ごとのまとめ」 and 「箱ごとに入れ
    やすいように」; this is a button label, which has to be shorter than
    either, so it says what the paper is for rather than what is on it. */
-const PENDING_1106 = ['boxSheet', 'tabPre'];
+const PENDING_1106 = ['boxSheet', 'tabPre', 'tHint'];
+
+/* 2026/11/08: tHint is HERS, and it is the one string on the 丹波 screen
+   that had to change rather than one I wanted to add. It read 「10個詰める
+   ごとに「＋1パック」を押してください」 — an instruction to press a button
+   that is no longer on the screen, now that the day's count is typed in
+   and saved. A caption naming a control nobody can see is worse than a
+   reworded one, so it is reworded and listed here. Her phrasing for the
+   pack is kept word for word; only the instruction changed. */
 
 /* 2026/11/06, later: the tab now says which state the week is in rather
    than 配布状況, which she said reads oddly.

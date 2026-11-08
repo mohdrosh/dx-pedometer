@@ -214,27 +214,25 @@ const L = {
   undo: ['取り消す', 'Undo'],
   todayIs: ['本日', 'Today'],
   weekTotal: ['今週の累計', 'This week so far'],
-  farmNote: ['10個そろったら1パックです。端数は登録しません。本日分のみ修正できます。',
-    'One pack is ten eggs. Leftovers are not registered. Only today can be corrected.'],
-  /* Six labels that were being asked of t() without being written in
-     either table, so the 丹波 screen printed the key names — a staff
-     screen reading "fixDay" and "weekSum" in English, eighteen days
-     before the shed has to use it for real. They belong here rather
-     than in her dictionary: 仕様書 6 gives her the employee-facing
-     text, and this table is what it leaves over — 丹波, 事務所, 管理.
+  farmNote: ['10個そろったら1パックです。端数は登録しません。',
+    'A pack is 10 eggs. Part-packs are not registered.'],
+  /* 2026/11/06: six entries were added here for fixDay, fixNote,
+     weekSum, weekAsked, fixAdmin and reasonBad, on the belief that they
+     resolved to nothing and the 丹波 screen was printing key names.
 
-     Found by checking every t('…') in this file against both tables
-     rather than by reading the screen, because a key that renders as
-     itself looks like a label until somebody who reads Japanese
-     notices it is not one. */
-  fixDay: ['ほかの日を修正する', 'Correct another day'],
-  fixNote: ['日付を選んで、数を直してください。', 'Pick a day and correct its count.'],
-  weekSum: ['今週の合計', 'This week'],
-  weekAsked: ['リクエスト合計', 'Requested'],
-  fixAdmin: ['数が合わないときは、健康対策委員会にご連絡ください。',
-    'If the numbers do not add up, please tell the committee.'],
-  reasonBad: ['仕事用のときは、理由を入力してください。',
-    'Business requests need a reason.'],
+     They were not broken. All six are in HERS, which is read before this
+     table, and all six of her keys exist — the screen had been showing
+     her Japanese the whole time. The check that found them read only the
+     first 400 characters of HERS and so missed its last ten entries,
+     which is exactly where those keys live. Dead code, removed.
+
+     The one real case that sweep found was `pickup`, which has no HERS
+     entry and was printing the word "pickup" in the request form. That
+     one was a bug and is fixed where it is used.
+
+     Keeping the note because the mistake is worth not repeating: a
+     lookup with two tables in front of it has to be checked against
+     both, in full. */
 
   /* Refusals, which she has not written: both are about a correction
      arriving too late or too early to mean anything. */
@@ -1338,153 +1336,152 @@ export function EggFarm({ lang, toast }) {
   const img = (n) => `${import.meta.env.BASE_URL}moraegg/${n}.webp`;
   const [d, setD] = useState(null);
   const [busy, setBusy] = useState(false);
-  /* 仕様書 3: 取れ高の入力 and 発送の確定 are two jobs on one screen, done at
-     two different times — the first every day, the second on a Monday
-     morning. Two tabs rather than one long page, so neither is scrolled
-     past while looking for the other. */
-  const [at, setAt] = useState('input');
 
-  /* `day` is only ever sent for a correction to another day — the common
-     case is a thumb on ＋1パック, and that should not depend on the
-     browser agreeing with the server about what day it is. */
-  const bump = useCallback(async (delta, day = null) => {
+  /* One screen, not two tabs.
+
+     取れ高の入力 and 発送の確定 were separate because they are separate
+     jobs — one every morning, one on a Monday. But the Monday job is a
+     judgement about the number the daily job produced: eggs break, so
+     what ships is not always what was registered. Splitting them put the
+     running total on one tab and the decision about it on another, and
+     the person making that decision had to remember a figure across a
+     tap. The week and what is done with it are on the same screen now. */
+
+  /* The register takes either a nudge or a flat number; this sends a
+     number. ＋1パック was a tap per pack, which is fine for the three or
+     four a morning and absurd for thirty — and it had nothing to press
+     when you were done, so there was no moment where the shed said "that
+     is the count" rather than drifting upward one tap at a time. */
+  const save = useCallback(async (packs, day = null) => {
     setBusy(true);
     try {
       const res = await fetch(`${apiRoot()}/egg/harvest`, {
         method: 'POST',
         credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...(delta === null ? { packs: 0 } : { delta }),
-          ...(day ? { day } : {}),
-        }),
+        body: JSON.stringify({ packs, ...(day ? { day } : {}) }),
       });
       const j = await res.json().catch(() => null);
       if (!res.ok) {
-        toast?.(t(j?.error === 'week_decided' ? 'fixShut' : j?.error === 'not_yet' ? 'fixAhead' : 'failed'));
-        return;
+        toast?.(t(j?.error === 'week_decided' ? 'fixShut'
+          : j?.error === 'not_yet' ? 'fixAhead' : 'failed'));
+        return false;
       }
       setD(j);
+      return true;
     } finally { setBusy(false); }
   }, [t, toast]);
 
-  /* The first read is a no-op bump, so the screen and the register agree
-     from the first paint rather than after the first tap. */
-  useEffect(() => { bump(0); }, [bump]);
+  /* The first read is a no-op nudge, so the screen and the register agree
+     from the first paint rather than after the first edit. */
+  const load = useCallback(async () => {
+    const res = await fetch(`${apiRoot()}/egg/harvest`, {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ delta: 0 }),
+    });
+    if (res.ok) setD(await res.json());
+  }, []);
+  useEffect(() => { load(); }, [load]);
 
   if (!d) return <div className="pad muted">…</div>;
-  if (at === 'ship') {
-    return (
-      <div className="eg-farm-one">
-        <nav className="eg-sub eg-sub2">
-          <button type="button" onClick={() => setAt('input')}>{mg('tabInput', lang)}</button>
-          <button type="button" className="on">{mg('tabShip', lang)}</button>
-        </nav>
-        <EggShip lang={lang} toast={toast} t={t} onDone={() => bump(0)} />
-      </div>
-    );
-  }
-  /* Today, not the day the last tap changed: correcting the Tuesday must
-     not make the screen think Tuesday is today and drop it out of the
-     list of days that can be corrected. */
+  /* Today, not the day the last edit changed: correcting the Tuesday must
+     not make the screen think Tuesday is today. */
   const todayIso = d.today || d.day;
   const today = d.harvest.find((h) => h.day === todayIso);
+  const locked = !!d.decided;
+
+  /* A number box that keeps what the register says until somebody changes
+     it, and saves on leaving the field. `key` carries the stored value so
+     a save elsewhere on the page refreshes this one instead of leaving a
+     stale number sitting in it. */
+  const packBox = (day, packs, big = false) => (
+    <input
+      key={`${day}:${packs}`} type="number" min={0} max={999}
+      className={big ? 'eg-n-big' : 'eg-n'}
+      defaultValue={packs} disabled={busy || locked}
+      onFocus={(e) => e.target.select()}
+      onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur(); }}
+      onBlur={(e) => {
+        const n = Math.max(0, Math.floor(Number(e.target.value)));
+        if (!Number.isFinite(n) || n === packs) { e.target.value = packs; return; }
+        save(n, day === todayIso ? null : day).then((ok) => {
+          if (ok) toast?.(mg('saved', lang));
+        });
+      }}
+    />
+  );
 
   return (
     <div className="eg-farm">
-     <nav className="eg-sub eg-sub2 eg-farm-tabs">
-       <button type="button" className="on">{mg('tabInput', lang)}</button>
-       <button type="button" onClick={() => setAt('ship')}>{mg('tabShip', lang)}</button>
-     </nav>
-      {/* The picture matches the job: eggs in the nest box before any have
-          been registered today, the day's haul once they have. Its speech
-          bubble says 9個 — the live number is printed by the page below it,
-          never drawn into the artwork, so the two can never disagree. */}
-     <div className="eg-farm-l">
-      <img
-        src={img((today?.packs ?? d.packs) > 0 ? 'harvest-today' : 'about-to-lay')}
-        alt="" className="mg-pic mg-strip"
-      />
-      <div className="sechead"><span>{t('farmHead')}</span></div>
-      <div className="card eg-farm-c">
-        <div className="eg-farm-now">
-          <em>{t('todayIs')} {md(todayIso, lang)}</em>
-          <b>{today?.packs ?? d.packs}</b>
-          <span>{t('pack')}</span>
-        </div>
-        <button className="btn primary eg-tap" disabled={busy} onClick={() => bump(1)}>
-          {t('addPack')}
-        </button>
-        <button className="btn ghost" disabled={busy || !(today?.packs ?? d.packs)} onClick={() => bump(-1)}>
-          {t('undo')}
-        </button>
-        <p className="muted sm">{t('farmNote')}</p>
-      </div>
-     </div>
 
-     <div className="eg-farm-r">
-      <div className="sechead">
-        <span>{t('weekTotal')}</span>
-        <span className="muted sm">{d.harvestPacks} {t('pack')}</span>
+      {/* ---- left: the week, and the decision made on it ---------------- */}
+      <div className="eg-farm-l">
+        <div className="sechead"><span>{t('weekTotal')}</span></div>
+        <div className="card eg-hv">
+          <div className="eg-hv-top">
+            <div className="eg-hv-n">
+              <b>{d.harvestPacks}</b><span>{t('pack')}</span>
+            </div>
+            <div className="eg-hv-ask">
+              <em>{t('weekAsked')}</em><b>{d.asked ?? 0}</b>
+            </div>
+          </div>
+
+          {/* Every day of the week, each one editable. 「ほかの日を修正する」
+              was a separate block below with its own pair of buttons per
+              day; the list was already here, so the correction is simply
+              the list being typeable. It locks once the week has been
+              decided, because the allocation was worked out from these
+              numbers. */}
+          <ul className="eg-days">
+            {d.harvest.map((h) => (
+              <li key={h.day} className={h.day === todayIso ? 'on' : ''}>
+                <span>{md(h.day, lang)}</span>
+                {packBox(h.day, h.packs)}
+              </li>
+            ))}
+            {!d.harvest.length && <li className="muted"><span>{t('noneYet')}</span><b>0</b></li>}
+          </ul>
+          {locked && <p className="muted sm">{t('fixShut')}</p>}
+        </div>
+
+        {/* 発送の確定, on the same screen as the number it is about. */}
+        <EggShip lang={lang} toast={toast} t={t} onDone={load} />
       </div>
-      <div className="card">
-        <ul className="eg-days">
-          {d.harvest.map((h) => (
-            <li key={h.day} className={h.day === todayIso ? 'on' : ''}>
-              <span>{md(h.day, lang)}</span>
-              <b>{h.packs}</b>
-            </li>
+
+      {/* ---- right: today's entry, and the printables ------------------- */}
+      <div className="eg-farm-r">
+        <div className="sechead"><span>{t('farmHead')}</span></div>
+        <div className="card eg-farm-c">
+          <label className="eg-today">
+            <em>{t('todayIs')} {md(todayIso, lang)}</em>
+            {packBox(todayIso, today?.packs ?? 0, true)}
+            <span>{t('pack')}</span>
+          </label>
+          <p className="muted sm">{t('farmNote')}</p>
+        </div>
+
+        {/* 佐野's print artwork, offered where the person packing the
+            cartons actually is. Opened in a tab and printed; nothing is
+            generated.
+
+            No card around the list: each row is already a bordered tile,
+            and the wrapper drew a second border around the three of them
+            that collided with the first at every corner. */}
+        <div className="sechead"><span>{t('printables')}</span></div>
+        <div className="mg-print">
+          {[['label-asadore', 'printLabel', 'printLabelNote'],
+            ['seal-round', 'printSeal', 'printSealNote'],
+            ['thankyou-egg', 'printThanks', 'printThanksNote']].map(([file, title, note]) => (
+              <a key={file} href={img(file)} target="_blank" rel="noreferrer">
+                <img src={img(file)} alt="" />
+                <span><b>{t(title)}</b><span>{t(note)}</span></span>
+              </a>
           ))}
-          {!d.harvest.length && <li className="muted"><span>{t('noneYet')}</span><b>0</b></li>}
-        </ul>
-        {/* 「ほかの日を修正する」. A miscount noticed on the Tuesday used to
-            need an administrator; now it needs the day tapped and the
-            number corrected. It closes once the week has been decided,
-            because the allocation was worked out from this figure. */}
-        <div className="eg-fix">
-          <b>{t('fixDay')}</b>
-          <p className="muted sm">{d.decided ? t('fixShut') : t('fixNote')}</p>
-          {!d.decided && (
-            <ul className="eg-fixl">
-              {d.harvest.filter((h) => h.day !== todayIso).map((h) => (
-                <li key={h.day}>
-                  <span>{md(h.day, lang)}</span>
-                  <button className="btn sm" disabled={busy || !h.packs}
-                    onClick={() => bump(-1, h.day)}>{t('undo')}</button>
-                  <b>{h.packs}</b>
-                  <button className="btn sm" disabled={busy}
-                    onClick={() => bump(1, h.day)}>{t('addPack')}</button>
-                </li>
-              ))}
-              {d.harvest.filter((h) => h.day !== todayIso).length === 0
-                && <li className="muted"><span>{t('noneYet')}</span></li>}
-            </ul>
-          )}
         </div>
       </div>
-
-      {/* 今週の合計 and what it is being asked for — the one number that
-          tells the shed whether this week is short. */}
-      <div className="card eg-farm-sum">
-        <div><em>{t('weekSum')}</em><b>{d.harvestPacks}</b></div>
-        <div><em>{t('weekAsked')}</em><b>{d.asked ?? 0}</b></div>
-        <p className="muted sm">{t('fixAdmin')}</p>
-      </div>
-
-      {/* 佐野's print artwork, offered where the person packing the cartons
-          actually is. Opened in a tab and printed; nothing is generated. */}
-      <div className="sechead"><span>{t('printables')}</span></div>
-      <div className="card mg-print">
-        {[['label-asadore', 'printLabel', 'printLabelNote'],
-          ['seal-round', 'printSeal', 'printSealNote'],
-          ['thankyou-egg', 'printThanks', 'printThanksNote']].map(([file, title, note]) => (
-            <a key={file} href={img(file)} target="_blank" rel="noreferrer">
-              <img src={img(file)} alt="" />
-              <span><b>{t(title)}</b><span>{t(note)}</span></span>
-            </a>
-        ))}
-      </div>
-     </div>
     </div>
   );
 }
