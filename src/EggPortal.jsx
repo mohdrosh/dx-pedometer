@@ -682,60 +682,6 @@ export default function EggPortal({ d, reload: load, lang, toast, screen = 'all'
           return o ? <Verdict office={o} lang={lang} t={t} img={img} /> : null;
         })()}
 
-        {/* 佐野:「毎週のルールをリクエストページに出してほしい」. It used to
-            read 発送日 / 申請締切 / 受取期限 as three loose dates, which told
-            you when but never what happens in between. Four steps in the
-            order they happen, each with this week's real date on it. */}
-        {/* Her artwork says the rule; the steps under it say this week's
-            dates. Same pairing as the harvest — the picture is what people
-            look at, the live dates are what they act on, and swapping the
-            picture is how the rule changes when the schedule does.
-
-            The ordinary weekly card is a wide strip, so it fills this
-            column edge to edge. 初回の受付スタート is square — she drew it
-            that way and the dates are inside it, so it cannot be cropped
-            into a strip — and a square in a 780px column is a picture with
-            a hand's width of empty cream either side of it. That one is
-            shown in the right-hand column instead, under the 対決 banner,
-            where the column is its own width and nothing is left over. */}
-        {!d.firstRound && (
-          <picture className="mg-sched-pic">
-            <source media="(min-width:620px)" srcSet={img('week-strip')} />
-            <img src={img('week-schedule')} alt={t('schedHead')} className="mg-pic mg-sched-sq" />
-          </picture>
-        )}
-
-        <div className="card eg-sched">
-          {/* Her 初回 card already prints 締切・発送・到着・受け取り, so the
-              four boxes under it would be the same four dates twice. One
-              line instead — and it is the computed one, so if the picture
-              is ever left behind by a change of schedule the dates beneath
-              it are still the ones the system will act on. */}
-          {d.firstRound ? (
-            <p className="eg-sched-one">
-              <span><em>{t('stepDeadline')}</em><b>{md(d.week.deadline.date, lang)} {d.week.deadline.hour}:00</b></span>
-              <span><em>{t('stepShip')}</em><b>{md(d.week.shipDay, lang)}</b></span>
-              <span><em>{t('stepArrive')}</em><b>{md(d.week.arrive, lang)}</b></span>
-              <span><em>{t('stepPickup')}</em><b>{md(d.week.pickup, lang)}</b></span>
-            </p>
-          ) : (
-            <ol className="eg-steps">
-              <li className="now">
-                <em>{t('stepDeadline')}</em>
-                <b>{md(d.week.deadline.date, lang)} {d.week.deadline.hour}:00</b>
-              </li>
-              <li><em>{t('stepShip')}</em><b>{md(d.week.shipDay, lang)}</b></li>
-              <li><em>{t('stepArrive')}</em><b>{md(d.week.arrive, lang)}</b></li>
-              <li><em>{t('stepPickup')}</em><b>{md(d.week.pickup, lang)}</b></li>
-            </ol>
-          )}
-          <p className="eg-sched-r">{t('ruleLine')}</p>
-          {d.week.shifted && <p className="eg-sched-h">{t('monHoliday')}</p>}
-          {/* 仕様書 4.6:「お知らせ（みんなの画面に表示）」 — whatever an
-              administrator wrote about this week, under the dates it is
-              about. */}
-          {d.week.note && <p className="eg-sched-n">{d.week.note}</p>}
-        </div>
 
         {/* 配布状況 reads down the left: what is happening this week, then
             what it means for you, then the way to act on it. The right
@@ -1038,25 +984,6 @@ export default function EggPortal({ d, reload: load, lang, toast, screen = 'all'
           </>
         )}
 
-        {/* 毎週のルール and これまでの申請: reference, and both about the
-            reader — the rules they are about to act on and the weeks they
-            have already had. Which column they sit in is decided by which
-            one has the room, and that has moved twice today as cards came
-            and went. As it stands: the right carries the 対決 banner, the
-            harvest card with the week's days in it and the seven-office
-            table; this one carries the week, the terms and the request.
-            Left 844px against the right's 1511 without these two, 1157
-            against 1198 with them. */}
-{onRequest && (
-          <>
-            <div className="sechead"><span>{mgs('rules')}</span></div>
-            <div className="card">
-              <ul className="eg-rules">
-                {['r1', 'r2', 'r3', 'r4'].map((k) => <li key={k}>{mgs(k)}</li>)}
-              </ul>
-            </div>
-          </>
-        )}
 
 
       </div>
@@ -1076,6 +1003,85 @@ export default function EggPortal({ d, reload: load, lang, toast, screen = 'all'
         {d.firstRound && (
           <img src={img('first-round')} alt={t('schedHead')} className="mg-pic mg-first-pic" />
         )}
+
+        {/* 今週の予定 — her schedule artwork and this week's four dates.
+            They led the left-hand column until 2026/11/09. They are a
+            picture and four dates, which is what this column already is,
+            and moving them across is what makes room on the left for the
+            pair below without one column running half a screen past the
+            other. */}
+        {/* 佐野:「毎週のルールをリクエストページに出してほしい」. It used to
+            read 発送日 / 申請締切 / 受取期限 as three loose dates, which told
+            you when but never what happens in between. Four steps in the
+            order they happen, each with this week's real date on it. */}
+        {/* Her artwork says the rule; the steps under it say this week's
+            dates. Same pairing as the harvest — the picture is what people
+            look at, the live dates are what they act on, and swapping the
+            picture is how the rule changes when the schedule does.
+
+            The ordinary weekly card is a wide strip, so it fills this
+            column edge to edge. 初回の受付スタート is square — she drew it
+            that way and the dates are inside it, so it cannot be cropped
+            into a strip — and a square in a 780px column is a picture with
+            a hand's width of empty cream either side of it. That one is
+            shown in the right-hand column instead, under the 対決 banner,
+            where the column is its own width and nothing is left over. */}
+        {!d.firstRound && (
+          <picture className="mg-sched-pic">
+            <source media="(min-width:620px)" srcSet={img('week-strip')} />
+            <img src={img('week-schedule')} alt={t('schedHead')} className="mg-pic mg-sched-sq" />
+          </picture>
+        )}
+
+        <div className="card eg-sched">
+          {/* Her 初回 card already prints 締切・発送・到着・受け取り, so the
+              four boxes under it would be the same four dates twice. One
+              line instead — and it is the computed one, so if the picture
+              is ever left behind by a change of schedule the dates beneath
+              it are still the ones the system will act on. */}
+          {d.firstRound ? (
+            <p className="eg-sched-one">
+              <span><em>{t('stepDeadline')}</em><b>{md(d.week.deadline.date, lang)} {d.week.deadline.hour}:00</b></span>
+              <span><em>{t('stepShip')}</em><b>{md(d.week.shipDay, lang)}</b></span>
+              <span><em>{t('stepArrive')}</em><b>{md(d.week.arrive, lang)}</b></span>
+              <span><em>{t('stepPickup')}</em><b>{md(d.week.pickup, lang)}</b></span>
+            </p>
+          ) : (
+            <ol className="eg-steps">
+              <li className="now">
+                <em>{t('stepDeadline')}</em>
+                <b>{md(d.week.deadline.date, lang)} {d.week.deadline.hour}:00</b>
+              </li>
+              <li><em>{t('stepShip')}</em><b>{md(d.week.shipDay, lang)}</b></li>
+              <li><em>{t('stepArrive')}</em><b>{md(d.week.arrive, lang)}</b></li>
+              <li><em>{t('stepPickup')}</em><b>{md(d.week.pickup, lang)}</b></li>
+            </ol>
+          )}
+          <p className="eg-sched-r">{t('ruleLine')}</p>
+          {d.week.shifted && <p className="eg-sched-h">{t('monHoliday')}</p>}
+          {/* 仕様書 4.6:「お知らせ（みんなの画面に表示）」 — whatever an
+              administrator wrote about this week, under the dates it is
+              about. */}
+          {d.week.note && <p className="eg-sched-n">{d.week.note}</p>}
+        </div>
+
+
+
+
+      </div>
+
+      )}
+
+      {/* ---- across both columns, above the rules ------------------------
+          丹波の取れ高 and 事業所の表 are two halves of one question — how
+          much there is this week, and who it reaches — and they are the
+          same size. Side by side they read as one answer; stacked in a
+          430px column they were 650px of scrolling with the other column
+          empty beside them. 毎週のルール and これまでの申請 pair off under
+          them for the same reason. */}
+      {onStatus && (
+      <div className="eg-p2-wide">
+        <div className="eg-pair">
         {/* The week in one line, then the same week office by office. */}
         <HarvestVs
           offices={d.offices} packs={d.harvestPacks} lang={lang} t={t}
@@ -1087,15 +1093,23 @@ export default function EggPortal({ d, reload: load, lang, toast, screen = 'all'
             offices={d.offices} packs={d.harvestPacks} lang={lang} t={t} img={img}
           />
         </div>
+        </div>
 
-
-
-
-        {/* これまでの申請. The weeks already dealt with — the least urgent
-            thing on the page, so it is the ballast: whichever column is
-            shorter gets it. The office table lost 200px when its bars
-            became dots, which is how it came to be this one. */}
-        {onRequest && !!d.history?.length && (
+        <div className="eg-pair">
+          <div>
+{onRequest && (
+          <>
+            <div className="sechead"><span>{mgs('rules')}</span></div>
+            <div className="card">
+              <ul className="eg-rules">
+                {['r1', 'r2', 'r3', 'r4'].map((k) => <li key={k}>{mgs(k)}</li>)}
+              </ul>
+            </div>
+          </>
+      )}
+          </div>
+          <div>
+{onRequest && !!d.history?.length && (
           <>
             <div className="sechead"><span>{t('history')}</span></div>
             <div className="card">
@@ -1112,6 +1126,8 @@ export default function EggPortal({ d, reload: load, lang, toast, screen = 'all'
             </div>
           </>
         )}
+          </div>
+        </div>
       </div>
 
       )}
