@@ -202,7 +202,10 @@ const L = {
   short: ['あと{n}パック足りません', '{n} packs short'],
   exactly: ['ちょうど足ります', 'Exactly enough'],
   byDay: ['日ごとの取れ高', 'Laid, day by day'],
-  byPurpose: ['目的の内訳', 'By purpose'],
+  /* byPurpose（目的の内訳）was here. Its one caller went on 2026/11/09
+     with the row it labelled. requestTotals still counts the split and
+     still sends it, so an administrator's screen can pick it up without
+     the server changing; no screen reads it today. */
   byOffice: ['事業所の内訳', 'By office'],
   people: ['人', 'people'],
   noneYet: ['まだ申請がありません', 'No requests yet'],
@@ -350,7 +353,7 @@ const md = (iso, lang) => {
  * difference means — 「{n}パック余裕があります」, 「ちょうど同じです」, or the
  * shortfall, which also says what happens next.
  */
-function HarvestVs({ offices, packs, lang, t, harvest = [], week0 = null, today = null, purposes = [] }) {
+function HarvestVs({ offices, packs, lang, t, harvest = [], week0 = null, today = null }) {
   const mgs = (k, vars) => mg(k, lang, vars);
   const got = Math.max(0, Number(packs) || 0);
   const asked = (offices || []).reduce((a, o) => a + Math.max(0, Number(o.asked) || 0), 0);
@@ -426,16 +429,13 @@ function HarvestVs({ offices, packs, lang, t, harvest = [], week0 = null, today 
         </div>
       )}
 
-      {purposes.length > 0 && (
-        <div className="eg-hvs-pur">
-          <h4>{t('byPurpose')}</h4>
-          <ul className="eg-mini eg-mini2">
-            {purposes.map((pp) => (
-              <li key={pp.id}><span>{lang === 'ja' ? pp.ja : pp.en}</span><b>{pp.count}</b></li>
-            ))}
-          </ul>
-        </div>
-      )}
+      {/* 目的の内訳（私用／仕事用）was the last row of this card. It is a
+          split of the same total the card already states, and what it was
+          there to warn about — 仕事用 ships from one pack and goes first
+          when the week is short — the 事業所の表 beside this says office by
+          office, in 佐野's own 「仕事用のため発送」. Two numbers nobody acts
+          on, at the foot of the one card people do. The counts are still
+          computed and still on the administrator's 発送の確定 screen. */}
     </div>
   );
 }
@@ -1002,7 +1002,6 @@ export default function EggPortal({ d, reload: load, lang, toast, screen = 'all'
           <HarvestVs
             offices={d.offices} packs={d.harvestPacks} lang={lang} t={t}
             harvest={d.harvest} week0={d.week0} today={d.today}
-            purposes={d.totals.purposes}
           />
           <div className="card">
             <OfficeRace
