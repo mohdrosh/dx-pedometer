@@ -1113,10 +1113,17 @@ export const MG_CSS = `
 .mg .eg-off-bar>span{margin-left:auto;font-size:12.5px;font-weight:700}
 .mg .eg-arr{display:flex;align-items:center;gap:13px}
 .mg .eg-arr-n{margin-left:auto;font-size:17px;font-weight:900}
-.mg .eg-hand li{display:grid;grid-template-columns:minmax(0,1fr) 5.2em auto;
+/* Each li is its own grid, so an auto-width button column made every row a
+   different width: お渡し済み✓ is wider than お渡しした, which ate into
+   the 1fr beside it and left the pack counts at four different x. The
+   button column is fixed and the buttons fill it, so the three columns
+   line up down the card. */
+.mg .eg-hand li{display:grid;grid-template-columns:minmax(0,1fr) 5.4em 8.6em;
   align-items:center;gap:11px;padding:7px 0}
 .mg .eg-hand-n{font-size:14px;font-weight:700}
-.mg .eg-hand b{font-size:12.5px;font-weight:700;color:#3E4F6E}
+.mg .eg-hand b{font-size:12.5px;font-weight:700;color:#3E4F6E;text-align:right;
+  font-variant-numeric:tabular-nums}
+.mg .eg-hand li>.btn{width:100%;justify-self:end;padding-left:6px;padding-right:6px}
 
 /* 管理 */
 .mg .eg-adm{display:grid}

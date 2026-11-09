@@ -119,9 +119,19 @@ const OFFICES = [
      sheet names are not in the bytes to be found. */
   const back = new ExcelJS.Workbook();
   await back.xlsx.load(buf);
-  is('with one worksheet per office', back.worksheets.length, 2);
-  is('named for the offices', back.worksheets.map((w) => w.name).join(','),
-    '本社（神戸）,東京');
+  /* 発送一覧 first, then one worksheet per office. The summary page was
+     added on 2026/11/09 for 健康対策委員会: the box sheets are each one
+     office and nobody holding one can see the week. */
+  is('with a summary page and then one per office', back.worksheets.length, 3);
+  is('named for the week and then the offices', back.worksheets.map((w) => w.name).join(','),
+    '発送一覧,本社（神戸）,東京');
+
+  const all = back.getWorksheet('発送一覧');
+  const sum = all.getSheetValues().flat().filter((v) => typeof v === 'string').join(' | ');
+  ok('the summary names every office', sum.includes('本社（神戸）') && sum.includes('東京'), sum);
+  ok('and gives each address', sum.includes('神戸市中央区'), sum);
+  ok('and lists the people under them', sum.includes('山田'), sum);
+  ok('and totals the week', sum.includes('合計'), sum);
   const hq = back.getWorksheet('本社（神戸）');
   const text = hq.getSheetValues().flat().filter((v) => typeof v === 'string').join(' | ');
   ok('the page names its office', text.includes('本社（神戸）'), text);

@@ -1497,6 +1497,10 @@ const server = http.createServer(async (req, res) => {
         lines: week.lines || [],
         list: week.list || [],
         offices: await eggOfficeRows(false),
+        /* For the 発送一覧 page at the front: the week's own figures, so
+           the committee can see what was laid against what went out. */
+        harvest: week.packs ?? null,
+        missed: week.missed || 0,
       });
       if (!book) return sendJson(res, 409, { error: 'nothing_to_ship' });
 

@@ -103,30 +103,132 @@ export function pages({ lines = [], list = [], offices = [] } = {}) {
     }));
 }
 
+/* The shared page setup: A4 portrait, fit to one column, long lists run
+   on to a second sheet of paper rather than shrinking to fit. */
+const PAGE = {
+  paperSize: 9,
+  orientation: 'portrait',
+  fitToPage: true,
+  fitToWidth: 1,
+  fitToHeight: 0,
+  margins: {
+    left: 0.6, right: 0.5, top: 0.7, bottom: 0.6, header: 0.3, footer: 0.3,
+  },
+};
+
+const ruled = (row) => row.eachCell((c) => {
+  c.border = {
+    top: { style: 'thin', color: { argb: RULE } },
+    left: { style: 'thin', color: { argb: RULE } },
+    bottom: { style: 'thin', color: { argb: RULE } },
+    right: { style: 'thin', color: { argb: RULE } },
+  };
+});
+
+const headRow = (ws, cells) => {
+  const r = ws.addRow(cells);
+  r.font = { bold: true, color: { argb: NAVY } };
+  r.eachCell((c) => {
+    c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: HEADBG } };
+  });
+  ruled(r);
+  return r;
+};
+
 /**
- * The workbook. One worksheet per office, which is one page per office.
+ * The first page: the whole week on one sheet.
+ *
+ * The per-office pages that follow are for putting in boxes — one each,
+ * and nobody holding one of them can see the week. 健康対策委員会 asked
+ * for the view the boxes cannot give: every office, what it is getting,
+ * and who is collecting it, in one document they can file or hand over.
+ *
+ * It is the same numbers as the pages behind it, arranged the other way
+ * round, so the two can never disagree.
+ */
+function summary(wb, { ship, arrive, pickup, made, harvest, missed }) {
+  const ws = wb.addWorksheet('発送一覧', { pageSetup: PAGE });
+  /* The address column is wide and wraps. At 44 it was clipping —
+     「…京町栄光ビルディン」 — and a cut address on the one sheet the
+     committee files is the sheet failing at its job. */
+  ws.columns = [{ width: 22 }, { width: 52 }, { width: 11 }, { width: 9 }];
+
+  const head = ws.addRow(['モラエッグ　発送一覧']);
+  head.font = { size: 20, bold: true, color: { argb: NAVY } };
+  head.height = 28;
+  ws.addRow([`${jpDate(ship)}発送分`]).font = { size: 12, bold: true, color: { argb: NAVY } };
+  ws.addRow([`到着予定：${jpDate(arrive)}　受け取り期限：${jpDate(pickup)}`])
+    .font = { size: 10, color: { argb: 'FF5B6B86' } };
+  ws.addRow([]);
+
+  headRow(ws, ['事業所', '所在地', 'パック数', '人数']);
+  let packs = 0;
+  let people = 0;
+  for (const p of made) {
+    packs += p.packs;
+    people += p.people.length;
+    const r = ws.addRow([p.office, p.address, p.packs, p.people.length]);
+    ruled(r);
+    r.getCell(2).font = { size: 9, color: { argb: 'FF5B6B86' } };
+    r.getCell(2).alignment = { wrapText: true, vertical: 'middle' };
+    r.getCell(3).alignment = { horizontal: 'right' };
+    r.getCell(4).alignment = { horizontal: 'right' };
+  }
+  const tot = ws.addRow(['合計', '', packs, people]);
+  tot.font = { bold: true, color: { argb: NAVY } };
+  ruled(tot);
+  tot.getCell(3).alignment = { horizontal: 'right' };
+  tot.getCell(4).alignment = { horizontal: 'right' };
+
+  ws.addRow([]);
+  const note = [];
+  if (harvest != null) note.push(`丹波の取れ高：${harvest}パック`);
+  if (missed) note.push(`今回受け取れなかった方：${missed}名`);
+  if (note.length) {
+    ws.addRow([note.join('　')]).font = { size: 10, color: { argb: 'FF5B6B86' } };
+  }
+  ws.addRow([]);
+
+  /* Everyone, under the office they collect at. The box sheets split the
+     same list seven ways; this is the one place it can be read straight
+     through. */
+  headRow(ws, ['事業所', '名前', 'パック数', '用途']);
+  for (const p of made) {
+    if (!p.people.length) {
+      const r = ws.addRow([p.office, '（リクエストはありません）', '', '']);
+      ruled(r);
+      r.getCell(2).font = { size: 10, italic: true, color: { argb: 'FF5B6B86' } };
+      continue;
+    }
+    for (const who of p.people) {
+      const r = ws.addRow([p.office, who.name, who.got, purposeJa(who.purpose)]);
+      ruled(r);
+      r.getCell(3).alignment = { horizontal: 'right' };
+    }
+  }
+
+  ws.addRow([]);
+  ws.addRow([`モラエッグ　${jpDate(ship)}発送分`]).font = {
+    size: 9, color: { argb: 'FF8894A8' },
+  };
+}
+
+/**
+ * The workbook: 発送一覧 first, then one worksheet per office, which is
+ * one page per office.
  */
 export async function buildSheet({
   ship = '', arrive = '', pickup = '', lines = [], list = [], offices = [],
+  harvest = null, missed = 0,
 } = {}) {
   const wb = new ExcelJS.Workbook();
   wb.creator = 'モラエッグ';
   const taken = new Set();
   const made = pages({ lines, list, offices });
+  if (made.length) summary(wb, { ship, arrive, pickup, made, harvest, missed });
 
   for (const p of made) {
-    const ws = wb.addWorksheet(sheetName(p.office, taken), {
-      pageSetup: {
-        paperSize: 9,            /* A4 */
-        orientation: 'portrait',
-        fitToPage: true,
-        fitToWidth: 1,
-        fitToHeight: 0,          /* long lists run on rather than shrink */
-        margins: {
-          left: 0.6, right: 0.5, top: 0.7, bottom: 0.6, header: 0.3, footer: 0.3,
-        },
-      },
-    });
+    const ws = wb.addWorksheet(sheetName(p.office, taken), { pageSetup: PAGE });
     ws.columns = [{ width: 30 }, { width: 12 }, { width: 12 }];
 
     const head = ws.addRow([p.office]);
@@ -145,28 +247,11 @@ export async function buildSheet({
       .font = { size: 10, color: { argb: 'FF5B6B86' } };
     ws.addRow([]);
 
-    const hdr = ws.addRow(['名前', 'パック数', '用途']);
-    hdr.font = { bold: true, color: { argb: NAVY } };
-    hdr.eachCell((c) => {
-      c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: HEADBG } };
-      c.border = {
-        top: { style: 'thin', color: { argb: RULE } },
-        left: { style: 'thin', color: { argb: RULE } },
-        bottom: { style: 'thin', color: { argb: RULE } },
-        right: { style: 'thin', color: { argb: RULE } },
-      };
-    });
+    headRow(ws, ['名前', 'パック数', '用途']);
 
     for (const who of p.people) {
       const r = ws.addRow([who.name, who.got, purposeJa(who.purpose)]);
-      r.eachCell((c) => {
-        c.border = {
-          top: { style: 'thin', color: { argb: RULE } },
-          left: { style: 'thin', color: { argb: RULE } },
-          bottom: { style: 'thin', color: { argb: RULE } },
-          right: { style: 'thin', color: { argb: RULE } },
-        };
-      });
+      ruled(r);
       r.getCell(2).alignment = { horizontal: 'right' };
     }
     /* An office can be shipped to with nobody named on it: 本社 takes the
