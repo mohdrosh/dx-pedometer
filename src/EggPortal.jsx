@@ -692,13 +692,12 @@ export default function EggPortal({ d, reload: load, lang, toast, screen = 'all'
       {/* ------------------------------ left ------------------------------ */}
       <div className="eg-p2-l">
 
-        {/* Her artwork, shown whole. Each picture carries its own words and
-            its own background, so the page never crops one.
-
-            Stood down while the 初回の受付スタート card is up: that one has
-            the dates in it and is the thing to read, and two pictures
-            stacked in one column make the reader choose between them. */}
-        {onStatus && !d.firstRound && <img src={img('hens-well')} alt="" className="mg-pic mg-strip mg-opt" />}
+        {/* 丹波のめんどりたち sat here, capped at 150px: a thumbnail at the
+            top left of a 780px column with half a column of cream beside
+            it, above the one card people open this page to read. The
+            schedule band below is her artwork too and it fills the column,
+            so the page still opens with a picture. The file is still in
+            public/moraegg if it wants a home somewhere it fits. */}
 
         {/* 「今週はこの事務所にタマゴが届きます！」 — the thing most people
             open this page to find out, so it is the first thing on it.
@@ -1069,44 +1068,6 @@ export default function EggPortal({ d, reload: load, lang, toast, screen = 'all'
           </>
         )}
 
-        {/* 毎週のルール and これまでの申請: reference, and both of them
-            about YOU — the rules you are about to act on and the weeks
-            you have already had. They sat in the right-hand column from
-            2026/11/06 to 11/08, which balanced the two columns at the
-            time and stopped doing so once the 初回 card joined that side:
-            the charts ran to 1900px against this column's 730 and the
-            left half of the screen was empty from the request form down.
-            Back here, where they are also the better fit for what the
-            column is. */}
-        {onRequest && (
-          <>
-            <div className="sechead"><span>{mgs('rules')}</span></div>
-            <div className="card">
-              <ul className="eg-rules">
-                {['r1', 'r2', 'r3', 'r4'].map((k) => <li key={k}>{mgs(k)}</li>)}
-              </ul>
-            </div>
-          </>
-        )}
-
-        {onRequest && !!d.history?.length && (
-          <>
-            <div className="sechead"><span>{t('history')}</span></div>
-            <div className="card">
-              <ul className="eg-hist">
-                {d.history.map((h) => (
-                  <li key={h.ship}>
-                    <span>{md(h.ship, lang)}</span>
-                    <span>{h.office}</span>
-                    <b>{h.got === null ? `${h.packs} ${t('pack')}` : `${h.got}/${h.packs}`}</b>
-                    <em>{t(`st_${h.status || 'received'}`)}</em>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </>
-        )}
-
         {/* 日ごとの取れ高. It lived in the right-hand column, then for a
             few hours in a grid row of its own under this one — which was
             wrong: the right column spans both rows, so its height is shared
@@ -1164,6 +1125,44 @@ export default function EggPortal({ d, reload: load, lang, toast, screen = 'all'
         </div>
 
 
+
+        {/* 毎週のルール and これまでの申請. Reference: four lines that never
+            change and a list of weeks already dealt with. They belong to
+            whichever column has the room, and the room is here — the left
+            column carries the week, the terms, the request and the chart
+            and runs to about 1700px on an ordinary week against this one's
+            900. They spent one morning on the left, which balanced the
+            first-round week (that one has her 初回 card on this side) and
+            unbalanced every week after it. The ordinary week is the one
+            the site spends its life in. */}
+{onRequest && (
+          <>
+            <div className="sechead"><span>{mgs('rules')}</span></div>
+            <div className="card">
+              <ul className="eg-rules">
+                {['r1', 'r2', 'r3', 'r4'].map((k) => <li key={k}>{mgs(k)}</li>)}
+              </ul>
+            </div>
+          </>
+        )}
+
+        {onRequest && !!d.history?.length && (
+          <>
+            <div className="sechead"><span>{t('history')}</span></div>
+            <div className="card">
+              <ul className="eg-hist">
+                {d.history.map((h) => (
+                  <li key={h.ship}>
+                    <span>{md(h.ship, lang)}</span>
+                    <span>{h.office}</span>
+                    <b>{h.got === null ? `${h.packs} ${t('pack')}` : `${h.got}/${h.packs}`}</b>
+                    <em>{t(`st_${h.status || 'received'}`)}</em>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </>
+        )}
       </div>
 
       )}
