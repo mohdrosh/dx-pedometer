@@ -448,22 +448,30 @@ function OfficeRace({ offices, packs, lang, t, img }) {
     work: Math.max(0, Number(o.work) || 0),
     min: Math.max(0, Number(o.minPacks) || 0),
   }));
-  const harvest = Math.max(0, Number(packs) || 0);
-  /* The scale has to hold the harvest, every bar and every notch, or one of
-     them is drawn off the end of its track. */
-  const top = Math.max(1, harvest, ...rows.map((r) => Math.max(r.asked, r.min)));
-  const asked = rows.reduce((a, r) => a + r.asked, 0);
-  const pct = (n) => `${Math.min(100, (n / top) * 100)}%`;
-  /* The お届けライン notch, which is 3px wide and inside a track that
-     clips. An office whose minimum IS the top of the scale — every week
-     before the first egg is laid, when the scale is the largest minimum
-     and nothing has been asked for — puts it at exactly 100%, where the
-     whole of it falls outside the track and the line simply is not there.
-     Three offices showed a mark and four did not, for no reason a reader
-     could see. Held back by its own width at the end. */
-  const notch = (n) => {
-    const p = Math.min(100, (n / top) * 100);
-    return p > 99 ? 'calc(100% - 3px)' : `${p}%`;
+  /* One dot per pack, with the お届けライン drawn as a gap between the
+     last dot below it and the first one above.
+
+     It was a bar, and the bar measured the week's whole harvest while the
+     notch on it measured that office's own minimum — two different scales
+     in one row, so nothing in the row could be compared with anything
+     else in it. On a week with no harvest and no requests the scale
+     collapsed onto the largest minimum and the row became an empty track
+     with a tick floating at an arbitrary spot.
+
+     Dots have no scale to get wrong. The numbers here are packs, and a
+     pack is a countable thing — 0 to 8 in an ordinary week — so the row
+     says 「five, and the line was at four」 without any arithmetic. Enough
+     dots are drawn to reach whichever is greater, the request or the
+     line, so an office short of its minimum shows the empty places it
+     still has to fill. They wrap rather than squeeze if a week is ever
+     big enough to need it. */
+  const dots = (r) => {
+    const out = [];
+    for (let i = 1; i <= Math.max(r.asked, r.min, 1); i += 1) {
+      if (r.min > 0 && i === r.min + 1) out.push({ line: true, key: `l${i}` });
+      out.push({ on: i <= r.asked, key: `d${i}` });
+    }
+    return out;
   };
   /* Ranked, because a race with the leader in the middle is a list. Ties
      keep the order the offices were registered in. */
@@ -485,21 +493,23 @@ function OfficeRace({ offices, packs, lang, t, img }) {
           return (
             <li key={r.name} className={state}>
               <span className="eg-vs-n">{r.name}</span>
-              <span className="eg-vs-t">
-                <i style={{ width: pct(r.asked) }} />
-                {/* The minimum, on the bar. A van is sent at this mark and
-                    not before, so it belongs where the eggs are counted. */}
-                {r.min > 0 && <u style={{ left: notch(r.min) }} aria-hidden="true" />}
+              <span className="eg-vs-p" aria-hidden="true">
+                {dots(r).map((x) => (x.line
+                  ? <s key={x.key} />
+                  : <b key={x.key} className={x.on ? 'on' : ''} />))}
               </span>
-              <b className="eg-vs-v">{r.asked}</b>
               {/* 佐野's four: お届け決定 / あと{n}パックでお届け /
-                  仕事用のため発送 / リクエストなし. */}
+                  仕事用のため発送 / リクエストなし. Before the count, so
+                  the row ends on the number — the sentence takes whatever
+                  width is left over and the figures line up down the
+                  right-hand edge. */}
               <em className="eg-vs-s">
                 {r.asked === 0 ? mgs('cNone')
                   : met ? mgs('cGo')
                     : courier ? mgs('cSp')
                       : mgs('cNear', { n: String(r.min - r.asked) })}
               </em>
+              <b className="eg-vs-v">{r.asked}</b>
             </li>
           );
         })}
@@ -1048,23 +1058,6 @@ export default function EggPortal({ d, reload: load, lang, toast, screen = 'all'
           </>
         )}
 
-        {onRequest && !!d.history?.length && (
-          <>
-            <div className="sechead"><span>{t('history')}</span></div>
-            <div className="card">
-              <ul className="eg-hist">
-                {d.history.map((h) => (
-                  <li key={h.ship}>
-                    <span>{md(h.ship, lang)}</span>
-                    <span>{h.office}</span>
-                    <b>{h.got === null ? `${h.packs} ${t('pack')}` : `${h.got}/${h.packs}`}</b>
-                    <em>{t(`st_${h.status || 'received'}`)}</em>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </>
-        )}
 
       </div>
 
@@ -1097,6 +1090,28 @@ export default function EggPortal({ d, reload: load, lang, toast, screen = 'all'
 
 
 
+
+        {/* これまでの申請. The weeks already dealt with — the least urgent
+            thing on the page, so it is the ballast: whichever column is
+            shorter gets it. The office table lost 200px when its bars
+            became dots, which is how it came to be this one. */}
+        {onRequest && !!d.history?.length && (
+          <>
+            <div className="sechead"><span>{t('history')}</span></div>
+            <div className="card">
+              <ul className="eg-hist">
+                {d.history.map((h) => (
+                  <li key={h.ship}>
+                    <span>{md(h.ship, lang)}</span>
+                    <span>{h.office}</span>
+                    <b>{h.got === null ? `${h.packs} ${t('pack')}` : `${h.got}/${h.packs}`}</b>
+                    <em>{t(`st_${h.status || 'received'}`)}</em>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </>
+        )}
       </div>
 
       )}

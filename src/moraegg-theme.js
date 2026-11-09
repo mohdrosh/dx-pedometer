@@ -568,41 +568,45 @@ export const MG_CSS = `
 .mg .eg-vs-top p.warn{color:#B3261E}
 
 .mg .eg-vs-rows{list-style:none;margin:0;padding:0;display:grid;gap:0}
-/* Name, bar and count on one line; the verdict on its own underneath, at
-   every width. 佐野's wording is a sentence —「あと2パックでお届け」 — and a
-   column narrow enough to sit beside the bar clipped it to 「あと2パックで
-   お…」, which is the half that does not say anything. */
-/* A ruled list, not a stack of free-floating rows. The status used to be
-   right-aligned on its own full-width line, which left every row ending
-   at a different place down the card; it now starts where the bar starts
-   and runs left, so the whole table has two edges and not five. */
-.mg .eg-vs-rows li{display:grid;grid-template-columns:5.6em minmax(0,1fr) 2.4em;
-  grid-template-areas:'n t v' '. s s';align-items:center;gap:3px 10px;
-  padding:9px 0;border-bottom:1px solid var(--mg-line)}
-.mg .eg-vs-rows li:first-child{padding-top:2px}
-.mg .eg-vs-rows li:last-child{border-bottom:0;padding-bottom:2px}
-.mg .eg-vs-n{grid-area:n} .mg .eg-vs-t{grid-area:t} .mg .eg-vs-v{grid-area:v}
-.mg .eg-vs-n{font-size:12.5px;font-weight:900;color:var(--mg-navy);
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.mg .eg-vs-t{position:relative;display:block;height:18px;background:#FFFDF6;
-  border:1px solid var(--mg-line-s);border-radius:7px;overflow:hidden}
-.mg .eg-vs-t i{display:block;height:100%;background:var(--mg-royal);
-  border-radius:0 4px 4px 0;transition:width .45s cubic-bezier(.34,1.3,.64,1)}
-/* The minimum, drawn ON the bar: the distance left to a delivery is then
-   something you see rather than a subtraction you do. */
-.mg .eg-vs-t u{position:absolute;top:-2px;bottom:-2px;width:3px;
-  background:var(--mg-navy);opacity:.55;text-decoration:none}
-.mg .eg-vs-rows li.go .eg-vs-t i{background:var(--mg-leaf)}
-.mg .eg-vs-rows li.miss .eg-vs-t i{background:#C3CCDA}
-.mg .eg-vs-v{font-size:14px;font-weight:900;color:var(--mg-navy);
-  font-variant-numeric:tabular-nums;text-align:right}
-.mg .eg-vs-s{grid-area:s;font-style:normal;font-size:11.5px;font-weight:700;
-  color:#5B6B86;text-align:left}
-.mg .eg-vs-rows li.go .eg-vs-s{color:var(--mg-leaf)}
-@media(max-width:560px){
-  .mg .eg-vs-rows li{grid-template-columns:6.6em minmax(0,1fr) 2.2em}
+/* Name, dots, verdict, count — one line per office. It was two lines with
+   a bar on the first and 佐野's sentence on the second, which ran the card
+   to 530px for seven offices; this is 270. */
+.mg .eg-vs-rows li{
+  /* The dots take their natural width — a grid column is shared, so it is
+     the widest row's dots and no more. A fixed 150px here gave four dots
+     the room for eleven and clipped 「あと2パックでお届け」 to 「…でお…」,
+     which is the half that says nothing. */
+  display:grid;grid-template-columns:6.1em auto minmax(0,1fr) 1.8em;
+  align-items:center;gap:9px;padding:6px 0;border-bottom:1px solid var(--mg-line);
 }
-@media(prefers-reduced-motion:reduce){.mg .eg-vs-t i{transition:none}}
+.mg .eg-vs-rows li:first-child{padding-top:1px}
+.mg .eg-vs-rows li:last-child{border-bottom:0;padding-bottom:1px}
+.mg .eg-vs-n{font-size:12px;font-weight:900;color:var(--mg-navy);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* One dot per pack. b is a dot, s is the お届けライン between two of them. */
+/* Capped and wrapping, so one enormous week cannot push the sentence out. */
+.mg .eg-vs-p{display:flex;flex-wrap:wrap;align-items:center;gap:3px;max-width:170px}
+.mg .eg-vs-p b{display:block;width:10px;height:10px;border-radius:50%;
+  background:#EDF1F8;box-shadow:inset 0 0 0 1px var(--mg-line-s)}
+.mg .eg-vs-p b.on{background:var(--mg-royal);box-shadow:none}
+.mg .eg-vs-rows li.go .eg-vs-p b.on{background:var(--mg-leaf)}
+.mg .eg-vs-p s{display:block;width:2px;height:13px;margin:0 2px;border-radius:1px;
+  background:var(--mg-navy);opacity:.4;text-decoration:none}
+.mg .eg-vs-v{font-size:13px;font-weight:900;color:var(--mg-navy);
+  font-variant-numeric:tabular-nums;text-align:right}
+.mg .eg-vs-s{font-style:normal;font-size:11px;font-weight:700;color:#5B6B86;
+  text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mg .eg-vs-rows li.go .eg-vs-s{color:var(--mg-leaf)}
+.mg .eg-vs-rows li.miss .eg-vs-n,.mg .eg-vs-rows li.miss .eg-vs-v{color:#9AA5B5}
+/* On a phone there is no room for 「あと2パックでお届け」 beside the dots,
+   and a clipped 「あと2パックでお…」 is the half that says nothing. It drops
+   under them, where it starts at the dots rather than at the card edge. */
+@media(max-width:620px){
+  .mg .eg-vs-rows li{grid-template-columns:5.4em minmax(0,1fr) 1.8em;
+    grid-template-areas:'n p v' '. s s';gap:2px 8px;padding:7px 0}
+  .mg .eg-vs-n{grid-area:n} .mg .eg-vs-p{grid-area:p} .mg .eg-vs-v{grid-area:v}
+  .mg .eg-vs-s{grid-area:s;text-align:left}
+}
 
 /* --------------------------- モラエッグの1週間 --------------------------
    Four steps in the order they happen. Three loose dates told you when
