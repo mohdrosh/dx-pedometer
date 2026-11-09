@@ -313,6 +313,12 @@ export default function EggTab({
   if (!views.length) views.push(['dish', t('v_dish')]);
   const at = views.some(([k]) => k === view) ? view : views[0][0];
 
+  /* The signed-in person's name, for the line under the header. The
+     session is the only thing that knows it — it is never read from a
+     request body, and it is not in the portal payload either, which
+     carries the week and not the reader. */
+  const me = (user?.name || '').trim();
+
   return (
     <div className="mg-page">
 
@@ -384,15 +390,36 @@ export default function EggTab({
           </div>
         ) : (
         <>
-      {views.length > 1 && (
-        <nav className="eg-sub">
-          {views.map(([k, label]) => (
-            <button
-              key={k} type="button" className={at === k ? 'on' : ''}
-              onClick={() => setView(k)}
-            >{label}</button>
-          ))}
-        </nav>
+      {/* Who is signed in, the way マイページ says it — 名前／事業所, in the
+          same 名前／所属 shape the pedometer's header uses, so somebody
+          moving between the two reads the same line twice rather than
+          learning a second one. 佐野's header is the site's name and is
+          centred; this is the reader's own name, so it sits with the tabs
+          where the page becomes theirs.
+
+          事業所 is the 受取場所 here, which is the one fact about an
+          account worth checking at a glance — it decides where the pack
+          turns up. Left off for an administrator or the 丹波 staff, who
+          have no pickup office of their own. */}
+      {(views.length > 1 || me) && (
+        <div className="mg-subbar">
+          {views.length > 1 ? (
+            <nav className="eg-sub">
+              {views.map(([k, label]) => (
+                <button
+                  key={k} type="button" className={at === k ? 'on' : ''}
+                  onClick={() => setView(k)}
+                >{label}</button>
+              ))}
+            </nav>
+          ) : <span />}
+          {me && (
+            <p className="mg-me">
+              <b>{me}</b>
+              {p1?.signup?.office && <span>／{p1.signup.office}</span>}
+            </p>
+          )}
+        </div>
       )}
 
       <div className="mg-body">

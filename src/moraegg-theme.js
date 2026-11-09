@@ -328,8 +328,28 @@ export const MG_CSS = `
 .mg .mg-set-go .btn{box-shadow:0 2px 10px rgba(11,41,106,.22)}
 
 /* ------------------------------- the tabs ------------------------------- */
+/* The tab strip and the reader's name share one line once there is room
+   for both; on a phone the name goes above the tabs, because the tabs
+   scroll sideways and anything parked at their right-hand end scrolls
+   away with them. The row owns the page gutter now, not .eg-sub. */
+.mg .mg-subbar{display:flex;flex-direction:column;gap:9px;padding:10px 16px 0}
+/* On a phone the name reads first — header, who you are, then the tabs —
+   rather than being left between the tabs and the first card. */
+.mg .mg-subbar .mg-me{order:-1}
+.mg .mg-me{
+  margin:0;font-size:12px;font-weight:800;color:var(--mg-navy);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;
+}
+.mg .mg-me span{font-weight:600;color:#5B6B86}
+@media(min-width:620px){
+  .mg .mg-subbar{flex-direction:row;align-items:center;
+    justify-content:space-between;gap:16px;padding-top:14px}
+  .mg .mg-subbar .mg-me{order:0}
+  .mg .mg-subbar .eg-sub{flex:1 1 auto;min-width:0}
+  .mg .mg-me{flex:0 0 auto;font-size:12.5px}
+}
 .mg .eg-sub{
-  display:flex;gap:8px;padding:12px 16px 0;background:none;border:0;
+  display:flex;gap:8px;padding:0;background:none;border:0;
   overflow-x:auto;scrollbar-width:none;
 }
 .mg .eg-sub::-webkit-scrollbar{display:none}
@@ -779,7 +799,7 @@ export const MG_CSS = `
 
 @media(min-width:900px){
   .mg-body{margin:0 auto;padding:16px 22px 0}
-  .mg .eg-sub{padding:14px 22px 0;max-width:1240px;margin:0 auto}
+  .mg .mg-subbar{padding:16px 22px 0;max-width:1240px;margin:0 auto}
   .mg .eg-rules.eg-r4{grid-template-columns:repeat(4,minmax(0,1fr))}
   .mg .eg-race-ch{height:112px}
 }
