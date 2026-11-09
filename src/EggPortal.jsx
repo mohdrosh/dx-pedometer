@@ -1011,6 +1011,31 @@ export default function EggPortal({ d, reload: load, lang, toast, screen = 'all'
           </div>
         </div>
 
+
+        {/* 印刷して使えます. The same three of her printables the 丹波 screen
+            has, because two of the three are for whoever ends up holding
+            the pack rather than for the shed: the ありがとうカード goes in
+            with an おすそわけ, and the シール goes on the lid of a carton
+            somebody is passing on. Three across rather than stacked —
+            that keeps this column level with the other one in both the
+            ordinary week and the 初回 week, where it fills the cream the
+            受付終了 card used to leave. */}
+        {onStatus && (
+          <>
+            <div className="sechead"><span>{t('printables')}</span></div>
+            <div className="mg-print eg-print3">
+              {[['label-asadore', 'printLabel', 'printLabelNote'],
+                ['seal-round', 'printSeal', 'printSealNote'],
+                ['thankyou-egg', 'printThanks', 'printThanksNote']].map(([file, title, note]) => (
+                  <a key={file} href={img(file)} target="_blank" rel="noreferrer">
+                    <img src={img(file)} alt="" />
+                    <span><b>{t(title)}</b><span>{t(note)}</span></span>
+                  </a>
+              ))}
+            </div>
+          </>
+        )}
+
       </div>
 
       {/* ------------------------------ right ----------------------------- */}

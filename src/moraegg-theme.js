@@ -801,6 +801,20 @@ export const MG_CSS = `
 .mg-print b{font-size:13.5px;font-weight:900;display:block}
 .mg-print span{font-size:11.5px;font-weight:500;color:#5B6B86}
 
+/* The same three on the employee page, three across instead of stacked:
+   a column of three 95px rows there would add 300px to a column that is
+   already the taller of the two. The artwork is a label, a round sticker
+   and an egg — three different shapes — so each sits inside a fixed box
+   on the cream rather than being cropped to a common one. */
+@media(min-width:720px){
+  .mg .eg-print3{grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+  .mg .eg-print3 a{flex-direction:column;align-items:stretch;gap:9px;padding:11px}
+  .mg .eg-print3 img{width:100%;height:82px;object-fit:contain;
+    background:#FFFDF6;border-radius:9px}
+  .mg .eg-print3 b{font-size:12.5px;line-height:1.35}
+  .mg .eg-print3>a>span{font-size:11px}
+}
+
 @media(min-width:900px){
   .mg-body{margin:0 auto;padding:16px 22px 0}
   .mg .mg-subbar{padding:16px 22px 0;max-width:1240px;margin:0 auto}
