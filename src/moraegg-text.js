@@ -106,6 +106,17 @@ const PENDING_1109B = ['finalShort', 'finalDry', 'finalNg'];
      undoDone   確定を取り消しました。 */
 const PENDING_1109C = ['undoFinal', 'undoAsk', 'undoMail', 'undoYes', 'undoDone'];
 
+/* 2026/11/09: which shipment the 丹波 week belongs to, said on the screen.
+   Both screens now count the same week, and on the days when that week is
+   not the calendar week the person typing has to be able to see it. Mine:
+
+     tShipFor  {d}発送分               —— beside 今週の取れ高
+     tNotIn    本日の分は、次の発送に入ります。 —— when today falls outside
+                                        that week, which it does before
+                                        the first shipment and on a Monday
+                                        before the 9時 deadline */
+const PENDING_1109D = ['tShipFor', 'tNotIn'];
+
 /* 2026/11/08: tHint is HERS, and it is the one string on the 丹波 screen
    that had to change rather than one I wanted to add. It read 「10個詰める
    ごとに「＋1パック」を押してください」 — an instruction to press a button
@@ -138,7 +149,7 @@ const PENDING_1109C = ['undoFinal', 'undoAsk', 'undoMail', 'undoYes', 'undoDone'
 /** The keys above that she has not signed off yet, for anyone checking. */
 export const pendingKeys = () => [
   ...PENDING_1105, ...PENDING_1106, ...PENDING_1108,
-  ...PENDING_1109, ...PENDING_1109B, ...PENDING_1109C,
+  ...PENDING_1109, ...PENDING_1109B, ...PENDING_1109C, ...PENDING_1109D,
 ];
 
 export function mg(key, lang = 'ja', vars = null) {

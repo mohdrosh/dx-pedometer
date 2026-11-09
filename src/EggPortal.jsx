@@ -1640,11 +1640,26 @@ export function EggFarm({ lang, toast }) {
           <div className="eg-hv-top">
             <div className="eg-hv-n">
               <em>{t('weekTotal')}</em><b>{d.harvestPacks}</b><span>{t('pack')}</span>
+              {/* Which shipment these seven days are for. The week here
+                  and the week on the employees' page are the same week;
+                  saying which one it is turns a figure that looked wrong
+                  on 2026/11/09 into one that explains itself. */}
+              {d.week?.ship && (
+                <i className="eg-hv-for">{mg('tShipFor', lang, { d: md(d.week.ship, lang) })}</i>
+              )}
             </div>
             <div className="eg-hv-ask">
               <em>{t('weekAsked')}</em><b>{d.asked ?? 0}</b>
             </div>
           </div>
+          {/* Today's eggs are not always in the week above it — before the
+              first shipment, and on a Monday before the deadline, they go
+              to the one after. The big box still takes them; this says
+              where they went, instead of leaving somebody to work out why
+              the total did not move. */}
+          {!!d.week?.from && (todayIso < d.week.from || todayIso > d.week.to) && (
+            <p className="muted sm eg-hv-note">{mg('tNotIn', lang)}</p>
+          )}
 
           {/* 「ほかの日を修正する」 was a block of its own with a pair of
               buttons per day. The week is seven cells instead — the same

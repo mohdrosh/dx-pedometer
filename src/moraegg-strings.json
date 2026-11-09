@@ -835,6 +835,14 @@
     "ja": "今週のリクエスト合計",
     "en": "Total requests this week"
   },
+  "tShipFor": {
+    "ja": "{d}発送分",
+    "en": "for the {d} delivery"
+  },
+  "tNotIn": {
+    "ja": "本日の分は、次の発送に入ります。",
+    "en": "Today’s packs count towards the delivery after this one."
+  },
   "tFix": {
     "ja": "ほかの日を修正する",
     "en": "Fix another day"

@@ -1102,6 +1102,11 @@ export const MG_CSS = `
 .mg .eg-hv-n em{font-style:normal;font-size:11.5px;font-weight:700;color:#5B6B86}
 .mg .eg-hv-n b{font-size:30px;font-weight:900;color:var(--mg-navy);line-height:1}
 .mg .eg-hv-n span{font-size:14px;font-weight:700;color:#3E4F6E}
+/* Which shipment the seven days belong to, set small beside the total:
+   a label, not a second figure competing with it. */
+.mg .eg-hv-for{font-style:normal;font-size:11px;font-weight:700;color:#8894A8;
+  padding-left:2px}
+.mg .eg-hv-note{margin:6px 0 0}
 .mg .eg-hv-ask{display:flex;flex-direction:column;align-items:flex-end}
 .mg .eg-hv-ask em{font-style:normal;font-size:11.5px;color:#5B6B86}
 .mg .eg-hv-ask b{font-size:20px;font-weight:800;color:var(--mg-navy)}

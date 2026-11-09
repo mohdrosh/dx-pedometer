@@ -938,7 +938,6 @@ const server = http.createServer(async (req, res) => {
       const span = harvestWindow(ship, cfg, holidays);
       const harvestFrom = span.from;
       const harvest = await eggHarvest(span.from, span.to);
-
       /* Once the week has been decided, every screen stops showing what
          was asked for and starts showing what is coming — the same
          numbers the office contacts are given, so nobody is comparing two
@@ -1229,21 +1228,45 @@ const server = http.createServer(async (req, res) => {
         packs = await eggHarvestSet(day, n, sess.employeeId);
       }
 
-      const monday = mondayOf(now.stamp);
-      const harvest = await eggHarvest(monday, shiftDay(monday, 6));
-      /* 「今週のリクエスト合計」 — what this week's eggs are being asked
-         for. They ship on the Monday after this one, so that is the week
-         counted, and it is a total with no names in it. */
-      const feeds = shiftDay(monday, 7);
+      /* Which week this screen is about: the one feeding the shipment
+         that is open for requests, which is the week the employees' page
+         is racing against.
+
+         It used to be the calendar week — Monday to Sunday around today
+         — and the two are the same most of the time, which is why it
+         survived. They are not the same on a Monday morning, when the
+         open shipment is being decided on last week's eggs, and they were
+         two weeks apart on 2026/11/09, where 初回発送週 is 11/23 and the
+         eggs for it are laid from the 16th: the 丹波 screen said 今週の
+         取れ高 12パック while the employees' page said 0, both correct
+         about different weeks. One definition now, shared with the
+         portal, so the two screens cannot disagree again. */
+      const { cfg, holidays } = await eggCfgNow();
+      const feeds = openShipMonday(now.stamp, now.h, cfg, holidays);
+      const span = harvestWindow(feeds, cfg, holidays);
+      const harvest = await eggHarvest(span.from, span.to);
+      /* 「今週のリクエスト合計」 — what these eggs are being asked for, as
+         a total with no names in it. */
       const asked = (await eggWeekRequests(feeds)).reduce((a, r) => a + (r.packs || 0), 0);
+      /* The week's total is the week's seven days, counted before today's
+         own row is added below. */
+      const weekPacks = harvest.reduce((a, d) => a + d.packs, 0);
+      /* Today, when today is not one of those seven days — it is not
+         before the first shipment, and not on a Monday before the
+         deadline. The big box on this screen is always today, so without
+         its row the box would sit empty over a register that holds a
+         figure, and the day would look unrecorded and be typed twice. */
+      if (now.stamp < span.from || now.stamp > span.to) {
+        harvest.push(...await eggHarvest(now.stamp, now.stamp));
+      }
       return sendJson(res, 200, {
         /* `day` is the day this call changed, which is not necessarily
            today — a correction names another one. `today` is today, and
            the screen needs both: one to show the result of the tap, the
            other to know which card is 今日の取れ高. */
         day, today: now.stamp,
-        packs, harvest, harvestPacks: harvest.reduce((a, d) => a + d.packs, 0),
-        week: { from: monday, to: shiftDay(monday, 6), ship: feeds },
+        packs, harvest, harvestPacks: weekPacks,
+        week: { from: span.from, to: span.to, ship: feeds },
         asked,
         decided: !!(await eggWeek(feeds))?.drawnAt,
       });
