@@ -1311,10 +1311,18 @@ const server = http.createServer(async (req, res) => {
       return sendJson(res, 200, { ok: true });
     }
 
-    /* 「受け取りは、社員本人が押すか、事務所担当者がチェックする」 */
+    /* 「受け取りは、社員本人が押すか、事務所担当者がチェックする」
+
+       The 事務所担当者 is 健康対策委員会 now. The role was removed on
+       2026/11/06 — 「事業所宛てに卵を届けるかたちにします」 — and nothing
+       took over its permission here, so from that day until 11/09 the
+       事業所 screen drew a 「お渡しした」 button beside every name and the
+       route refused every press with a 403. The only way a pack could be
+       ticked off was the person doing it on their own page.
+
+       An administrator is allowed now. They are who the screen is for. */
     if (url.pathname === '/api/egg/pickup' && req.method === 'POST') {
       if (!sess) return deny(res);
-      if (sess.isAdmin) return deny(res, 403);
       if (rateLimited(`egg:${sess.sid}`, 30, 60_000)) return sendJson(res, 429, { error: 'too_many' });
       const who = await eggWho();
       const b = await readBody(req).catch(() => null);
@@ -1330,7 +1338,7 @@ const server = http.createServer(async (req, res) => {
          collected from — 本社 for somebody moved there, not the office
          they asked at, whose contact never sees the pack. */
       const contact = who.contactFor.includes(row.collectAt || row.office);
-      if (!ownIt && !contact) return deny(res, 403);
+      if (!ownIt && !contact && !who.admin) return deny(res, 403);
       /* Undoing somebody else's collection is the contact's to do; undoing
          your own is only sensible if you pressed it by mistake. */
       const done = await eggPickup(id, sess.employeeId, b?.undo === true);
