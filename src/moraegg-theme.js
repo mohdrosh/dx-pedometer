@@ -943,7 +943,6 @@ export const MG_CSS = `
    a phone that was third, under two cards about a job done on Mondays.
    (The portal next door flipped the opposite way for the same reason:
    there the second column is reference, here it is the work.) */
-.mg .eg-farm-r{order:-1}
 .mg .eg-farm-c{display:grid;gap:9px}
 .mg .eg-farm-c>p{margin:0}
 
@@ -958,6 +957,13 @@ export const MG_CSS = `
   background:#FFFDF6;border:1px solid var(--mg-line-s);border-radius:11px;
 }
 .mg .eg-n{width:5.2em;padding:5px 9px;font-size:14px}
+/* No spinner. A pair of 8px arrows beside a figure somebody types once a
+   day is a target nobody wants and a way to be one out. type=number
+   stays, for the numeric keypad on a phone. */
+.app.mg .eg-n::-webkit-outer-spin-button,.app.mg .eg-n::-webkit-inner-spin-button,
+.app.mg .eg-n-big::-webkit-outer-spin-button,.app.mg .eg-n-big::-webkit-inner-spin-button{
+  -webkit-appearance:none;margin:0}
+.app.mg .eg-n,.app.mg .eg-n-big{-moz-appearance:textfield;appearance:textfield}
 /* The one number this screen exists to take, so it is the size of the
    answer rather than the size of a form field. */
 .mg .eg-n-big{width:3.4em;padding:4px 10px;font-size:34px;line-height:1.15}
@@ -1038,6 +1044,19 @@ export const MG_CSS = `
 .mg .eg-hvs-days li.today em{color:var(--mg-navy)}
 
 /* 丹波: the unit beside each day's figure. */
+/* 丹波: the week as seven boxes across, the same seven cells the
+   employees' page shows — except these can be typed in. */
+.mg .eg-wkdays{list-style:none;margin:0;padding:0;
+  display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}
+.mg .eg-wkdays li{display:flex;flex-direction:column;align-items:center;gap:5px;
+  padding:8px 4px 9px;border-radius:10px;background:var(--mg-sky)}
+.mg .eg-wkdays li.on{background:var(--mg-sun)}
+/* A day still to come: present, so the week is a week, and shut. */
+.mg .eg-wkdays li.soon{background:#F5F7FB}
+.mg .eg-wkdays li.soon em{color:#A8B2C2}
+.mg .eg-wkdays em{font-style:normal;font-size:11px;font-weight:800;color:#5B6B86}
+.mg .eg-wkdays li.on em{color:var(--mg-navy)}
+.mg .eg-wkdays .eg-n{width:100%;padding:5px 2px;font-size:15px;text-align:center}
 .mg .eg-day-v{display:inline-flex;align-items:baseline;gap:6px}
 .mg .eg-day-v i{font-style:normal;font-size:12px;font-weight:700;color:#5B6B86}
 
@@ -1225,9 +1244,10 @@ export const MG_CSS = `
   /* 丹波: the week and the shipping decision on the left — that is the
      main column and the one number everything else serves — with today's
      entry and the printables beside it. */
-  .mg .eg-farm{grid-template-columns:minmax(0,1fr) minmax(0,400px);
+  /* Two halves, not 1fr and 400px: the printables are three across now
+     and three tiles in a 400px column are 120px wide. */
+  .mg .eg-farm{grid-template-columns:repeat(2,minmax(0,1fr));
     align-items:start;column-gap:22px}
-  .mg .eg-farm-r{order:0}
   .mg .ad-set,.mg .eg-admin{grid-template-columns:1fr 1fr;gap:4px 14px}
   .mg .ad-set .fld:last-child{grid-column:span 2}
   .mg .eg-admin>p{grid-column:span 2;margin:0}

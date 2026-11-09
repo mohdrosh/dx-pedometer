@@ -77,6 +77,9 @@ const HERS = {
   /* 丹波. 「事務所」「管理」 she has not written, but the harvest screen is
      the Tamba staff's and she wrote all of it. */
   farmHead: 'tToday',
+  /* 保存する, hers. The local table had 保存 — a word shorter and not
+     the one she wrote. */
+  save: 'save',
   addPack: 'tPlus',
   undo: 'tMinus',
   weekTotal: 'tWeek',
@@ -1379,6 +1382,8 @@ export function EggFarm({ lang, toast }) {
   const img = (n) => `${import.meta.env.BASE_URL}moraegg/${n}.webp`;
   const [d, setD] = useState(null);
   const [busy, setBusy] = useState(false);
+  /* day -> what is in its box, while it differs from the register. */
+  const [edits, setEdits] = useState({});
 
   /* One screen, not two tabs.
 
@@ -1435,32 +1440,107 @@ export function EggFarm({ lang, toast }) {
   const today = d.harvest.find((h) => h.day === todayIso);
   const locked = !!d.decided;
 
-  /* A number box that keeps what the register says until somebody changes
-     it, and saves on leaving the field. `key` carries the stored value so
-     a save elsewhere on the page refreshes this one instead of leaving a
-     stale number sitting in it. */
-  const packBox = (day, packs, big = false) => (
+  /* The week, Monday to Sunday, from the range the register itself
+     reports rather than one worked out here. Every day of it is drawn,
+     including the ones with nothing in them — a week that shows only the
+     days somebody has typed into is not a week, and on a Monday morning
+     it was one row. */
+  const days = [];
+  if (d.week?.from) {
+    const base = new Date(`${d.week.from}T00:00:00Z`);
+    for (let i = 0; i < 7; i += 1) {
+      const iso = new Date(base.getTime() + i * 86400000).toISOString().slice(0, 10);
+      const row = d.harvest.find((h) => h.day === iso);
+      days.push({ iso, packs: row?.packs || 0, has: !!row });
+    }
+  }
+
+  /* Typing no longer saves.
+
+     Every box used to write to the register the moment it lost focus, so
+     a tab press or a stray click was a commit and there was no moment
+     where the shed said "that is the count". What is typed is a draft
+     until 保存する is pressed; the button is dead until something has
+     actually changed, so pressing it always means something. */
+  /* A day nobody has typed into yet shows an empty box, not a 0. Zero is
+     a count somebody made — 「no eggs on Sunday」 — and Friday has not
+     happened. */
+  const draftOf = (day, stored, has) => {
+    if (edits[day] !== undefined) return edits[day];
+    return has ? String(stored) : '';
+  };
+  const toN = (v) => {
+    const n = Math.floor(Number(v));
+    return Number.isFinite(n) ? Math.max(0, Math.min(999, n)) : 0;
+  };
+  const changed = (list) => list.some(
+    (x) => edits[x.iso] !== undefined && toN(edits[x.iso]) !== x.packs,
+  );
+  const saveDays = async (list) => {
+    const todo = list.filter((x) => edits[x.iso] !== undefined && toN(edits[x.iso]) !== x.packs);
+    if (!todo.length) return;
+    const done = [];
+    for (const x of todo) {
+      /* Sequential, not Promise.all: each save returns the whole week and
+         the last answer in would win. */
+      // eslint-disable-next-line no-await-in-loop
+      const ok = await save(toN(edits[x.iso]), x.iso === todayIso ? null : x.iso);
+      if (ok) done.push(x.iso);
+    }
+    /* Only what the register took is cleared. A day it refused keeps the
+       number in its box, so the person can see what did not go in rather
+       than watching it vanish. */
+    if (done.length) {
+      setEdits((e) => {
+        const next = { ...e };
+        for (const iso of done) delete next[iso];
+        return next;
+      });
+    }
+    if (done.length === todo.length) toast?.(mg('saved', lang));
+  };
+
+  /* type=number for the numeric keypad on a phone, with the spinner taken
+     off in CSS: a pair of 8px arrows beside a figure somebody types once a
+     day is a target nobody wants and a way to be one out. */
+  const packBox = (day, packs, big = false, has = true) => (
     <input
-      key={`${day}:${packs}`} type="number" min={0} max={999}
+      type="number" min={0} max={999} inputMode="numeric"
       className={big ? 'eg-n-big' : 'eg-n'}
-      defaultValue={packs} disabled={busy || locked}
+      /* A day that has not happened cannot have been harvested, and the
+         register says so with a 409. Better that the box is simply shut
+         than that somebody types into it and is refused. */
+      value={draftOf(day, packs, has)} disabled={busy || locked || day > todayIso}
       onFocus={(e) => e.target.select()}
-      onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur(); }}
-      onBlur={(e) => {
-        const n = Math.max(0, Math.floor(Number(e.target.value)));
-        if (!Number.isFinite(n) || n === packs) { e.target.value = packs; return; }
-        save(n, day === todayIso ? null : day).then((ok) => {
-          if (ok) toast?.(mg('saved', lang));
-        });
-      }}
+      onChange={(e) => setEdits((x) => ({ ...x, [day]: e.target.value }))}
     />
   );
 
   return (
     <div className="eg-farm">
 
-      {/* ---- left: the week, and the decision made on it ---------------- */}
+      {/* ---- the two jobs: today's figure, then the week it adds to ----
+          今日の取れ高 leads. Six mornings out of seven it is the whole
+          visit, and it used to be third on a phone and in the right-hand
+          column at a desk. */}
       <div className="eg-farm-l">
+        <div className="sechead"><span>{t('farmHead')}</span></div>
+        <div className="card eg-farm-c">
+          <label className="eg-today">
+            <em>{t('todayIs')} {md(todayIso, lang)}</em>
+            {packBox(todayIso, today?.packs ?? 0, true, !!today)}
+            <span>{t('pack')}</span>
+          </label>
+          <p className="muted sm">{t('farmNote')}</p>
+          <div className="eg-acts">
+            <button
+              type="button" className="btn primary"
+              disabled={busy || locked || !changed([{ iso: todayIso, packs: today?.packs ?? 0 }])}
+              onClick={() => saveDays([{ iso: todayIso, packs: today?.packs ?? 0 }])}
+            >{t('save')}</button>
+          </div>
+        </div>
+
         <div className="sechead"><span>{t('weekTotal')}</span></div>
         <div className="card eg-hv">
           <div className="eg-hv-top">
@@ -1472,52 +1552,47 @@ export function EggFarm({ lang, toast }) {
             </div>
           </div>
 
-          {/* Every day of the week, each one editable. 「ほかの日を修正する」
-              was a separate block below with its own pair of buttons per
-              day; the list was already here, so the correction is simply
-              the list being typeable. It locks once the week has been
-              decided, because the allocation was worked out from these
+          {/* 「ほかの日を修正する」 was a block of its own with a pair of
+              buttons per day. The week is seven boxes across instead —
+              the same seven cells the employees' page shows, except that
+              here you can type in them. A day whose week has already been
+              decided is locked: the allocation was worked out from these
               numbers. */}
-          <ul className="eg-days">
-            {d.harvest.map((h) => (
-              <li key={h.day} className={h.day === todayIso ? 'on' : ''}>
-                <span>{md(h.day, lang)}</span>
-                {/* The unit on every row, not only on the total. A column
-                    of bare numerals beside a column of dates reads as a
-                    form; 「3 パック」 reads as the week. */}
-                <span className="eg-day-v">{packBox(h.day, h.packs)}<i>{t('pack')}</i></span>
+          <ol className="eg-wkdays">
+            {days.map((x) => (
+              <li
+                key={x.iso}
+                className={`${x.iso === todayIso ? 'on' : ''}${x.iso > todayIso ? ' soon' : ''}`}
+              >
+                <em>{DOW_JA[dow(x.iso)]}</em>
+                {packBox(x.iso, x.packs, false, x.has)}
               </li>
             ))}
-            {!d.harvest.length && <li className="muted"><span>{t('noneYet')}</span><b>0</b></li>}
-          </ul>
+          </ol>
+
+          <div className="eg-acts">
+            <button
+              type="button" className="btn primary"
+              disabled={busy || locked || !changed(days)}
+              onClick={() => saveDays(days)}
+            >{t('save')}</button>
+          </div>
           {locked && <p className="muted sm">{t('fixShut')}</p>}
         </div>
-
-        {/* 発送の確定, on the same screen as the number it is about. */}
-        <EggShip lang={lang} toast={toast} t={t} onDone={load} />
       </div>
 
-      {/* ---- right: today's entry, and the printables ------------------- */}
+      {/* ---- the Monday decision, and the printables ------------------- */}
       <div className="eg-farm-r">
-        <div className="sechead"><span>{t('farmHead')}</span></div>
-        <div className="card eg-farm-c">
-          <label className="eg-today">
-            <em>{t('todayIs')} {md(todayIso, lang)}</em>
-            {packBox(todayIso, today?.packs ?? 0, true)}
-            <span>{t('pack')}</span>
-          </label>
-          <p className="muted sm">{t('farmNote')}</p>
-        </div>
+        {/* 発送の確定, on the same screen as the number it is about. */}
+        <EggShip lang={lang} toast={toast} t={t} onDone={load} />
 
         {/* 佐野's print artwork, offered where the person packing the
             cartons actually is. Opened in a tab and printed; nothing is
-            generated.
-
-            No card around the list: each row is already a bordered tile,
-            and the wrapper drew a second border around the three of them
-            that collided with the first at every corner. */}
+            generated. Three across, the way the employees' page shows
+            them — which is why this column is half the screen now and
+            not 400px. */}
         <div className="sechead"><span>{t('printables')}</span></div>
-        <div className="mg-print">
+        <div className="mg-print eg-print3">
           {[['label-asadore', 'printLabel', 'printLabelNote'],
             ['seal-round', 'printSeal', 'printSealNote'],
             ['thankyou-egg', 'printThanks', 'printThanksNote']].map(([file, title, note]) => (
