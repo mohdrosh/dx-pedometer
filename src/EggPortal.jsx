@@ -1519,10 +1519,13 @@ export function EggFarm({ lang, toast }) {
   return (
     <div className="eg-farm">
 
-      {/* ---- the two jobs: today's figure, then the week it adds to ----
-          今日の取れ高 leads. Six mornings out of seven it is the whole
-          visit, and it used to be third on a phone and in the right-hand
-          column at a desk. */}
+      {/* ---- one card: today's figure, the week it lands in, one button
+          Today was its own card with its own 保存する, and the week below
+          had another — and because the week's 月 cell is today as well,
+          the same number sat in two boxes under two buttons that did
+          almost the same thing. One card now. Today is typed in the big
+          box; the strip shows where it lands and lets an earlier day be
+          corrected; one button writes whatever changed. */}
       <div className="eg-farm-l">
         <div className="sechead"><span>{t('farmHead')}</span></div>
         <div className="card eg-farm-c">
@@ -1532,20 +1535,10 @@ export function EggFarm({ lang, toast }) {
             <span>{t('pack')}</span>
           </label>
           <p className="muted sm">{t('farmNote')}</p>
-          <div className="eg-acts">
-            <button
-              type="button" className="btn primary"
-              disabled={busy || locked || !changed([{ iso: todayIso, packs: today?.packs ?? 0 }])}
-              onClick={() => saveDays([{ iso: todayIso, packs: today?.packs ?? 0 }])}
-            >{t('save')}</button>
-          </div>
-        </div>
 
-        <div className="sechead"><span>{t('weekTotal')}</span></div>
-        <div className="card eg-hv">
           <div className="eg-hv-top">
             <div className="eg-hv-n">
-              <b>{d.harvestPacks}</b><span>{t('pack')}</span>
+              <em>{t('weekTotal')}</em><b>{d.harvestPacks}</b><span>{t('pack')}</span>
             </div>
             <div className="eg-hv-ask">
               <em>{t('weekAsked')}</em><b>{d.asked ?? 0}</b>
@@ -1553,11 +1546,14 @@ export function EggFarm({ lang, toast }) {
           </div>
 
           {/* 「ほかの日を修正する」 was a block of its own with a pair of
-              buttons per day. The week is seven boxes across instead —
-              the same seven cells the employees' page shows, except that
-              here you can type in them. A day whose week has already been
-              decided is locked: the allocation was worked out from these
-              numbers. */}
+              buttons per day. The week is seven cells instead — the same
+              seven the employees' page shows. Today's cell is the figure
+              from the box above rather than a second box for it; the
+              others can be typed in, which is what the correction is. A
+              day still to come is shut, because the register refuses it
+              with a 409 and a box that cannot work should not open. Once
+              the week is decided they all lock: the allocation was worked
+              out from these numbers. */}
           <ol className="eg-wkdays">
             {days.map((x) => (
               <li
@@ -1565,7 +1561,9 @@ export function EggFarm({ lang, toast }) {
                 className={`${x.iso === todayIso ? 'on' : ''}${x.iso > todayIso ? ' soon' : ''}`}
               >
                 <em>{DOW_JA[dow(x.iso)]}</em>
-                {packBox(x.iso, x.packs, false, x.has)}
+                {x.iso === todayIso
+                  ? <b className="eg-wkd-v">{draftOf(x.iso, x.packs, x.has) || '0'}</b>
+                  : packBox(x.iso, x.packs, false, x.has)}
               </li>
             ))}
           </ol>

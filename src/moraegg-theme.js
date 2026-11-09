@@ -957,6 +957,11 @@ export const MG_CSS = `
   background:#FFFDF6;border:1px solid var(--mg-line-s);border-radius:11px;
 }
 .mg .eg-n{width:5.2em;padding:5px 9px;font-size:14px}
+/* A button with nothing to save. The app's own disabled style landed on
+   #B3BEC2 under #9AA3B2 text here, which is a muddy slab; this is plainly
+   off without being a smudge. */
+.app.mg .btn:disabled,.app.mg .btn.primary:disabled{
+  background:#EDEFF4;color:#8C96A8;border-color:#DCE1EA;box-shadow:none}
 /* No spinner. A pair of 8px arrows beside a figure somebody types once a
    day is a target nobody wants and a way to be one out. type=number
    stays, for the numeric keypad on a phone. */
@@ -1057,6 +1062,9 @@ export const MG_CSS = `
 .mg .eg-wkdays em{font-style:normal;font-size:11px;font-weight:800;color:#5B6B86}
 .mg .eg-wkdays li.on em{color:var(--mg-navy)}
 .mg .eg-wkdays .eg-n{width:100%;padding:5px 2px;font-size:15px;text-align:center}
+/* Today's cell is the figure from the box above, not a second box for it. */
+.mg .eg-wkd-v{display:block;padding:5px 2px;font-size:16px;font-weight:900;
+  color:var(--mg-navy);text-align:center;font-variant-numeric:tabular-nums}
 .mg .eg-day-v{display:inline-flex;align-items:baseline;gap:6px}
 .mg .eg-day-v i{font-style:normal;font-size:12px;font-weight:700;color:#5B6B86}
 
@@ -1069,10 +1077,18 @@ export const MG_CSS = `
    a new class has collided with an old one here — the file is long
    enough that a name has to be grepped before it is used. */
 .mg .eg-hv{display:grid;gap:4px}
+/* The week's two totals, between today's box and the seven cells. One
+   baseline for both, so 今週の取れ高 21 パック and 今週のリクエスト合計 18
+   read as one line rather than two stacked at different heights. */
+.mg .eg-farm-c .eg-hv-top{margin-top:4px;padding-top:12px;
+  border-top:1px solid var(--mg-line);align-items:baseline}
+.mg .eg-farm-c .eg-hv-ask{flex-direction:row;align-items:baseline;gap:8px}
+.mg .eg-farm-c .eg-hv-ask b{font-size:20px}
 .mg .eg-hv-top{display:flex;align-items:flex-end;gap:20px;flex-wrap:wrap;
   padding-bottom:11px;margin-bottom:4px;border-bottom:1px solid var(--mg-line)}
 .mg .eg-hv-n{display:flex;align-items:baseline;gap:7px;margin-right:auto}
-.mg .eg-hv-n b{font-size:42px;font-weight:900;color:var(--mg-navy);line-height:1}
+.mg .eg-hv-n em{font-style:normal;font-size:11.5px;font-weight:700;color:#5B6B86}
+.mg .eg-hv-n b{font-size:30px;font-weight:900;color:var(--mg-navy);line-height:1}
 .mg .eg-hv-n span{font-size:14px;font-weight:700;color:#3E4F6E}
 .mg .eg-hv-ask{display:flex;flex-direction:column;align-items:flex-end}
 .mg .eg-hv-ask em{font-style:normal;font-size:11.5px;color:#5B6B86}
