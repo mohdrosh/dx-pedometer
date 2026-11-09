@@ -204,7 +204,7 @@ export const MG_CSS = `
 .mg .mg-reg-top p{margin:0;font-size:13px;line-height:1.7;color:#4A5A74}
 .mg .mg-reg-by{margin-top:7px!important;display:inline-block;font-size:12.5px;
   font-weight:900;color:var(--mg-navy);background:var(--mg-sun);
-  border-radius:999px;padding:3px 13px}
+  border-radius:8px;padding:3px 12px}
 
 /* 1 2 3, because a gate with no end in sight is the one people abandon. */
 .mg .mg-steps3{list-style:none;display:flex;gap:7px;margin:0 0 14px;padding:0}
@@ -241,7 +241,7 @@ export const MG_CSS = `
 .mg .eg-opts.mg-reg-offs{margin-bottom:12px;display:grid;gap:7px}
 .mg .eg-opts.mg-reg-offs .eg-opt{
   flex-direction:column;align-items:flex-start;gap:0;
-  border-radius:11px;padding:9px 13px 10px;text-align:left;
+  border-radius:10px;padding:9px 13px 10px;text-align:left;
 }
 .mg .eg-opts.mg-reg-offs .eg-opt.on::before{position:absolute;right:13px;top:9px}
 .mg .eg-opts.mg-reg-offs .eg-opt{position:relative;padding-right:34px}
@@ -315,7 +315,7 @@ export const MG_CSS = `
 /* ------------------------------ マイ設定 -------------------------------- */
 .mg .mg-set{max-width:680px}
 .mg .mg-set-by{display:inline-block;margin:0 0 9px;font-size:12px;font-weight:900;
-  color:var(--mg-navy);background:var(--mg-sun);border-radius:999px;padding:3px 12px}
+  color:var(--mg-navy);background:var(--mg-sun);border-radius:8px;padding:3px 12px}
 .mg .mg-set-agreed{margin:0 0 9px;font-size:13px;font-weight:900;color:var(--mg-green)}
 .mg .mg-set-terms{margin-top:11px}
 /* The save bar. It was a gradient from transparent to cream, which left
@@ -353,20 +353,23 @@ export const MG_CSS = `
   overflow-x:auto;scrollbar-width:none;
 }
 .mg .eg-sub::-webkit-scrollbar{display:none}
+/* No outline. A row of outlined capsules is a row of little racetracks,
+   and at four or five of them the borders are most of what you see. The
+   tab that is chosen is filled; the others are just their words. */
 .mg .eg-sub button{
-  padding:6px 14px 7px;border:1px solid var(--mg-line-s);border-radius:999px;
-  background:var(--mg-paper);color:var(--mg-navy);
+  padding:7px 13px 8px;border:0;border-radius:9px;
+  background:transparent;color:#5B6B86;
   font:inherit;font-size:12.5px;font-weight:700;white-space:nowrap;
-  box-shadow:none;transition:background .14s, border-color .14s;
+  box-shadow:none;transition:background .14s, color .14s;
 }
-.mg .eg-sub button:hover{background:var(--mg-sky);border-color:var(--mg-line-b)}
+.mg .eg-sub button:hover{background:rgba(11,41,106,.055);color:var(--mg-navy)}
 /* The chosen tab used to carry a solid navy slab under it, which ran into
    the navy border and read as a squared-off bottom on a pill that is round
    everywhere else. A tab that is already chosen has nothing left to press,
    so it is recessed rather than raised: the lift comes off, the shadow goes
    inside, and the bottom edge is just the border again. */
 .mg .eg-sub button.on{
-  background:var(--mg-sun);border-color:#EBC77A;
+  background:var(--mg-sun);color:var(--mg-navy);
   box-shadow:none;transform:none;font-weight:800;
 }
 
@@ -463,23 +466,30 @@ export const MG_CSS = `
 .mg .eg-exp{
   font-style:normal;font-size:10.5px;font-weight:900;margin-left:7px;
   color:var(--mg-navy);background:var(--mg-sun);
-  border:1px solid var(--mg-line-y);border-radius:999px;padding:1px 7px 2px;
+  border:0;background:var(--mg-sun);border-radius:6px;padding:1px 7px 2px;
 }
 
 /* ------------------------------- the chips ------------------------------ */
 /* Selected is yellow with a tick, so it is never colour on its own. */
 .mg .eg-opts{display:flex;flex-wrap:wrap;gap:8px}
+/* Same reasoning as the tabs: a filled chip for the one that is chosen,
+   a tinted one for the rest, and no outline on either. */
 .mg .eg-opt{
   display:inline-flex;align-items:center;gap:5px;
-  padding:6px 13px 7px;border:1px solid var(--mg-line-s);border-radius:999px;
-  background:var(--mg-paper);color:var(--mg-navy);
+  padding:6px 13px 7px;border:0;border-radius:9px;
+  background:var(--mg-sky);color:#3E4F6E;
   font:inherit;font-size:13px;font-weight:700;box-shadow:none;
 }
-.mg .eg-opt:hover{background:var(--mg-sky)}
-.mg .eg-opt.on{background:var(--mg-sun)}
+.mg .eg-opt:hover{background:#DFE7F6;color:var(--mg-navy)}
+.mg .eg-opt.on{background:var(--mg-sun);color:var(--mg-navy);font-weight:800}
+/* The tick is the thing that is not colour, so a real choice keeps it:
+   選んだ受取場所 on マイ設定 and 参加登録, 用途 on the request. A filter
+   is not a choice of that kind — 事業所 and 週 on the 事業所 screen only
+   say which slice is on screen, and the tick there was noise. */
 .mg .eg-opt.on::before{content:"✓";font-weight:900;font-size:13px}
-.mg .eg-opt.none{color:#5B6B86;border-color:#B8C0CD;box-shadow:none}
-.mg .eg-opt.none.on{background:#E7E9EE;color:var(--mg-navy)}
+.mg .eg-off-bar .eg-opt.on::before,.mg .eg-wk-t .eg-opt.on::before{content:none}
+.mg .eg-opt.none{color:#5B6B86;background:#EEF0F4}
+.mg .eg-opt.none.on{background:#DDE1E8;color:var(--mg-navy)}
 .mg .eg-opt small{display:block;font-size:10.5px;font-weight:500;opacity:.8}
 
 /* --------------------------- the choice cards --------------------------- */
@@ -511,12 +521,14 @@ export const MG_CSS = `
    that does not say so reads as two equal questions. */
 .mg .eg-qnote{margin:-5px 0 9px;font-size:12px;font-weight:600;color:#5B6B86}
 .mg .eg-qnote.lead{color:var(--mg-green)}
+/* A badge is a label, not a button: filled and borderless, the same
+   corner as the chips. */
 .mg .pill{
-  border-radius:999px;font-size:11.5px;font-weight:900;padding:3px 11px 4px;
-  border:1px solid var(--mg-line-s);background:var(--mg-paper);color:var(--mg-navy);
+  border-radius:8px;font-size:11.5px;font-weight:800;padding:3px 10px 4px;
+  border:0;background:var(--mg-sky);color:#3E4F6E;
 }
-.mg .pill.ok{background:var(--mg-leaf);border-color:var(--mg-leaf);color:#fff}
-.mg .pill.warn{background:var(--mg-sun);border-color:var(--mg-navy);color:var(--mg-navy)}
+.mg .pill.ok{background:var(--mg-leaf);color:#fff}
+.mg .pill.warn{background:var(--mg-sun);color:var(--mg-navy)}
 .mg .eg-warn{color:#B3261E;font-weight:700}
 
 /* ------------------------------ the pictures ---------------------------- */
@@ -694,7 +706,7 @@ export const MG_CSS = `
 .mg .eg-race-line b{
   position:absolute;right:0;top:-12px;font-size:11px;font-weight:900;
   color:var(--mg-navy);background:var(--mg-sun);
-  border:1px solid var(--mg-line-s);border-radius:999px;padding:1px 9px 2px;
+  border:0;background:var(--mg-sky);border-radius:6px;padding:1px 9px 2px;
 }
 @media(prefers-reduced-motion:reduce){.mg .eg-race-seg{transition:none}}
 
