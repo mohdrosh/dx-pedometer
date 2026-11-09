@@ -299,6 +299,16 @@ const L = {
   firstShipNote: ['この日より前に出された申請は、すべて初回分として受け付けます。空欄なら通常どおり毎週。',
     'Requests made before this date all count towards the first delivery. Leave blank for the ordinary weekly cycle.'],
   maxPacks: ['1人あたりの上限', 'Per-person cap'],
+  /* 2026/11/09: the two dates that decide whether the site is open at
+     all were settings only the server could change, so opening the site
+     early — to look at it, or to let the committee try it before the
+     21st — meant a deploy. They are dates like 初回発送週 beside them. */
+  reqFrom: ['リクエスト開始日', 'Requests open from'],
+  reqFromNote: ['この日からリクエストを受け付けます。今日の日付にすると、すぐに受付が始まります。空欄ならいつでも受付。',
+    'Requests are accepted from this date. Set it to today to open them now; leave it blank to accept them always.'],
+  signFrom: ['参加登録の開始日', 'Sign-up opens from'],
+  signFromNote: ['この日から参加登録ができます。空欄ならいつでも登録できます。',
+    'Sign-up is possible from this date. Leave it blank to allow it always.'],
   /* 「抽選」 is no longer what happens: a draw only decides the order
      inside one point value, and the week itself is decided by the
      company's sequence. So the button says what it does. */
@@ -2112,6 +2122,25 @@ export function EggAdmin({ lang, toast, cfg = {}, setCfg, onDone, today = null }
             onBlur={(e) => saveCfg({ firstShip: e.target.value || null })}
           />
           <small className="muted sm">{t('firstShipNote')}</small>
+        </label>
+        {/* 「11/21（土）初回リクエストの受付開始」「11/14から参加登録」 —
+            the site shows 受付前 until the first of these, so this is the
+            field that opens it. Blank means no date gate at all, which is
+            what the ordinary weekly cycle wants once the first round is
+            behind them. */}
+        <label className="fld wide"><span>{t('reqFrom')}</span>
+          <input
+            type="date" defaultValue={cfg.egg?.requestsFrom || ''}
+            onBlur={(e) => saveCfg({ requestsFrom: e.target.value || null })}
+          />
+          <small className="muted sm">{t('reqFromNote')}</small>
+        </label>
+        <label className="fld wide"><span>{t('signFrom')}</span>
+          <input
+            type="date" defaultValue={cfg.egg?.signupFrom || ''}
+            onBlur={(e) => saveCfg({ signupFrom: e.target.value || null })}
+          />
+          <small className="muted sm">{t('signFromNote')}</small>
         </label>
         <label className="fld"><span>{t('maxPacks')}</span>
           <input
