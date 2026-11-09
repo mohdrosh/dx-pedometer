@@ -393,9 +393,14 @@ function HarvestVs({ offices, packs, lang, t, harvest = [], week0 = null, today 
   return (
     <div className="card eg-hvs">
       <div className="eg-hvs-row">
+        {/* Requests first, harvest second. It was the other way round —
+            the harvest is the week's headline and headlines go first —
+            but a total belongs at the end of what it totals, and a reader
+            coming down the page meets 1 against 14 the way they would
+            read it aloud: this much asked for, out of this much there. */}
         <div className="eg-hvs-side">
-          <em>{t('harvestNow')}</em>
-          <b>{got}</b>
+          <em>{mgs('reqTotal')}</em>
+          <b>{asked}</b>
           <span>{t('pack')}</span>
         </div>
         {/* A VS badge, not a mascot: the two numbers are being compared
@@ -404,8 +409,8 @@ function HarvestVs({ offices, packs, lang, t, harvest = [], week0 = null, today 
             rather than a picture the reader has to interpret. */}
         <span className="eg-hvs-vs" aria-hidden="true">VS</span>
         <div className="eg-hvs-side">
-          <em>{mgs('reqTotal')}</em>
-          <b>{asked}</b>
+          <em>{t('harvestNow')}</em>
+          <b>{got}</b>
           <span>{t('pack')}</span>
         </div>
       </div>
