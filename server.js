@@ -1674,7 +1674,13 @@ const server = http.createServer(async (req, res) => {
       } catch (e) {
         mail = { sent: 0, failed: -1, error: String(e?.message || e).slice(0, 120) };
       }
-      return sendJson(res, 200, { ...(await weekResult(ship)), final: true, mail });
+      /* Whether a letter actually left the building, which the screen
+         had been claiming without knowing: with no SMTP_HOST the mailer
+         is a console line, and `sent` counts those too. The mode is a
+         boolean about this deployment, not a credential. */
+      return sendJson(res, 200, {
+        ...(await weekResult(ship)), final: true, mail: { ...mail, dryRun: DRY_RUN },
+      });
     }
 
     /* ==================== Phase 2：料理写真の投稿 =======================

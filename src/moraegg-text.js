@@ -81,6 +81,18 @@ const PENDING_1108 = ['remainPct'];
    she wants the two steps back they are the words to put back. */
 const PENDING_1109 = ['goFinal', 'askBody', 'askMiss', 'askMail', 'askYes', 'askNo'];
 
+/* 2026/11/09, later: her 最終確定しました。メールを送信しました。(finalDone)
+   was shown whatever happened to the letters. A server with no SMTP_HOST
+   writes them to its log and sends nothing — which is right for a test
+   server and wrong to describe as 送信しました to the person pressing the
+   button. The message now says which of the three it was. Mine:
+
+     finalShort  最終確定しました。      —— her sentence, without the claim
+                                         about the mail
+     finalDry    最終確定しました。（この環境ではメールは送信しません）
+     finalNg     最終確定しました。メールの送信に失敗しました。 */
+const PENDING_1109B = ['finalShort', 'finalDry', 'finalNg'];
+
 /* 2026/11/08: tHint is HERS, and it is the one string on the 丹波 screen
    that had to change rather than one I wanted to add. It read 「10個詰める
    ごとに「＋1パック」を押してください」 — an instruction to press a button
@@ -112,7 +124,8 @@ const PENDING_1109 = ['goFinal', 'askBody', 'askMiss', 'askMail', 'askYes', 'ask
  */
 /** The keys above that she has not signed off yet, for anyone checking. */
 export const pendingKeys = () => [
-  ...PENDING_1105, ...PENDING_1106, ...PENDING_1108, ...PENDING_1109,
+  ...PENDING_1105, ...PENDING_1106, ...PENDING_1108,
+  ...PENDING_1109, ...PENDING_1109B,
 ];
 
 export function mg(key, lang = 'ja', vars = null) {

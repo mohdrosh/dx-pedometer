@@ -1394,7 +1394,13 @@ function EggShip({ lang, toast, t, onDone }) {
                   onClick={async () => {
                     const j = await post('/final', { ship: d.ship });
                     setAsk(null);
-                    if (j) toast?.(mgs('finalDone'));
+                    /* What actually happened to the letters, which is
+                       not always 送信しました: a server without SMTP
+                       writes them to its log. */
+                    if (j) {
+                      toast?.(mgs(j.mail?.dryRun ? 'finalDry'
+                        : j.mail?.failed ? 'finalNg' : 'finalDone'));
+                    }
                   }}
                 >{mgs('askYes')}</button>
                 {/* やめる leaves the week drawn and unpublished: the
@@ -1409,7 +1415,10 @@ function EggShip({ lang, toast, t, onDone }) {
           )}
         </div>
       )}
-      {d.final && <div className="card"><p className="eg-ship-ok">{mgs('finalDone')}</p></div>}
+      {/* 最終確定しました。 and nothing about the mail: this card is drawn
+          on every later visit, long after the send, and the GET it reads
+          does not know how that went. */}
+      {d.final && <div className="card"><p className="eg-ship-ok">{mgs('finalShort')}</p></div>}
 
       {d.result && (
         <WeekResult

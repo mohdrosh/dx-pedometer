@@ -115,6 +115,18 @@
     "ja": "最終確定しました。メールを送信しました。",
     "en": "Final confirmation done. Emails sent."
   },
+  "finalShort": {
+    "ja": "最終確定しました。",
+    "en": "Final confirmation done."
+  },
+  "finalDry": {
+    "ja": "最終確定しました。（この環境ではメールは送信しません）",
+    "en": "Final confirmation done. (No email is sent on this server.)"
+  },
+  "finalNg": {
+    "ja": "最終確定しました。メールの送信に失敗しました。",
+    "en": "Final confirmation done. The emails failed to send."
+  },
   "shipList": {
     "ja": "発送一覧",
     "en": "Shipping list"
