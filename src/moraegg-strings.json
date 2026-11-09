@@ -127,6 +127,26 @@
     "ja": "最終確定しました。メールの送信に失敗しました。",
     "en": "Final confirmation done. The emails failed to send."
   },
+  "undoFinal": {
+    "ja": "確定を取り消す",
+    "en": "Undo the confirmation"
+  },
+  "undoAsk": {
+    "ja": "この週の確定を取り消します。リクエストは受付済みに戻り、取れ高を入力し直せます。",
+    "en": "This week goes back to being unconfirmed. Requests return to 受付済, and the harvest can be entered again."
+  },
+  "undoMail": {
+    "ja": "送信済みのメールは取り消せません。もう一度確定すると、新しい内容のメールが届きます。",
+    "en": "Emails already sent cannot be recalled. Confirming again sends a fresh set."
+  },
+  "undoYes": {
+    "ja": "取り消す",
+    "en": "Undo it"
+  },
+  "undoDone": {
+    "ja": "確定を取り消しました。",
+    "en": "The confirmation has been undone."
+  },
   "shipList": {
     "ja": "発送一覧",
     "en": "Shipping list"

@@ -74,6 +74,7 @@ const {
   eggHarvest, eggHarvestBump, eggHarvestSet,
   eggRequestSave, eggRequestDrop, eggMyRequest, eggMyRequests,
   eggWeekRequests, eggMissed, eggWeek, eggDrawSave, eggWeekOffices, eggWeekFinalise,
+  eggWeekUndo,
   eggArrived, eggPickup, eggConsent, eggConsentSave, eggRequestById,
   eggSignup, eggSignupSave, eggSignups, eggPoints, eggPointsSave,
   dishFeed, dishPost, dishCreate, dishEdit, dishDelete, dishHide,
@@ -1681,6 +1682,36 @@ const server = http.createServer(async (req, res) => {
       return sendJson(res, 200, {
         ...(await weekResult(ship)), final: true, mail: { ...mail, dryRun: DRY_RUN },
       });
+    }
+
+    /* 確定の取り消し — 2026/11/09.
+
+       The counterpart to the two presses above, and the reason it exists
+       is the 丹波 screen: it refuses corrections to a week that has been
+       decided, so a week confirmed by mistake — the obvious one being
+       confirmed before the day's harvest was typed in — takes the harvest
+       register down with it until the next Monday.
+
+       Allowed to the same people who may confirm, refused once anybody
+       has collected, and it says which of those it did rather than just
+       failing. The letters that went out cannot be recalled; the screen
+       warns about that before it calls this. */
+    if (url.pathname === '/api/egg/undraw' && req.method === 'POST') {
+      if (!sess) return deny(res);
+      const whoNow = await eggWho();
+      if (!whoNow.admin && !whoNow.farm) return deny(res, 403);
+      if (rateLimited(`egg:${sess.sid}`, 30, 60_000)) return sendJson(res, 429, { error: 'too_many' });
+
+      const { cfg, holidays } = await eggCfgNow();
+      const b = await readBody(req).catch(() => null);
+      const now = tokyoNow();
+      const ship = /^\d{4}-\d{2}-\d{2}$/.test(String(b?.ship || ''))
+        ? String(b.ship) : openShipMonday(now.stamp, now.h, cfg, holidays);
+
+      const out = await eggWeekUndo(ship);
+      if (out === 'collected') return sendJson(res, 409, { error: 'already_collected' });
+      if (out === 'none') return sendJson(res, 409, { error: 'not_drawn' });
+      return sendJson(res, 200, { ship, drawn: false, final: false });
     }
 
     /* ==================== Phase 2：料理写真の投稿 =======================

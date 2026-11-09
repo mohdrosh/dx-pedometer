@@ -1465,6 +1465,80 @@ export async function eggWeekFinalise(ship, by = null) {
   return rows.length > 0;
 }
 
+/**
+ * 確定の取り消し — put a week back to the state it was in before the
+ * allocation ran.
+ *
+ * 2026/11/09. A week is confirmed by a person pressing a button, and a
+ * person pressing a button is a person who can press the wrong one: the
+ * first week on the test server was confirmed at 0 packs, which locked
+ * the 丹波 screen (it refuses corrections to a decided week) and left no
+ * way back short of waiting for the next Monday. There has to be a way
+ * back.
+ *
+ * It undoes exactly what eggDrawSave wrote, in one transaction:
+ *   ・every request's share, and any move to 本社, back to nothing
+ *   ・the per-office split
+ *   ・優先ポイント, from the snapshot the draw took before it changed them
+ *   ・the week's own row, so the week reads as undecided again
+ *
+ * Refused once anybody has collected: packs are off the desk and in
+ * somebody's bag, and no button should be able to say otherwise.
+ *
+ * Letters already sent cannot be recalled. That is the screen's business
+ * to say, not this function's.
+ */
+export async function eggWeekUndo(ship) {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const { rows: got } = await client.query(
+      'SELECT 1 FROM egg_requests WHERE ship = $1 AND picked_up_at IS NOT NULL LIMIT 1',
+      [ship],
+    );
+    if (got.length) { await client.query('ROLLBACK'); return 'collected'; }
+
+    const { rows: weeks } = await client.query(
+      'SELECT points_before AS "pointsBefore" FROM egg_weeks WHERE ship = $1',
+      [ship],
+    );
+    if (!weeks.length) { await client.query('ROLLBACK'); return 'none'; }
+
+    await client.query(
+      'UPDATE egg_requests SET got = NULL, at_office = NULL, drawn_at = NULL WHERE ship = $1',
+      [ship],
+    );
+    await client.query('DELETE FROM egg_week_offices WHERE ship = $1 AND arrived_at IS NULL', [ship]);
+
+    /* The points as they stood before this week touched them. Restored
+       the way the draw sets them — everybody to zero, then the snapshot
+       written back — so that a point the draw added is taken off again
+       rather than left on a row the snapshot has nothing to say about. */
+    const before = weeks[0].pointsBefore;
+    if (before && typeof before === 'object') {
+      const ids = Object.keys(before);
+      await client.query('UPDATE egg_signup SET points = 0 WHERE points > 0');
+      if (ids.length) {
+        await client.query(
+          `UPDATE egg_signup AS s SET points = v.p
+             FROM (SELECT unnest($1::text[]) AS id, unnest($2::int[]) AS p) AS v
+            WHERE s.employee_id = v.id`,
+          [ids, ids.map((k) => Math.max(0, Number(before[k]) || 0))],
+        );
+      }
+    }
+
+    await client.query('DELETE FROM egg_weeks WHERE ship = $1', [ship]);
+    await client.query('COMMIT');
+    return 'ok';
+  } catch (e) {
+    await client.query('ROLLBACK');
+    throw e;
+  } finally {
+    client.release();
+  }
+}
+
 export async function eggWeekOffices(ship) {
   const { rows } = await pool.query(
     `SELECT office, packs, extra, arrived_at AS "arrivedAt", arrived_by AS "arrivedBy"

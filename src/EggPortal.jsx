@@ -1312,6 +1312,9 @@ function EggShip({ lang, toast, t, onDone }) {
   /* The allocation that has been made but not published: what the
      question on screen is asking about. */
   const [ask, setAsk] = useState(null);
+  /* 確定を取り消す, which asks before it does anything: the letters are
+     already out by the time this button is on screen. */
+  const [undo, setUndo] = useState(false);
 
   const load = useCallback(async () => {
     const res = await fetch(`${apiRoot()}/egg/ship`, { credentials: 'same-origin' });
@@ -1427,8 +1430,43 @@ function EggShip({ lang, toast, t, onDone }) {
       )}
       {/* 最終確定しました。 and nothing about the mail: this card is drawn
           on every later visit, long after the send, and the GET it reads
-          does not know how that went. */}
-      {d.final && <div className="card"><p className="eg-ship-ok">{mgs('finalShort')}</p></div>}
+          does not know how that went.
+
+          With the way out beside it. A confirmed week locks the harvest
+          register — 丹波 cannot correct a day once the allocation has
+          run — so a week confirmed too early has to be undoable by the
+          person who confirmed it, not only by next Monday. */}
+      {d.final && (
+        <div className="card eg-ship-2">
+          <p className="eg-ship-ok">{mgs('finalShort')}</p>
+          {!undo && (
+            <button
+              className="btn ghost sm" disabled={busy}
+              onClick={() => setUndo(true)}
+            >{mgs('undoFinal')}</button>
+          )}
+          {undo && (
+            <div className="eg-ship-ask">
+              <p>{mgs('undoAsk')}</p>
+              <p className="muted sm">{mgs('undoMail')}</p>
+              <div className="eg-ship-ask-b">
+                <button
+                  className="btn primary" disabled={busy}
+                  onClick={async () => {
+                    const j = await post('/undraw', { ship: d.ship });
+                    setUndo(false);
+                    if (j) toast?.(mgs('undoDone'));
+                  }}
+                >{mgs('undoYes')}</button>
+                <button
+                  className="btn ghost" disabled={busy}
+                  onClick={() => setUndo(false)}
+                >{mgs('askNo')}</button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {d.result && (
         <WeekResult

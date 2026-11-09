@@ -93,6 +93,19 @@ const PENDING_1109 = ['goFinal', 'askBody', 'askMiss', 'askMail', 'askYes', 'ask
      finalNg     最終確定しました。メールの送信に失敗しました。 */
 const PENDING_1109B = ['finalShort', 'finalDry', 'finalNg'];
 
+/* 2026/11/09, later still: 確定を取り消す. A week confirmed by mistake
+   locked the 丹波 harvest screen until the following Monday, because that
+   screen refuses corrections to a decided week. Mine:
+
+     undoFinal  確定を取り消す
+     undoAsk    この週の確定を取り消します。リクエストは受付済みに戻り、
+                取れ高を入力し直せます。          —— 受付済 is her status word
+     undoMail   送信済みのメールは取り消せません。もう一度確定すると、
+                新しい内容のメールが届きます。
+     undoYes    取り消す
+     undoDone   確定を取り消しました。 */
+const PENDING_1109C = ['undoFinal', 'undoAsk', 'undoMail', 'undoYes', 'undoDone'];
+
 /* 2026/11/08: tHint is HERS, and it is the one string on the 丹波 screen
    that had to change rather than one I wanted to add. It read 「10個詰める
    ごとに「＋1パック」を押してください」 — an instruction to press a button
@@ -125,7 +138,7 @@ const PENDING_1109B = ['finalShort', 'finalDry', 'finalNg'];
 /** The keys above that she has not signed off yet, for anyone checking. */
 export const pendingKeys = () => [
   ...PENDING_1105, ...PENDING_1106, ...PENDING_1108,
-  ...PENDING_1109, ...PENDING_1109B,
+  ...PENDING_1109, ...PENDING_1109B, ...PENDING_1109C,
 ];
 
 export function mg(key, lang = 'ja', vars = null) {
