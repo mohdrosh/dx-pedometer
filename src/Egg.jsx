@@ -293,15 +293,25 @@ export default function EggTab({
     return mg('checking', lang);
   };
 
+  /* 丹波 is a job, not a membership. The shed's account exists to type in
+     the morning's figure and nothing else — it does not request eggs, and
+     it has no reason to be in みんなの料理 either. One tab, so there is no
+     strip at all and the screen is simply the screen.
+
+     Not for an administrator: they have no farm any more, and the test is
+     written against the flag rather than against the account so that it
+     keeps meaning what it says if that changes. */
+  const farmOnly = !!p1?.role?.farm && !user?.admin;
+
   const views = [
     /* 配布状況 and リクエスト were two tabs until 2026/11/06. They were
        built from one component and differed, on most days, by one panel
        — so a person read the same page twice looking for the difference,
        and the thing they came to do was behind a tab that looked like
        the one they were already on. One page now. */
-    ...(mine4 ? [['portal', portalTab()]] : []),
-    ...(p1 ? [['dish', t('v_dish')]] : []),
-    ...(mine4 ? [['settings', t('v_set')]] : []),
+    ...(mine4 && !farmOnly ? [['portal', portalTab()]] : []),
+    ...(p1 && !farmOnly ? [['dish', t('v_dish')]] : []),
+    ...(mine4 && !farmOnly ? [['settings', t('v_set')]] : []),
     ...(p1?.role?.farm ? [['farm', t('v_farm')]] : []),
     ...(p1?.role?.contactFor?.length || user?.admin ? [['office', t('v_office')]] : []),
     ...(user?.admin ? [['admin', t('v_admin')]] : []),
