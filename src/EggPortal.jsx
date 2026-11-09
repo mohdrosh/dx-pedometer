@@ -494,6 +494,17 @@ function OfficeRace({ offices, packs, lang, t, img }) {
   const top = Math.max(1, harvest, ...rows.map((r) => Math.max(r.asked, r.min)));
   const asked = rows.reduce((a, r) => a + r.asked, 0);
   const pct = (n) => `${Math.min(100, (n / top) * 100)}%`;
+  /* The お届けライン notch, which is 3px wide and inside a track that
+     clips. An office whose minimum IS the top of the scale — every week
+     before the first egg is laid, when the scale is the largest minimum
+     and nothing has been asked for — puts it at exactly 100%, where the
+     whole of it falls outside the track and the line simply is not there.
+     Three offices showed a mark and four did not, for no reason a reader
+     could see. Held back by its own width at the end. */
+  const notch = (n) => {
+    const p = Math.min(100, (n / top) * 100);
+    return p > 99 ? 'calc(100% - 3px)' : `${p}%`;
+  };
   /* Ranked, because a race with the leader in the middle is a list. Ties
      keep the order the offices were registered in. */
   const ranked = [...rows].sort((a, b) => b.asked - a.asked);
@@ -518,7 +529,7 @@ function OfficeRace({ offices, packs, lang, t, img }) {
                 <i style={{ width: pct(r.asked) }} />
                 {/* The minimum, on the bar. A van is sent at this mark and
                     not before, so it belongs where the eggs are counted. */}
-                {r.min > 0 && <u style={{ left: pct(r.min) }} aria-hidden="true" />}
+                {r.min > 0 && <u style={{ left: notch(r.min) }} aria-hidden="true" />}
               </span>
               <b className="eg-vs-v">{r.asked}</b>
               {/* 佐野's four: お届け決定 / あと{n}パックでお届け /
