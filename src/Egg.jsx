@@ -14,11 +14,10 @@
    printed on the form rather than left to be assumed.
    ========================================================================= */
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { S, apiRoot } from './storage';
+import React, { useCallback, useEffect, useState } from 'react';
+import { apiRoot } from './storage';
 import EggSignup from './EggSignup';
 import EggSettings from './EggSettings';
-import { NOT_NOW } from './egg.js';
 import { mg } from './moraegg-text.js';
 import { MG_CSS } from './moraegg-theme';
 import EggPortal, { EggFarm, EggOffice, EggAdmin } from './EggPortal';
@@ -119,27 +118,6 @@ const L = {
    colour alone and the chart reads as a table for anyone who cannot see the
    difference between the two blues at all.
 --------------------------------------------------------------------------- */
-function Bars({ rows, total, lead, t }) {
-  const max = Math.max(1, ...rows.map((r) => r.count));
-  return (
-    <ul className="eg-bars">
-      {rows.map((r) => {
-        const share = total ? Math.round((r.count / total) * 100) : 0;
-        return (
-          <li key={r.key} className={r.key === lead ? 'lead' : ''}>
-            <span className="eg-bl">{r.label}</span>
-            {/* The track is the full width every time, so the bars share one
-                baseline and the eye can compare lengths rather than guess. */}
-            <span className="eg-bt" title={`${r.label} — ${r.count}${t('people')} (${share}%)`}>
-              <i style={{ width: `${(r.count / max) * 100}%` }} />
-            </span>
-            <b className="eg-bn">{r.count}</b>
-          </li>
-        );
-      })}
-    </ul>
-  );
-}
 
 export default function EggTab({
   /* The roster came in here only to fill the 連絡担当者 dropdown on the
@@ -153,14 +131,13 @@ export default function EggTab({
   const t = useCallback((k) => (HERS[k] ? mg(HERS[k], lang)
     : L[k] ? L[k][lang === 'ja' ? 0 : 1] || L[k][0] : k), [lang]);
 
-  const [d, setD] = useState(null);
-  const [office, setOffice] = useState('');
-  const [rule, setRule] = useState('');
-  const [note, setNote] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [editing, setEditing] = useState(false);
-  const [win, setWin] = useState({ from: '', to: '' });
   const [p1, setP1] = useState(null);
+  /* p1 is null both while the read is in flight and when it comes back
+     403 — somebody the portal is not for. The screen needs to tell those
+     apart, and it used to do it by accident: the whole page waited on the
+     survey's payload, which always arrived. With the survey gone there is
+     a flag for it instead. */
+  const [ready, setReady] = useState(false);
   /* Opens on the first tab — 配布状況, which now names the week's state
      (リクエスト受付中 / 確認中 / 確定).
 
@@ -183,64 +160,17 @@ export default function EggTab({
     try {
       const res = await fetch(`${apiRoot()}/egg/portal`, { credentials: 'same-origin' });
       setP1(res.ok ? await res.json() : null);
-    } catch { /* leave the screen as it was */ }
+    } catch { /* leave the screen as it was */ } finally { setReady(true); }
   }, []);
   useEffect(() => { loadP1(); }, [loadP1]);
 
-  const load = useCallback(async () => {
-    try {
-      const res = await fetch(`${apiRoot()}/egg/survey`, { credentials: 'same-origin' });
-      if (!res.ok) return;
-      const j = await res.json();
-      setD(j);
-      if (j.mine) { setOffice(j.mine.office); setRule(j.mine.rule); setNote(j.mine.comment || ''); }
-      setWin({ from: j.window?.from || '', to: j.window?.to || '' });
-    } catch { /* a failed read leaves the screen as it was */ }
-  }, []);
+  /* 需要調査's read, its answer, its window editor and the two sets of
+     bars it drew were all here. Every visit to モラエッグ fetched the
+     survey and the whole page waited on it, including people who had no
+     tab for it, which by the end was everybody. */
 
-  useEffect(() => { load(); }, [load]);
+  if (!ready) return <div className="mg-page"><div className="pad muted">…</div></div>;
 
-  const send = async () => {
-    setBusy(true);
-    try {
-      const res = await fetch(`${apiRoot()}/egg/survey`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'same-origin',
-        body: JSON.stringify({ office, rule, comment: note }),
-      });
-      if (!res.ok) { toast?.(t('closed')); return; }
-      const j = await res.json();
-      setD((p) => ({ ...p, mine: j.mine, results: j.results }));
-      setEditing(false);
-      toast?.(t('done'));
-    } catch { toast?.(t('closed')); } finally { setBusy(false); }
-  };
-
-  /* Both halves, or neither. setCfg is React state — on its own the dates
-     live in this administrator's tab and nobody else ever sees them, which
-     is exactly how this shipped: 設定 said the survey was open and every
-     participant was still told there was no window. Everywhere else in the
-     app that changes config writes the store and the state together. */
-  const saveWindow = async () => {
-    const next = { ...cfg, egg: { ...(cfg.egg || {}), from: win.from, to: win.to } };
-    if (!await S.set('cfg', next)) { toast?.(t('saveFailed')); return; }
-    setCfg?.(next);
-    toast?.(t('saved'));
-    load();
-  };
-
-  const officeRows = useMemo(() => (d?.results?.offices || [])
-    .map((o) => ({ key: o.office, label: o.office, count: o.count })), [d]);
-  const ruleRows = useMemo(() => (d?.results?.rules || [])
-    .map((r) => ({ key: r.id, label: lang === 'ja' ? r.ja : r.en, count: r.count })), [d, lang]);
-
-  if (!d) return <div className="mg-page"><div className="pad muted">…</div></div>;
-
-  const answered = !!d.mine;
-  const showForm = d.canAnswer && d.open && (!answered || editing);
-  const total = d.results?.answers || 0;
-  const leadOffice = officeRows.find((r) => r.count > 0)?.key;
   const img = (name) => `${import.meta.env.BASE_URL}moraegg/${name}.webp`;
 
   /* Which screens this person has. Not a menu of everything with the
@@ -315,10 +245,14 @@ export default function EggTab({
     ...(p1?.role?.farm ? [['farm', t('v_farm')]] : []),
     ...(p1?.role?.contactFor?.length || user?.admin ? [['office', t('v_office')]] : []),
     ...(user?.admin ? [['admin', t('v_admin')]] : []),
-    /* 需要調査 is the committee's to look at now, not a tab everybody
-       carries: the answers are still worth reading, the question is not
-       still being asked. */
-    ...(user?.admin ? [['survey', t('v_survey')]] : []),
+    /* 需要調査 was here. It was asked once, in October, before the site
+       existed: where would you collect, and how should eggs be shared
+       when there are not enough. The company wrote the allocation rules
+       itself on 11/03 rather than take the survey's answer, so it decided
+       nothing in the end, and the window has been shut ever since — it
+       was a page of results nobody was going back to. The answers, the
+       votes and the comments are untouched in the database; only the way
+       in is gone. */
   ];
   if (!views.length) views.push(['dish', t('v_dish')]);
   const at = views.some(([k]) => k === view) ? view : views[0][0];
@@ -452,234 +386,6 @@ export default function EggTab({
         />
       )}
 
-      {at === 'survey' && (
-       <>
-      {/* The survey's own dates, on the survey's own screen. */}
-      <div className="card mg-win">
-        <img src={img('hello-tamba')} alt="" className="mg-win-pic" />
-        <div>
-          <b>{t('survey')}</b>
-          <p className="muted sm">{t('lede')}</p>
-          <span className="eg-win">
-            {d.window
-              ? (d.open ? t('openUntil') : t('wasOpen'))
-                .replace('{from}', d.window.from).replace('{to}', d.window.to)
-              : t('notYet')}
-          </span>
-        </div>
-      </div>
-      {user?.admin && (
-        <>
-          <div className="sechead"><span>{t('admin')}</span></div>
-          <div className="card eg-admin">
-            <label className="fld"><span>{t('from')}</span>
-              <input type="date" value={win.from}
-                onChange={(e) => setWin({ ...win, from: e.target.value })} />
-            </label>
-            <label className="fld"><span>{t('to')}</span>
-              <input type="date" value={win.to}
-                onChange={(e) => setWin({ ...win, to: e.target.value })} />
-            </label>
-            <button className="btn primary" onClick={saveWindow}>{t('save')}</button>
-            <p className="muted sm">{t('adminNote')}</p>
-            <p className="muted sm">{t('adminAnon')}</p>
-          </div>
-        </>
-      )}
-
-      {/* ---------------------------------------------------------------
-          The survey, laid out across the width rather than down a column.
-
-          It used to be form-left / results-right, which is the right shape
-          for the 配布 screen and the wrong one here: three questions stacked
-          in half a screen ran to two screenfuls of scrolling while the
-          results pane beside them sat empty. The questions are wide things —
-          eight offices, four rules, three names — so each one gets a row and
-          spends it sideways, and the charts go underneath, three across.
-          ------------------------------------------------------------- */}
-      <div className="eg-sv">
-        {showForm && (
-          <>
-            <div className="card eg-sv-form">
-              <p className="eg-anon">{t('anon')}</p>
-
-              <div className="eg-fq">
-                <div className="eg-q">{t('q1')}</div>
-                {/* Where somebody collects is no longer settled here: it
-                    is picked with each week's request. Saying so on the
-                    question stops an answer being read as a commitment. */}
-                <p className="eg-qnote">{t('q1Note')}</p>
-                <div className="eg-opts">
-                  {(d.offices || []).map((o) => (
-                    <button
-                      key={o} type="button"
-                      className={`eg-opt${office === o ? ' on' : ''}`}
-                      onClick={() => setOffice(o)}
-                    >{o}</button>
-                  ))}
-                  <button
-                    type="button"
-                    className={`eg-opt none${office === NOT_NOW ? ' on' : ''}`}
-                    onClick={() => setOffice(NOT_NOW)}
-                  >{t('notNow')}</button>
-                </div>
-              </div>
-
-              <div className="eg-fq">
-                <div className="eg-q">{t('q2')}</div>
-                <p className="eg-qnote lead">{t('q2Note')}</p>
-                {/* Nobody can vote on 前回落選者優先 without being told what
-                    it means, so each rule carries its own one-line summary
-                    and the trade-off the spec records for it. */}
-                <div className="eg-rules eg-r4">
-                  {(d.rules || []).map((r) => (
-                    <button
-                      key={r.id} type="button"
-                      className={`eg-rule${rule === r.id ? ' on' : ''}`}
-                      onClick={() => setRule(r.id)}
-                    >
-                      <strong>{lang === 'ja' ? r.ja : r.en}</strong>
-                      <span>{lang === 'ja' ? r.howJa : r.howEn}</span>
-                      <em className="pro">○ {lang === 'ja' ? r.proJa : r.proEn}</em>
-                      <em className="con">△ {lang === 'ja' ? r.conJa : r.conEn}</em>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* 問3 is three short cards and the comment box is one field,
-                  so they share a row instead of each taking one. */}
-              <div className="eg-fq-row">
-                {/* 佐野:「投票するときに、意見があれば一緒に書いてもらって
-                    ください」. Optional, and published without the office or
-                    the rule beside it — the three together would often
-                    narrow a comment down to one person. */}
-                <div className="eg-fq eg-send">
-                  <label className="fld eg-note"><span>{t('comment')}</span>
-                    <textarea
-                      rows={3} maxLength={200} value={note} placeholder={t('commentPh')}
-                      onChange={(e) => setNote(e.target.value)}
-                    />
-                  </label>
-                  <p className="muted sm eg-note-why">{t('commentNote')}</p>
-                </div>
-              </div>
-
-              {/* The button belongs to the whole form, not to the column it
-                  happened to sit in — put it in one and the other column
-                  ends in a hole as deep as the button is tall. */}
-              <div className="eg-sv-go">
-                <p className="muted sm">{t('canChange')}</p>
-                <button
-                  className="btn primary big" disabled={!office || !rule || busy}
-                  onClick={send}
-                >{busy ? t('sending') : t('send')}</button>
-              </div>
-            </div>
-          </>
-        )}
-
-        {/* The answers are the wide thing on this screen, so they take the
-            width and the rest sits in a rail beside them. The sections are
-            placed by the grid rather than by their order here, so the
-            stack on a phone still reads: your answer, everyone's, then the
-            comments. */}
-        <div className="eg-svb">
-
-        {answered && !editing && (
-          <section className="sv-side">
-            <div className="sechead"><span>{t('yours')}</span></div>
-            <div className="card eg-mine">
-              <span className="pill ok">{t('answered')}</span>
-              <div className="eg-mine-v">
-                <b>{d.mine.office === NOT_NOW ? t('notNow') : d.mine.office}</b>
-                <i>/</i>
-                <b>{(d.rules.find((r) => r.id === d.mine.rule) || {})[lang === 'ja' ? 'ja' : 'en']}</b>
-              </div>
-              {d.open && (
-                <button className="btn" onClick={() => setEditing(true)}>{t('change')}</button>
-              )}
-              {d.mine.comment && <p className="eg-mine-note">{d.mine.comment}</p>}
-            </div>
-          </section>
-        )}
-
-        {!d.canAnswer && (
-          <section className="sv-side">
-            <div className="sechead"><span>{t('survey')}</span></div>
-            <div className="card"><p className="muted sm">{t('notYours')}</p></div>
-          </section>
-        )}
-
-        {d.canAnswer && !d.open && !answered && (
-          <section className="sv-side">
-            <div className="sechead"><span>{t('survey')}</span></div>
-            <div className="card eg-shut">
-              <img src={img('empty')} alt="" />
-              <p className="muted sm">{d.window ? t('closed') : t('notYet')}</p>
-            </div>
-          </section>
-        )}
-
-        <section className="sv-res">
-        <div className="sechead">
-          <span>{t('results')}</span>
-          <span className="muted sm">{total} {t('answers')}</span>
-        </div>
-        <div className="card">
-          {total === 0
-            ? (
-              /* A quarter of a screen of white under a big mascot is not a
-                 better way of saying "nobody yet" than one line is. */
-              <div className="eg-none">
-                <img src={img('empty')} alt="" />
-                <p className="muted sm">{t('noneYet')}</p>
-              </div>
-            )
-            : (
-              /* Three charts of one measure, so each names its own series
-                 and there is no legend anywhere. */
-              <div className="eg-two">
-                <div>
-                  <h3 className="eg-ch">{t('byOffice')}</h3>
-                  <Bars rows={officeRows} total={total} lead={leadOffice} t={t} />
-                  {/* 今は不要 is an answer but not a destination, so it is
-                      reported beside the chart rather than ranked inside it:
-                      top of the bars is read as "ship here first". */}
-                  {d.results.notNow > 0 && (
-                    <p className="eg-nn">{t('notNowCount')} <b>{d.results.notNow}</b></p>
-                  )}
-                </div>
-                <div>
-                  <h3 className="eg-ch">{t('byRule')}</h3>
-                  <Bars rows={ruleRows} total={total} lead={d.results.topRule} t={t} />
-                  {d.results.topRule && (
-                    <p className="eg-nn">
-                      {t('winning')}：
-                      <b>{(d.rules.find((r) => r.id === d.results.topRule) || {})[lang === 'ja' ? 'ja' : 'en']}</b>
-                    </p>
-                  )}
-                </div>
-              </div>
-            )}
-        </div>
-        </section>
-
-        {!!d.results?.comments?.length && (
-          <section className="sv-side">
-            <div className="sechead"><span>{t('commentsHead')}</span></div>
-            <div className="card">
-              <ul className="eg-notes">
-                {d.results.comments.map((c, i) => <li key={i}>{c}</li>)}
-              </ul>
-            </div>
-          </section>
-        )}
-
-        </div>
-      </div>
-       </>
-      )}
       </div>
         </>
       )}
