@@ -35,9 +35,29 @@ import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
 const ExcelJS = require('exceljs');
 
-const NAVY = 'FF0B296A';
-const RULE = 'FFC3CCDA';
-const HEADBG = 'FFEAF0FB';
+/* ---------------------------------------------------------------------------
+   The look.
+
+   One typeface, three sizes, two inks and one rule weight for the whole
+   document. The first version set a font only on the cells it styled,
+   which left every plain cell on exceljs' default — Calibri, which has
+   no Japanese, so LibreOffice substituted a gothic for the 漢字 and kept
+   Calibri for the digits. Two typefaces in one row is what made the
+   tables look assembled rather than printed, so every cell now gets the
+   same font object.
+
+   The name is the one Ubuntu installs with fonts-noto-cjk, which is what
+   the converter has on the server. If it is ever missing LibreOffice
+   substitutes a gothic for all of it at once, which stays uniform.
+   --------------------------------------------------------------------------- */
+const FONT = 'Noto Sans CJK JP';
+const NAVY = 'FF14306E';   /* headings */
+const INK = 'FF2C3645';    /* body */
+const SUB = 'FF78849A';    /* captions */
+const RULE = 'FFE4E9F1';   /* between rows */
+const EDGE = 'FFB9C5DC';   /* under a header, above a total */
+
+const F = (over = {}) => ({ name: FONT, size: 10, color: { argb: INK }, ...over });
 
 const DOW_JA = ['日', '月', '火', '水', '木', '金', '土'];
 const jpDate = (iso) => {
@@ -103,8 +123,13 @@ export function pages({ lines = [], list = [], offices = [] } = {}) {
     }));
 }
 
-/* The shared page setup: A4 portrait, fit to one column, long lists run
-   on to a second sheet of paper rather than shrinking to fit. */
+/* A4 portrait, fit to one column; a long list runs on to a second sheet
+   of paper rather than shrinking away.
+
+   Every sheet is laid out to the same total column width, which is what
+   keeps the type the same size from page to page: fit-to-width scales
+   each sheet on its own, so a narrow box sheet printed beside a wide
+   summary came out visibly larger. */
 const PAGE = {
   paperSize: 9,
   orientation: 'portrait',
@@ -112,26 +137,73 @@ const PAGE = {
   fitToWidth: 1,
   fitToHeight: 0,
   margins: {
-    left: 0.6, right: 0.5, top: 0.7, bottom: 0.6, header: 0.3, footer: 0.3,
+    left: 0.6, right: 0.55, top: 0.75, bottom: 0.6, header: 0.3, footer: 0.3,
   },
 };
 
-const ruled = (row) => row.eachCell((c) => {
-  c.border = {
-    top: { style: 'thin', color: { argb: RULE } },
-    left: { style: 'thin', color: { argb: RULE } },
-    bottom: { style: 'thin', color: { argb: RULE } },
-    right: { style: 'thin', color: { argb: RULE } },
-  };
-});
+/* The week and the page number print in the footer, so no row of any
+   table has to carry them. */
+const foot = (ship) => {
+  const f = `&"${FONT}"&8モラエッグ　${jpDate(ship)}発送分`;
+  return { oddFooter: `&L${f}&R&"${FONT}"&8&P / &N`, evenFooter: `&L${f}&R&"${FONT}"&8&P / &N` };
+};
 
-const headRow = (ws, cells) => {
+/* Rows are left to size themselves: a wrapped address needs two lines
+   and a fixed height clipped it. */
+const sheet = (wb, name, ship) => {
+  const ws = wb.addWorksheet(name, { pageSetup: PAGE, headerFooter: foot(ship) });
+  ws.properties.defaultRowHeight = 16;
+  return ws;
+};
+
+/** Every cell in one font, so a row is never two typefaces. */
+const put = (ws, cells, font = F()) => {
   const r = ws.addRow(cells);
-  r.font = { bold: true, color: { argb: NAVY } };
-  r.eachCell((c) => {
-    c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: HEADBG } };
+  r.eachCell({ includeEmpty: true }, (c) => { c.font = font; });
+  return r;
+};
+
+/** A single hairline under a row — the only rule the tables use. */
+const under = (row, argb = RULE, style = 'thin') => {
+  row.eachCell({ includeEmpty: true }, (c) => {
+    c.border = { bottom: { style, color: { argb } } };
   });
-  ruled(r);
+};
+
+/** A line of text on its own, outside any table. */
+const line = (ws, text, over = {}) => {
+  const r = put(ws, [text], F(over));
+  return r;
+};
+
+const gap = (ws, height = 7) => { ws.addRow([]).height = height; };
+
+/**
+ * A column heading row: small, bold, grey-navy, with one rule beneath it.
+ * No fill — the rule does the separating, and a block of colour across
+ * the top of every table was most of what made the document look busy.
+ */
+const headRow = (ws, cells, right = []) => {
+  const r = put(ws, cells, F({ size: 9, bold: true, color: { argb: NAVY } }));
+  r.height = 19;
+  r.eachCell({ includeEmpty: true }, (c, i) => {
+    c.alignment = right.includes(i)
+      ? { vertical: 'middle', horizontal: 'right', indent: 1 }
+      : { vertical: 'middle', horizontal: 'left' };
+  });
+  under(r, EDGE, 'medium');
+  return r;
+};
+
+/** A body row: same font, numbers right, one hairline beneath. */
+const bodyRow = (ws, cells, right = []) => {
+  const r = put(ws, cells);
+  r.eachCell({ includeEmpty: true }, (c, i) => {
+    c.alignment = right.includes(i)
+      ? { vertical: 'middle', horizontal: 'right', indent: 1 }
+      : { vertical: 'middle', horizontal: 'left' };
+  });
+  under(r);
   return r;
 };
 
@@ -147,70 +219,59 @@ const headRow = (ws, cells) => {
  * round, so the two can never disagree.
  */
 function summary(wb, { ship, arrive, pickup, made, harvest, missed }) {
-  const ws = wb.addWorksheet('発送一覧', { pageSetup: PAGE });
+  const ws = sheet(wb, '発送一覧', ship);
   /* The address column is wide and wraps. At 44 it was clipping —
      「…京町栄光ビルディン」 — and a cut address on the one sheet the
      committee files is the sheet failing at its job. */
   ws.columns = [{ width: 22 }, { width: 52 }, { width: 11 }, { width: 9 }];
 
-  const head = ws.addRow(['モラエッグ　発送一覧']);
-  head.font = { size: 20, bold: true, color: { argb: NAVY } };
-  head.height = 28;
-  ws.addRow([`${jpDate(ship)}発送分`]).font = { size: 12, bold: true, color: { argb: NAVY } };
-  ws.addRow([`到着予定：${jpDate(arrive)}　受け取り期限：${jpDate(pickup)}`])
-    .font = { size: 10, color: { argb: 'FF5B6B86' } };
-  ws.addRow([]);
+  const head = line(ws, 'モラエッグ　発送一覧', { size: 16, bold: true, color: { argb: NAVY } });
+  head.height = 24;
+  line(ws, `${jpDate(ship)}発送分`, { size: 10, bold: true });
+  line(ws, `到着予定：${jpDate(arrive)}　受け取り期限：${jpDate(pickup)}`, { size: 9, color: { argb: SUB } });
+  gap(ws, 12);
 
-  headRow(ws, ['事業所', '所在地', 'パック数', '人数']);
+  headRow(ws, ['事業所', '所在地', 'パック数', '人数'], [3, 4]);
   let packs = 0;
   let people = 0;
   for (const p of made) {
     packs += p.packs;
     people += p.people.length;
-    const r = ws.addRow([p.office, p.address, p.packs, p.people.length]);
-    ruled(r);
-    r.getCell(2).font = { size: 9, color: { argb: 'FF5B6B86' } };
+    const r = bodyRow(ws, [p.office, p.address, p.packs, p.people.length], [3, 4]);
+    r.getCell(2).font = F({ size: 9, color: { argb: SUB } });
     r.getCell(2).alignment = { wrapText: true, vertical: 'middle' };
-    r.getCell(3).alignment = { horizontal: 'right' };
-    r.getCell(4).alignment = { horizontal: 'right' };
   }
-  const tot = ws.addRow(['合計', '', packs, people]);
-  tot.font = { bold: true, color: { argb: NAVY } };
-  ruled(tot);
-  tot.getCell(3).alignment = { horizontal: 'right' };
-  tot.getCell(4).alignment = { horizontal: 'right' };
+  const tot = put(ws, ['合計', '', packs, people], F({ bold: true, color: { argb: NAVY } }));
+  tot.eachCell({ includeEmpty: true }, (c, i) => {
+    c.alignment = i >= 3
+      ? { vertical: 'middle', horizontal: 'right', indent: 1 }
+      : { vertical: 'middle', horizontal: 'left' };
+    c.border = { bottom: { style: 'medium', color: { argb: EDGE } } };
+  });
 
-  ws.addRow([]);
   const note = [];
   if (harvest != null) note.push(`丹波の取れ高：${harvest}パック`);
   if (missed) note.push(`今回受け取れなかった方：${missed}名`);
   if (note.length) {
-    ws.addRow([note.join('　')]).font = { size: 10, color: { argb: 'FF5B6B86' } };
+    gap(ws, 6);
+    line(ws, note.join('　'), { size: 9, color: { argb: SUB } });
   }
-  ws.addRow([]);
+  gap(ws, 14);
 
   /* Everyone, under the office they collect at. The box sheets split the
      same list seven ways; this is the one place it can be read straight
      through. */
-  headRow(ws, ['事業所', '名前', 'パック数', '用途']);
+  headRow(ws, ['事業所', '名前', 'パック数', '用途'], [3]);
   for (const p of made) {
     if (!p.people.length) {
-      const r = ws.addRow([p.office, '（リクエストはありません）', '', '']);
-      ruled(r);
-      r.getCell(2).font = { size: 10, italic: true, color: { argb: 'FF5B6B86' } };
+      const r = bodyRow(ws, [p.office, '（リクエストはありません）', '', '']);
+      r.getCell(2).font = F({ color: { argb: SUB } });
       continue;
     }
     for (const who of p.people) {
-      const r = ws.addRow([p.office, who.name, who.got, purposeJa(who.purpose)]);
-      ruled(r);
-      r.getCell(3).alignment = { horizontal: 'right' };
+      bodyRow(ws, [p.office, who.name, who.got, purposeJa(who.purpose)], [3]);
     }
   }
-
-  ws.addRow([]);
-  ws.addRow([`モラエッグ　${jpDate(ship)}発送分`]).font = {
-    size: 9, color: { argb: 'FF8894A8' },
-  };
 }
 
 /**
@@ -228,46 +289,34 @@ export async function buildSheet({
   if (made.length) summary(wb, { ship, arrive, pickup, made, harvest, missed });
 
   for (const p of made) {
-    const ws = wb.addWorksheet(sheetName(p.office, taken), { pageSetup: PAGE });
-    ws.columns = [{ width: 30 }, { width: 12 }, { width: 12 }];
+    const ws = sheet(wb, sheetName(p.office, taken), ship);
+    /* 22+52+11+9 — the same 94 as the summary, so both print at the
+       same scale and the type matches across the document. */
+    ws.columns = [{ width: 60 }, { width: 17 }, { width: 17 }];
 
-    const head = ws.addRow([p.office]);
-    head.font = { size: 22, bold: true, color: { argb: NAVY } };
-    head.height = 30;
+    const head = line(ws, p.office, { size: 16, bold: true, color: { argb: NAVY } });
+    head.height = 24;
     /* The address under the name, as it is on every screen. */
-    ws.addRow([p.address]).font = { size: 10, color: { argb: 'FF5B6B86' } };
-    const n = ws.addRow([`発送するパック数：${p.packs}パック`]);
-    n.font = { size: 15, bold: true, color: { argb: NAVY } };
-    n.height = 22;
+    if (p.address) line(ws, p.address, { size: 9, color: { argb: SUB } });
+    const n = line(ws, `発送するパック数：${p.packs}パック`, { size: 12, bold: true });
+    n.height = 20;
     if (p.extra > 0) {
-      ws.addRow([`（リクエスト${p.requested}パック＋余り${p.extra}パック）`])
-        .font = { size: 10, color: { argb: 'FF5B6B86' } };
+      line(ws, `（リクエスト${p.requested}パック＋余り${p.extra}パック）`, { size: 9, color: { argb: SUB } });
     }
-    ws.addRow([`到着予定：${jpDate(arrive)}　受け取り期限：${jpDate(pickup)}`])
-      .font = { size: 10, color: { argb: 'FF5B6B86' } };
-    ws.addRow([]);
+    line(ws, `到着予定：${jpDate(arrive)}　受け取り期限：${jpDate(pickup)}`, { size: 9, color: { argb: SUB } });
+    gap(ws, 12);
 
-    headRow(ws, ['名前', 'パック数', '用途']);
-
+    headRow(ws, ['名前', 'パック数', '用途'], [2]);
     for (const who of p.people) {
-      const r = ws.addRow([who.name, who.got, purposeJa(who.purpose)]);
-      ruled(r);
-      r.getCell(2).alignment = { horizontal: 'right' };
+      bodyRow(ws, [who.name, who.got, purposeJa(who.purpose)], [2]);
     }
     /* An office can be shipped to with nobody named on it: 本社 takes the
        spare packs whether or not anybody there asked. Saying so is
        better than a header with nothing under it, which reads like the
        list failed to print. */
     if (!p.people.length) {
-      ws.addRow(['（リクエストはありません）']).font = {
-        size: 10, italic: true, color: { argb: 'FF5B6B86' },
-      };
+      line(ws, '（リクエストはありません）', { color: { argb: SUB } });
     }
-
-    ws.addRow([]);
-    ws.addRow([`モラエッグ　${jpDate(ship)}発送分`]).font = {
-      size: 9, color: { argb: 'FF8894A8' },
-    };
   }
 
   /* A workbook with no sheets cannot be written, and a week where no
