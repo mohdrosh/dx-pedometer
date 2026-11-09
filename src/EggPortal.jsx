@@ -318,93 +318,13 @@ const md = (iso, lang) => {
     : `${+m}/${+d}`;
 };
 
-/* ---------------------------------------------------------------------------
-   5.4 対決グラフ.
-
-   佐野:「今週の収穫累計と、来週月曜発送分の申請数を並べて、モラエッグの表情が
-   変わる」 — the point of it is that it is checkable at a glance from across
-   a room: are there enough eggs this week or not.
-
-   Daily harvest stacks up left to right and the requests are a line across
-   it, so the question is answered by whether the stack has reached the line.
-   The mascot says the same thing a second way, and the sentence under it
-   says it a third — nothing here depends on seeing the chart at all.
---------------------------------------------------------------------------- */
-function Race({ harvest, week0, packs, want, today, lang, t, img }) {
-  const days = useMemo(() => {
-    const out = [];
-    const base = new Date(`${week0}T00:00:00Z`);
-    for (let i = 0; i < 7; i += 1) {
-      const d = new Date(base.getTime() + i * 86400000).toISOString().slice(0, 10);
-      out.push({ iso: d, packs: harvest.find((h) => h.day === d)?.packs || 0 });
-    }
-    return out;
-  }, [harvest, week0]);
-
-  /* The scale takes in both the bars and the target, so neither can fall
-     off the chart — and then a little headroom, because a week that
-     exactly meets the target drew a bar jammed against the ceiling with
-     the target line sitting on top of it. */
-  const top = Math.max(1, want, packs, ...days.map((d) => d.packs)) * 1.15;
-  let run = 0;
-  const bars = days.map((d) => {
-    const from = run;
-    run += d.packs;
-    return { ...d, from, to: run };
-  });
-  const diff = packs - want;
-  const winning = want > 0 && diff >= 0;
-
-  return (
-    /* 佐野:「申請が集まるにつれて色が変わるグラフ」 — the fill is royal while
-       the eggs are still coming and green once there are enough. That is a
-       state rather than a series, so Moraegg's face and the line under the
-       number say the same thing without it. */
-    <div className={`eg-race${winning ? ' win' : ''}`}>
-      <div className="eg-race-top">
-        <img src={img(want === 0 ? 'hug' : winning ? 'basket' : 'cross')} alt="" />
-        <div>
-          <b className="eg-race-n">{packs}</b>
-          <span className="eg-race-u">/ {want} {t('pack')}</span>
-          <p className={`eg-race-s${winning ? ' win' : ''}`}>
-            {want === 0 ? t('noneYet')
-              : diff > 0 ? t('enough')
-                : diff === 0 ? t('exactly')
-                  : t('short').replace('{n}', String(-diff))}
-          </p>
-        </div>
-      </div>
-
-      <div className="eg-race-ch" role="img"
-        aria-label={`${t('harvested')} ${packs}, ${t('wanted')} ${want}`}
-      >
-        {bars.map((b) => (
-          <div
-            key={b.iso}
-            className={`eg-race-col${b.iso === today ? ' today' : ''}`}
-            title={`${md(b.iso, lang)} — ${b.packs}`}
-          >
-            <span className="eg-race-track">
-              {/* Each day sits on top of the days before it, so the height
-                  of the stack is the week's running total and the line is
-                  reached, or not, on a particular day. */}
-              <i
-                className="eg-race-seg"
-                style={{ bottom: `${(b.from / top) * 100}%`, height: `${(b.packs / top) * 100}%` }}
-              />
-            </span>
-            <em>{DOW_JA[dow(b.iso)]}</em>
-          </div>
-        ))}
-        {want > 0 && (
-          <span className="eg-race-line" style={{ bottom: `${(want / top) * 100}%` }}>
-            <b>{t('wanted')} {want}</b>
-          </span>
-        )}
-      </div>
-    </div>
-  );
-}
+/* 日ごとの取れ高 was a seven-column staircase chart here: each day stacked
+   on the days before it, with a dashed line across at the week's requests.
+   It carried one fact — the running total — that the card above now states
+   as a number, a bar and a percentage, and it took a section of its own to
+   do it. The per-day figures that were the rest of it are a row inside that
+   card now. 丹波's own screen still lists the days, because that screen is
+   where they are typed in.
 
 /* ---------------------------------------------------------------------------
    事務所対決 — the offices racing each other for the week's harvest.
@@ -430,25 +350,36 @@ function Race({ harvest, week0, packs, want, today, lang, t, img }) {
  * difference means — 「{n}パック余裕があります」, 「ちょうど同じです」, or the
  * shortfall, which also says what happens next.
  */
-function HarvestVs({ offices, packs, lang, t }) {
+function HarvestVs({ offices, packs, lang, t, harvest = [], week0 = null, today = null, purposes = [] }) {
   const mgs = (k, vars) => mg(k, lang, vars);
-  const harvest = Math.max(0, Number(packs) || 0);
+  const got = Math.max(0, Number(packs) || 0);
   const asked = (offices || []).reduce((a, o) => a + Math.max(0, Number(o.asked) || 0), 0);
-  const short = asked > harvest && harvest > 0;
+  const short = asked > got && got > 0;
   /* The same comparison as a share of the week rather than a subtraction.
      Two numbers side by side say which is bigger; they do not say by how
      much without arithmetic, and 45% is the answer to the question people
      are actually asking — is there still room for me. Clamped at both
      ends: over-requested reads 残り0%, not a negative. */
-  const left = Math.max(0, harvest - asked);
-  const pct = harvest > 0 ? Math.round((left / harvest) * 100) : 0;
-  const used = harvest > 0 ? Math.min(100, (asked / harvest) * 100) : 0;
+  const left = Math.max(0, got - asked);
+  const pct = got > 0 ? Math.round((left / got) * 100) : 0;
+  const used = got > 0 ? Math.min(100, (asked / got) * 100) : 0;
+  /* The seven days behind the big number, as a strip rather than the
+     staircase chart that used to have a section to itself. Same seven
+     days — 丹波 types one figure per day and this is where they land. */
+  const days = [];
+  if (week0) {
+    const base = new Date(`${week0}T00:00:00Z`);
+    for (let i = 0; i < 7; i += 1) {
+      const iso = new Date(base.getTime() + i * 86400000).toISOString().slice(0, 10);
+      days.push({ iso, packs: harvest.find((h) => h.day === iso)?.packs || 0 });
+    }
+  }
   return (
     <div className="card eg-hvs">
       <div className="eg-hvs-row">
         <div className="eg-hvs-side">
           <em>{t('harvestNow')}</em>
-          <b>{harvest}</b>
+          <b>{got}</b>
           <span>{t('pack')}</span>
         </div>
         {/* A VS badge, not a mascot: the two numbers are being compared
@@ -471,11 +402,40 @@ function HarvestVs({ offices, packs, lang, t }) {
       <div className="eg-hvs-foot">
         <b className={short ? 'warn' : ''}>{mgs('remainPct', { n: String(pct) })}</b>
         <p className={short ? 'warn' : ''}>
-          {short ? mgs('short', { n: String(asked - harvest) })
-            : asked === harvest ? mgs('even')
-              : mgs('spare', { n: String(harvest - asked) })}
+          {short ? mgs('short', { n: String(asked - got) })
+            : asked === got ? mgs('even')
+              : mgs('spare', { n: String(got - asked) })}
         </p>
       </div>
+
+      {/* 日ごとの取れ高 and 目的の内訳, under the two numbers they add up
+          to. Both were a section of their own with a chart in it; as two
+          quiet rows here they say the same thing in a tenth of the page,
+          and the week's harvest is read in one place instead of two. */}
+      {days.length > 0 && (
+        <div className="eg-hvs-days">
+          <h4>{t('byDay')}</h4>
+          <ol>
+            {days.map((dd) => (
+              <li key={dd.iso} className={`${dd.packs ? '' : 'nil'}${dd.iso === today ? ' today' : ''}`}>
+                <em>{DOW_JA[dow(dd.iso)]}</em>
+                <b>{dd.packs || '-'}</b>
+              </li>
+            ))}
+          </ol>
+        </div>
+      )}
+
+      {purposes.length > 0 && (
+        <div className="eg-hvs-pur">
+          <h4>{t('byPurpose')}</h4>
+          <ul className="eg-mini eg-mini2">
+            {purposes.map((pp) => (
+              <li key={pp.id}><span>{lang === 'ja' ? pp.ja : pp.en}</span><b>{pp.count}</b></li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   );
 }
@@ -1068,73 +1028,15 @@ export default function EggPortal({ d, reload: load, lang, toast, screen = 'all'
           </>
         )}
 
-        {/* 日ごとの取れ高. It lived in the right-hand column, then for a
-            few hours in a grid row of its own under this one — which was
-            wrong: the right column spans both rows, so its height is shared
-            out between them, and on a quiet week (no harvest, no requests)
-            that pushed this card half a screen below the card above it.
-            A grid row cannot be told to hug the row above when something
-            else spans it, so the chart simply belongs to this column. */}
-        {onStatus && (
-          <>
-            <div className="sechead"><span>{t('byDay')}</span></div>
-            <div className="card">
-              <Race
-                harvest={d.harvest} week0={d.week0} packs={d.harvestPacks}
-                want={d.totals.packs} today={d.today} lang={lang} t={t} img={img}
-              />
-              {/* 事務所の内訳 used to sit beside this as a list of the same
-                  numbers the 事務所対決 above now draws. Two places to read
-                  one thing is one too many, so only 目的 stays — it is the
-                  one nothing else reports. */}
-              <div>
-                <h3 className="eg-ch">{t('byPurpose')}</h3>
-                <ul className="eg-mini eg-mini2">
-                  {d.totals.purposes.map((p) => (
-                    <li key={p.id}><span>{lang === 'ja' ? p.ja : p.en}</span><b>{p.count}</b></li>
-                  ))}
-                </ul>
-              </div>
-            </div>
-          </>
-        )}
-
-      </div>
-
-      {/* ------------------------------ right ----------------------------- */}
-      {onStatus && (
-      <div className="eg-p2-r">
-        {/* 佐野:「丹波の取れ高をもっと目立たせてほしい」 — her artwork is the
-            heading, so the harvest announces itself before any number is
-            read. Swappable like the rest: the file is what changes when
-            the schedule does, not this screen. */}
-        <img src={img('harvest-vs')} alt={t('race')} className="mg-pic mg-vs-pic" />
-        {/* 初回の受付スタート, moved here from the left column: square, so
-            it fits the width of this one exactly. The dates printed inside
-            it are repeated live in the 今週の予定 card on the left, which
-            is what the system will actually act on. */}
-        {d.firstRound && (
-          <img src={img('first-round')} alt={t('schedHead')} className="mg-pic mg-first-pic" />
-        )}
-        {/* The week in one line, then the same week office by office. */}
-        <HarvestVs offices={d.offices} packs={d.harvestPacks} lang={lang} t={t} />
-        <div className="card">
-          <OfficeRace
-            offices={d.offices} packs={d.harvestPacks} lang={lang} t={t} img={img}
-          />
-        </div>
-
-
-
-        {/* 毎週のルール and これまでの申請. Reference: four lines that never
-            change and a list of weeks already dealt with. They belong to
-            whichever column has the room, and the room is here — the left
-            column carries the week, the terms, the request and the chart
-            and runs to about 1700px on an ordinary week against this one's
-            900. They spent one morning on the left, which balanced the
-            first-round week (that one has her 初回 card on this side) and
-            unbalanced every week after it. The ordinary week is the one
-            the site spends its life in. */}
+        {/* 毎週のルール and これまでの申請: reference, and both about the
+            reader — the rules they are about to act on and the weeks they
+            have already had. Which column they sit in is decided by which
+            one has the room, and that has moved twice today as cards came
+            and went. As it stands: the right carries the 対決 banner, the
+            harvest card with the week's days in it and the seven-office
+            table; this one carries the week, the terms and the request.
+            Left 844px against the right's 1511 without these two, 1157
+            against 1198 with them. */}
 {onRequest && (
           <>
             <div className="sechead"><span>{mgs('rules')}</span></div>
@@ -1163,6 +1065,38 @@ export default function EggPortal({ d, reload: load, lang, toast, screen = 'all'
             </div>
           </>
         )}
+
+      </div>
+
+      {/* ------------------------------ right ----------------------------- */}
+      {onStatus && (
+      <div className="eg-p2-r">
+        {/* 佐野:「丹波の取れ高をもっと目立たせてほしい」 — her artwork is the
+            heading, so the harvest announces itself before any number is
+            read. Swappable like the rest: the file is what changes when
+            the schedule does, not this screen. */}
+        <img src={img('harvest-vs')} alt={t('race')} className="mg-pic mg-vs-pic" />
+        {/* 初回の受付スタート, moved here from the left column: square, so
+            it fits the width of this one exactly. The dates printed inside
+            it are repeated live in the 今週の予定 card on the left, which
+            is what the system will actually act on. */}
+        {d.firstRound && (
+          <img src={img('first-round')} alt={t('schedHead')} className="mg-pic mg-first-pic" />
+        )}
+        {/* The week in one line, then the same week office by office. */}
+        <HarvestVs
+          offices={d.offices} packs={d.harvestPacks} lang={lang} t={t}
+          harvest={d.harvest} week0={d.week0} today={d.today}
+          purposes={d.totals.purposes}
+        />
+        <div className="card">
+          <OfficeRace
+            offices={d.offices} packs={d.harvestPacks} lang={lang} t={t} img={img}
+          />
+        </div>
+
+
+
       </div>
 
       )}
@@ -2031,4 +1965,4 @@ export function EggAdmin({ lang, toast, cfg = {}, setCfg, onDone, today = null }
   );
 }
 
-export { L as EGG_P2_L, md as eggMd, Race as EggRace };
+export { L as EGG_P2_L, md as eggMd };

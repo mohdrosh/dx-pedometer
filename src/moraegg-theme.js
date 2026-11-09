@@ -982,6 +982,28 @@ export const MG_CSS = `
   color:var(--mg-green);line-height:1.55;text-align:right;flex:1 1 11em}
 .mg .eg-hvs-foot p.warn{color:#B3261E}
 
+/* 日ごとの取れ高 — seven cells under the week's total, one per day. A
+   staircase chart had a section of its own for this; the figures are the
+   part people wanted and they fit on one line. */
+.mg .eg-hvs-days,.mg .eg-hvs-pur{margin-top:12px;padding-top:11px;
+  border-top:1px solid var(--mg-line)}
+.mg .eg-hvs-days h4,.mg .eg-hvs-pur h4{
+  margin:0 0 7px;font-size:11.5px;font-weight:800;color:#5B6B86}
+.mg .eg-hvs-days ol{list-style:none;margin:0;padding:0;
+  display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px}
+.mg .eg-hvs-days li{display:flex;flex-direction:column;align-items:center;gap:1px;
+  padding:5px 0 6px;border-radius:9px;background:var(--mg-sky)}
+.mg .eg-hvs-days em{font-style:normal;font-size:10.5px;font-weight:700;color:#5B6B86}
+.mg .eg-hvs-days b{font-size:14px;font-weight:900;color:var(--mg-navy);
+  font-variant-numeric:tabular-nums}
+/* A day with nothing in it is still a day of the week, so it keeps its
+   place and loses its weight rather than disappearing. */
+.mg .eg-hvs-days li.nil{background:#F7F8FB}
+.mg .eg-hvs-days li.nil b{color:#A8B2C2;font-weight:700}
+.mg .eg-hvs-days li.today{background:var(--mg-sun)}
+.mg .eg-hvs-days li.today em{color:var(--mg-navy)}
+.mg .eg-hvs-pur .eg-mini.eg-mini2{gap:7px}
+
 /* 丹波: the unit beside each day's figure. */
 .mg .eg-day-v{display:inline-flex;align-items:baseline;gap:6px}
 .mg .eg-day-v i{font-style:normal;font-size:12px;font-weight:700;color:#5B6B86}
