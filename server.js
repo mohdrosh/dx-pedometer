@@ -880,7 +880,18 @@ const server = http.createServer(async (req, res) => {
 
     /** Who the caller is, worked out from the session alone. */
     const eggWho = async () => {
-      if (sess.isAdmin) return { admin: true, egg: true, farm: true, contactFor: [], person: null };
+      /* An administrator is not 丹波. They were given farm:true so that
+         nothing on that screen was out of reach, and the consequence was
+         the 丹波 tab on the 管理 login — a screen for typing in the day's
+         eggs, offered to the committee, who never will. The daily entry
+         is the shed's and only the shed's.
+
+         Everything else an administrator might need in an emergency is
+         reachable without it: 発送の確定, 配分を確定, the shipping list and
+         the printables all accept admin OR farm. Only POST /egg/harvest
+         asks for farm alone, which is the daily figure — the one thing
+         that should come from the person holding the eggs. */
+      if (sess.isAdmin) return { admin: true, egg: true, farm: false, contactFor: [], person: null };
       const person = await getEmployee(sess.employeeId);
       return {
         admin: false,
