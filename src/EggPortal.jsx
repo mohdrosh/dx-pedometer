@@ -1280,16 +1280,28 @@ function WeekResult({ r, lang, t, ship, final = true, withNames = false }) {
    always what the register says was laid: a cracked tray, a van with no
    room. That number starts the allocation.
 
-   The second says the result has been looked at and is right. Only then
-   does the site stop saying 確認中, and only then do 171 letters go out.
-   A single button would mean a miscount reaching everybody's inbox
-   before anybody had read it.
+   That press also sends the letters, but not before it has shown what it
+   is about to send — 「21パックを9名に発送します。2名は落選になります」 —
+   and been answered.
+
+   It was two buttons until 2026/11/09: 確定 ran the allocation, and a
+   second 最終確定する published it, so that nobody could post 171 letters
+   off a miscount unread. The check was right; a whole second card was
+   the wrong place for it. There is no decision to make on that card —
+   the allocation is the company's rule and the staff cannot alter who
+   gets what, only the pack count in the box above. So the thing it was
+   protecting, a last look before the letters go, is now the question on
+   the one button, and answering やめる leaves the week unpublished and
+   the number editable exactly as the second card did.
    --------------------------------------------------------------------- */
 function EggShip({ lang, toast, t, onDone }) {
   const mgs = (k, vars) => mg(k, lang, vars);
   const [d, setD] = useState(null);
   const [busy, setBusy] = useState(false);
   const [packs, setPacks] = useState('');
+  /* The allocation that has been made but not published: what the
+     question on screen is asking about. */
+  const [ask, setAsk] = useState(null);
 
   const load = useCallback(async () => {
     const res = await fetch(`${apiRoot()}/egg/ship`, { credentials: 'same-origin' });
@@ -1336,33 +1348,65 @@ function EggShip({ lang, toast, t, onDone }) {
         <div className="card"><p className="muted sm">{mgs('beforeShip')}</p></div>
       )}
 
-      {!d.open && (
+      {!d.open && !d.final && (
         <div className="card eg-ship-1">
           <label className="fld"><span>{mgs('shipStep1')}</span>
             <input
-              type="number" min={0} max={999} value={packs} disabled={d.final}
-              onChange={(e) => setPacks(e.target.value)}
+              type="number" min={0} max={999} value={packs} disabled={!!ask}
+              onChange={(e) => { setAsk(null); setPacks(e.target.value); }}
             />
           </label>
-          {d.drawn && <p className="eg-ship-ok">{mgs('shipConfirmed')}</p>}
-          <button
-            className="btn primary" disabled={busy || d.final}
-            onClick={() => post('/draw', { ship: d.ship, packs: n })}
-          >{d.drawn ? t('drawAgain') : t('draw')}</button>
-        </div>
-      )}
+          {/* 9:00 に確定済み — the allocation the system made at the
+              deadline off the register. Saying so is what tells the
+              staff that the number in the box is already theirs to
+              correct rather than something still to be entered. */}
+          {d.drawn && !ask && <p className="eg-ship-ok">{mgs('shipConfirmed')}</p>}
 
-      {/* Step two only exists once there is something to check. */}
-      {d.drawn && !d.final && (
-        <div className="card eg-ship-2">
-          <p>{mgs('shipStep2')}</p>
-          <button
-            className="btn primary" disabled={busy}
-            onClick={async () => {
-              const j = await post('/final', { ship: d.ship });
-              if (j) toast?.(mgs('finalDone'));
-            }}
-          >{mgs('doFinal')}</button>
+          {!ask && (
+            <button
+              className="btn primary" disabled={busy}
+              onClick={async () => {
+                const j = await post('/draw', { ship: d.ship, packs: n });
+                if (j) {
+                  setAsk({
+                    s: j.shipped ?? 0,
+                    p: (j.list || []).length,
+                    n: j.missed || 0,
+                  });
+                }
+              }}
+            >{mgs('goFinal')}</button>
+          )}
+
+          {/* The last look, asked rather than filed on a second card.
+              The numbers are the allocation just made, so what it says
+              here is what the letters will say. */}
+          {ask && (
+            <div className="eg-ship-ask">
+              <p>
+                {mgs('askBody', ask)}
+                {ask.n > 0 ? mgs('askMiss', ask) : ''}
+              </p>
+              <p className="muted sm">{mgs('askMail')}</p>
+              <div className="eg-ship-ask-b">
+                <button
+                  className="btn primary" disabled={busy}
+                  onClick={async () => {
+                    const j = await post('/final', { ship: d.ship });
+                    setAsk(null);
+                    if (j) toast?.(mgs('finalDone'));
+                  }}
+                >{mgs('askYes')}</button>
+                {/* やめる leaves the week drawn and unpublished: the
+                    screens keep saying 確認中 and the number can be
+                    corrected and pressed again. */}
+                <button
+                  className="btn ghost" disabled={busy}
+                  onClick={() => setAsk(null)}
+                >{mgs('askNo')}</button>
+              </div>
+            </div>
+          )}
         </div>
       )}
       {d.final && <div className="card"><p className="eg-ship-ok">{mgs('finalDone')}</p></div>}

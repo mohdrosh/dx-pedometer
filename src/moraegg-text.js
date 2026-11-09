@@ -60,6 +60,27 @@ const PENDING_1106 = ['boxSheet', 'tabPre', 'tHint'];
                            at the top of a page is for. */
 const PENDING_1108 = ['remainPct'];
 
+/* 2026/11/09: 発送の確定 became one press instead of two. The second
+   button existed so the 丹波 staff could look at the allocation before
+   the letters went out, but there is nothing for them to decide there —
+   the only number they control is the pack count in the box above it. So
+   the look moved into a question asked at the moment of pressing, and
+   these are its words. Mine, and needing her nod:
+
+     goFinal   確定して知らせる        —— the one button, replacing
+                                        もう一度確定 and 最終確定する
+     askBody   {s}パックを{p}名に発送します。
+     askMiss   {n}名は落選になります。   —— 落選 is her word, from the
+                                        status list in 仕様書 5.2
+     askMail   全員にメールを送ります。よろしいですか？
+     askYes    送信する
+     askNo     やめる
+
+   Her 最終確定する (doFinal) and 振り分け結果を確認して… (shipStep2) are
+   left in the file unused rather than deleted: the file is hers, and if
+   she wants the two steps back they are the words to put back. */
+const PENDING_1109 = ['goFinal', 'askBody', 'askMiss', 'askMail', 'askYes', 'askNo'];
+
 /* 2026/11/08: tHint is HERS, and it is the one string on the 丹波 screen
    that had to change rather than one I wanted to add. It read 「10個詰める
    ごとに「＋1パック」を押してください」 — an instruction to press a button
@@ -90,7 +111,9 @@ const PENDING_1108 = ['remainPct'];
  * space, because an empty space on a screen is a bug nobody reports.
  */
 /** The keys above that she has not signed off yet, for anyone checking. */
-export const pendingKeys = () => [...PENDING_1105, ...PENDING_1106, ...PENDING_1108];
+export const pendingKeys = () => [
+  ...PENDING_1105, ...PENDING_1106, ...PENDING_1108, ...PENDING_1109,
+];
 
 export function mg(key, lang = 'ja', vars = null) {
   const row = STRINGS[key];

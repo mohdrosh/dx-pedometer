@@ -87,6 +87,30 @@
     "ja": "最終確定する",
     "en": "Give final confirmation"
   },
+  "goFinal": {
+    "ja": "確定して知らせる",
+    "en": "Confirm and notify"
+  },
+  "askBody": {
+    "ja": "{s}パックを{p}名に発送します。",
+    "en": "{s} packs will go to {p} people."
+  },
+  "askMiss": {
+    "ja": "{n}名は落選になります。",
+    "en": "{n} people will miss out."
+  },
+  "askMail": {
+    "ja": "全員にメールを送ります。よろしいですか？",
+    "en": "Everyone will be emailed. Is that OK?"
+  },
+  "askYes": {
+    "ja": "送信する",
+    "en": "Send"
+  },
+  "askNo": {
+    "ja": "やめる",
+    "en": "Cancel"
+  },
   "finalDone": {
     "ja": "最終確定しました。メールを送信しました。",
     "en": "Final confirmation done. Emails sent."

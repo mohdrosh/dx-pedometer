@@ -1196,6 +1196,15 @@ export const MG_CSS = `
 .mg .eg-ship-1 input{width:7em}
 .mg .eg-ship-2 p{flex:1 1 100%;margin:0;font-size:13px;font-weight:700}
 .mg .eg-ship-ok{margin:0;font-size:12px;font-weight:800;color:var(--mg-leaf)}
+/* The question asked before the letters go: it takes the whole width of
+   the card so the number in the box above stays readable beside it, and
+   it is tinted so that a card waiting for an answer cannot be mistaken
+   for one waiting for a press. */
+.mg .eg-ship-ask{flex:1 1 100%;margin:2px 0 0;padding:11px 13px 12px;
+  border-radius:10px;background:var(--mg-sky)}
+.mg .eg-ship-ask p{margin:0;font-size:13px;font-weight:700;color:var(--mg-navy)}
+.mg .eg-ship-ask p.muted{margin-top:3px;font-weight:600}
+.mg .eg-ship-ask-b{display:flex;gap:8px;margin-top:10px}
 /* The two export buttons. Named eg-dl and not eg-exp: that one is
    already the 期限切れ badge, and a second rule under the same name put a
    yellow pill behind both buttons. */
