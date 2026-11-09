@@ -827,15 +827,12 @@ export const MG_CSS = `
 /* Two cards of the same size, side by side. On a phone they stack, which
    is the only thing that fits; from 720px up they are a row. */
 .mg .eg-pair{display:grid;gap:0 18px}
-.mg .eg-p2-wide>.eg-pair+.eg-pair{margin-top:2px}
 @media(min-width:720px){
   /* Stretch, not start: a pair reads as one answer only if the two cards
      are the same shape. Left to their contents they end 80px apart and
      the row looks like two things that happen to be near each other. */
   .mg .eg-pair{grid-template-columns:repeat(2,minmax(0,1fr));align-items:stretch}
-  .mg .eg-pair>.card,.mg .eg-pair>div>.card{height:calc(100% - 12px)}
-  .mg .eg-pair>div{display:flex;flex-direction:column}
-  .mg .eg-pair>div>.card{flex:1}
+  .mg .eg-pair>.card{height:calc(100% - 12px)}
 }
 .mg .eg-acts{display:flex;gap:9px;flex-wrap:wrap;margin-top:13px}
 .mg .eg-req .fld{margin-top:12px}
@@ -1191,11 +1188,6 @@ export const MG_CSS = `
      was the taller. Both have gone back into their own columns. */
   .mg .eg-p2-r{order:0;grid-column:2;grid-row:1}
   .mg .eg-p2-l{grid-column:1;grid-row:1}
-  /* The pair of cards runs the whole width underneath both columns. A
-     row of its own rather than the bottom of one column: neither column
-     is tall enough to carry it, and a card spanning the gutter is what
-     makes the two of them the same size. */
-  .mg .eg-p2-wide{grid-column:1/-1;grid-row:2}
   /* 締切・発送・到着・受け取り in the 430px column: two by two. Four across
      is a column each of 95px, and 「11/16（月）9:00」 does not fit one. */
   .mg .eg-p2-r .eg-steps{grid-template-columns:repeat(2,minmax(0,1fr))}

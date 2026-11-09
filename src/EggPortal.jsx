@@ -986,6 +986,31 @@ export default function EggPortal({ d, reload: load, lang, toast, screen = 'all'
 
 
 
+
+        {/* 丹波の取れ高 and 事業所の表, side by side at the foot of this
+            column: two cards the same size, asking two halves of one
+            question — how much there is this week, and who it reaches.
+
+            They spent an hour as a row spanning both columns, which only
+            made each of them 860px wide — the same two cards, stretched.
+            This column is 780px, so here they are two ordinary cards, and
+            this is also the gap they were meant to fill: on the 初回 week
+            the left-hand side ended at the 受付終了 card with half a screen
+            of cream under it. */}
+        <div className="eg-pair">
+          {/* The week in one line, then the same week office by office. */}
+          <HarvestVs
+            offices={d.offices} packs={d.harvestPacks} lang={lang} t={t}
+            harvest={d.harvest} week0={d.week0} today={d.today}
+            purposes={d.totals.purposes}
+          />
+          <div className="card">
+            <OfficeRace
+              offices={d.offices} packs={d.harvestPacks} lang={lang} t={t} img={img}
+            />
+          </div>
+        </div>
+
       </div>
 
       {/* ------------------------------ right ----------------------------- */}
@@ -1068,36 +1093,11 @@ export default function EggPortal({ d, reload: load, lang, toast, screen = 'all'
 
 
 
-      </div>
 
-      )}
-
-      {/* ---- across both columns, above the rules ------------------------
-          丹波の取れ高 and 事業所の表 are two halves of one question — how
-          much there is this week, and who it reaches — and they are the
-          same size. Side by side they read as one answer; stacked in a
-          430px column they were 650px of scrolling with the other column
-          empty beside them. 毎週のルール and これまでの申請 pair off under
-          them for the same reason. */}
-      {onStatus && (
-      <div className="eg-p2-wide">
-        <div className="eg-pair">
-        {/* The week in one line, then the same week office by office. */}
-        <HarvestVs
-          offices={d.offices} packs={d.harvestPacks} lang={lang} t={t}
-          harvest={d.harvest} week0={d.week0} today={d.today}
-          purposes={d.totals.purposes}
-        />
-        <div className="card">
-          <OfficeRace
-            offices={d.offices} packs={d.harvestPacks} lang={lang} t={t} img={img}
-          />
-        </div>
-        </div>
-
-        <div className="eg-pair">
-          <div>
-{onRequest && (
+        {/* 毎週のルール and これまでの申請. Reference, and this is the
+            column with room for them — the other one carries the week,
+            the request and the pair of cards under it. */}
+        {onRequest && (
           <>
             <div className="sechead"><span>{mgs('rules')}</span></div>
             <div className="card">
@@ -1106,10 +1106,9 @@ export default function EggPortal({ d, reload: load, lang, toast, screen = 'all'
               </ul>
             </div>
           </>
-      )}
-          </div>
-          <div>
-{onRequest && !!d.history?.length && (
+        )}
+
+        {onRequest && !!d.history?.length && (
           <>
             <div className="sechead"><span>{t('history')}</span></div>
             <div className="card">
@@ -1126,8 +1125,6 @@ export default function EggPortal({ d, reload: load, lang, toast, screen = 'all'
             </div>
           </>
         )}
-          </div>
-        </div>
       </div>
 
       )}
