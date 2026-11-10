@@ -550,6 +550,64 @@ function OfficeRace({ offices, packs, lang, t, img }) {
    a face, not a colour: the green card and the blue one say different
    things in words before they say anything in paint.
 --------------------------------------------------------------------------- */
+/**
+ * 今週のモラエッグ — her 初回の受付スタート card, built from this week's
+ * dates instead of drawn.
+ *
+ * 2026/11/10. The card was a .webp with 11/24・11/25・11/27 painted into
+ * it: right for one week in the year, wrong the moment the first
+ * shipment moved, and impossible for the other fifty-one. Everything in
+ * it except the robot is type in boxes, so it is type in boxes here, and
+ * the four dates are the ones the server will act on.
+ *
+ * Her layout, kept: the title, the deadline in a white panel with the
+ * 祝日 note under it, the three steps as dated chips, the speech bubble
+ * and the robot. Only the first round gets 「はじめての卵、お楽しみに！」;
+ * every other week the bubble has nothing to say and is left out.
+ */
+function WeekCard({ d, lang, t, img, first }) {
+  const mgs = (k, vars) => mg(k, lang, vars);
+  const w = d.week;
+  if (!w?.deadline?.date) return null;
+  const rows = [
+    ['ship', w.shipDay, mgs('wkShip')],
+    ['arrive', w.arrive, mgs('wkArrive')],
+    ['pick', w.pickup, mgs('wkPick')],
+  ];
+  return (
+    <div className="mg-weekcard">
+      <b className="mg-wc-h">{mgs(first ? 'wkFirst' : 'wkWeek')}</b>
+      <div className="mg-wc-due">
+        <em>{mgs(first ? 'wkDueFirst' : 'wkDue')}</em>
+        <strong>
+          {md(w.deadline.date, lang)}
+          {' '}
+          <span>{mgs('wkTime', { h: String(w.deadline.hour) })}</span>
+        </strong>
+        {/* 「※23日（月）は祝日のため、火曜日です」 — her note, printed only
+            on a week that actually moved. */}
+        {w.shifted && <i>{t('monHoliday')}</i>}
+      </div>
+      <ol className="mg-wc-rows">
+        {rows.map(([k, iso, label]) => (
+          <li key={k}>
+            <span className={`mg-wc-d ${k}`}>{md(iso, lang)}</span>
+            <em>{label}</em>
+          </li>
+        ))}
+      </ol>
+      <div className="mg-wc-foot">
+        {first && <p className="mg-wc-bub">{mgs('wkBubble')}</p>}
+        <img src={img('basket')} alt="" />
+      </div>
+      {/* 仕様書 4.6:「お知らせ（みんなの画面に表示）」 — whatever an
+          administrator wrote about this week, inside the card the week
+          is on rather than in one of its own underneath. */}
+      {w.note && <p className="mg-wc-note">{w.note}</p>}
+    </div>
+  );
+}
+
 /* Verdict lived here: the green 今週◯◯に卵が届きます banner as its
    own component. It is the top half of MyWeek below now, because the
    banner and the three facts under it were always one answer. */
@@ -617,7 +675,7 @@ function MyWeek({
       )}
 
       {mine && (
-        <div className="eg-me2-facts">
+        <div className="eg-me2-body">
           <div>
             <em>{t('mine')}</em>
             <b>
@@ -648,22 +706,25 @@ function MyWeek({
               <b>{md(d.week.pickup, lang)}</b>
             </div>
           )}
+          {/* The buttons end the same row as the facts rather than
+              opening one of their own: on a week with a single fact in
+              it, a row to themselves was most of the card's height and
+              all of its empty space. */}
+          {(open || status === 'confirmed') && (
+            <div className="eg-acts">
+              {open && <button className="btn" onClick={onEdit}>{t('update')}</button>}
+              {status === 'confirmed' && (
+                <button className="btn primary" disabled={busy} onClick={onCollect}>
+                  {t('collect')}
+                </button>
+              )}
+            </div>
+          )}
         </div>
       )}
 
       {mine && status === 'missed' && <p className="eg-me2-note">{t('missedNote')}</p>}
       {mine && status === 'expired' && <p className="eg-me2-note">{t('expiredNote')}</p>}
-
-      {mine && (open || status === 'confirmed') && (
-        <div className="eg-acts">
-          {open && <button className="btn" onClick={onEdit}>{t('update')}</button>}
-          {status === 'confirmed' && (
-            <button className="btn primary" disabled={busy} onClick={onCollect}>
-              {t('collect')}
-            </button>
-          )}
-        </div>
-      )}
     </div>
   );
 }
@@ -981,96 +1042,12 @@ export default function EggPortal({ d, reload: load, lang, toast, screen = 'all'
       {/* ------------------------------ right ----------------------------- */}
       {onStatus && (
       <div className="eg-p2-r">
-        {/* 佐野's 対決 banner was the heading of this column until
-            2026/11/10. It is a picture of the two words that the card
-            under it already prints over two live numbers, and with that
-            card now the width of the page the picture was the only thing
-            between the reader and it. Her file is still in public/
-            moraegg; nothing else used it.
-
-            初回の受付スタート leads the column instead. It is the one
-            picture with this week's real dates in it, so during the first
-            round it IS the schedule — which is why the four dates that
-            used to be printed under it are gone. */}
-        {d.firstRound && (
-          <img src={img('first-round')} alt={t('schedHead')} className="mg-pic mg-first-pic" />
-        )}
-
-        {/* 今週の予定 — her schedule artwork and this week's four dates.
-            They led the left-hand column until 2026/11/09. They are a
-            picture and four dates, which is what this column already is,
-            and moving them across is what makes room on the left for the
-            pair below without one column running half a screen past the
-            other. */}
-        {/* 佐野:「毎週のルールをリクエストページに出してほしい」. It used to
-            read 発送日 / 申請締切 / 受取期限 as three loose dates, which told
-            you when but never what happens in between. Four steps in the
-            order they happen, each with this week's real date on it. */}
-        {/* Her artwork says the rule; the steps under it say this week's
-            dates. Same pairing as the harvest — the picture is what people
-            look at, the live dates are what they act on, and swapping the
-            picture is how the rule changes when the schedule does.
-
-            The ordinary weekly card is a wide strip, so it fills this
-            column edge to edge. 初回の受付スタート is square — she drew it
-            that way and the dates are inside it, so it cannot be cropped
-            into a strip — and a square in a 780px column is a picture with
-            a hand's width of empty cream either side of it. That one is
-            shown in the right-hand column instead, under the 対決 banner,
-            where the column is its own width and nothing is left over. */}
-        {!d.firstRound && (
-          <picture className="mg-sched-pic">
-            <source media="(min-width:620px)" srcSet={img('week-strip')} />
-            <img src={img('week-schedule')} alt={t('schedHead')} className="mg-pic mg-sched-sq" />
-          </picture>
-        )}
-
-        {/* 締切・発送・到着・受け取り, for an ordinary week.
-
-            Not during the first round: her picture above prints those
-            four dates and the 祝日 note itself, and the card repeated all
-            of it immediately underneath. The live dates are the ones the
-            system acts on, so losing them is a real cost — if the first
-            shipment ever moves, the picture is a drawing of the old plan
-            and nothing on the screen corrects it. The answer to that is a
-            new picture from 佐野, which is the answer to every other
-            dated thing she has drawn. */}
-        {!d.firstRound && (
-        <div className="card eg-sched">
-          {(
-            <ol className="eg-steps">
-              <li className="now">
-                <em>{t('stepDeadline')}</em>
-                <b>{md(d.week.deadline.date, lang)} {d.week.deadline.hour}:00</b>
-              </li>
-              <li><em>{t('stepShip')}</em><b>{md(d.week.shipDay, lang)}</b></li>
-              <li><em>{t('stepArrive')}</em><b>{md(d.week.arrive, lang)}</b></li>
-              <li><em>{t('stepPickup')}</em><b>{md(d.week.pickup, lang)}</b></li>
-            </ol>
-          )}
-          <p className="eg-sched-r">{t('ruleLine')}</p>
-          {d.week.shifted && <p className="eg-sched-h">{t('monHoliday')}</p>}
-          {/* 仕様書 4.6:「お知らせ（みんなの画面に表示）」 — whatever an
-              administrator wrote about this week, under the dates it is
-              about. */}
-          {d.week.note && <p className="eg-sched-n">{d.week.note}</p>}
-        </div>
-        )}
-        {/* An administrator's note about this week still has to reach the
-            screen during the first round, where the card above it is not
-            drawn. */}
-        {d.firstRound && d.week.note && (
-          <div className="card"><p className="eg-sched-n">{d.week.note}</p></div>
-        )}
-
-
-
-
-
-        {/* 毎週のルール moved to the left-hand column on 2026/11/10, to
-            even the two of them up: this one carries her 初回 picture,
-            which is 330px of it, and the other ended half a screen
-            higher — cream between the request and the week. */}
+        {/* 今週のモラエッグ: her card, drawn from this week's dates.
+            It was two pictures and a card of four dates — 初回の受付
+            スタート during the first round, the weekly strip plus the
+            dates card otherwise — and the one with dates in it was a
+            drawing of a single week. */}
+        <WeekCard d={d} lang={lang} t={t} img={img} first={d.firstRound} />
 
         {/* これまでの申請 — the reader's own past weeks, under her
             picture, because that column is otherwise one picture and a

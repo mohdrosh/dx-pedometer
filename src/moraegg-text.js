@@ -127,6 +127,24 @@ const PENDING_1109C = ['undoFinal', 'undoAsk', 'undoMail', 'undoYes', 'undoDone'
 const PENDING_1110 = ['s1Title', 's1Note', 's1Btn', 's2Title', 's2Note', 's2Btn',
   's2Wait', 's3Title', 'previewNote'];
 
+/* 2026/11/10: 佐野の「初回の受付スタート！」のカードを、画像ではなく画面で
+   組み立てるようにした。日付が絵の中に描き込まれていたため、初回が動けば
+   絵が嘘になり、毎週のぶんは作れなかった。文字は彼女の絵から起こしたもの
+   （「事務所に到着！」は、ほかの画面に合わせて「事業所に到着！」）。
+   毎週表示できるようになったので、初回でない週の見出しだけ新しく要る:
+
+     wkFirst     初回の受付スタート！        —— 彼女の絵の見出し
+     wkWeek      今週のモラエッグ            —— 初回でない週の見出し（当方）
+     wkDueFirst  初回リクエストの締切        —— 彼女の絵
+     wkDue       リクエストの締切            —— 当方
+     wkTime      朝{h}:00                  —— 彼女の絵の「朝9:00」
+     wkShip      丹波から発送               —— 彼女の絵
+     wkArrive    事業所に到着！             —— 彼女の絵（事務所→事業所）
+     wkPick      受け取り期限               —— 彼女の絵
+     wkBubble    はじめての卵、お楽しみに！   —— 彼女の絵（初回のみ） */
+const PENDING_1110B = ['wkFirst', 'wkWeek', 'wkDueFirst', 'wkDue', 'wkTime',
+  'wkShip', 'wkArrive', 'wkPick', 'wkBubble'];
+
 /* 2026/11/09: which shipment the 丹波 week belongs to, said on the screen.
    Both screens now count the same week, and on the days when that week is
    not the calendar week the person typing has to be able to see it. Mine:
@@ -171,7 +189,7 @@ const PENDING_1109D = ['tShipFor', 'tNotIn'];
 export const pendingKeys = () => [
   ...PENDING_1105, ...PENDING_1106, ...PENDING_1108,
   ...PENDING_1109, ...PENDING_1109B, ...PENDING_1109C, ...PENDING_1109D,
-  ...PENDING_1110,
+  ...PENDING_1110, ...PENDING_1110B,
 ];
 
 export function mg(key, lang = 'ja', vars = null) {

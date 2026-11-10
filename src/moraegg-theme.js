@@ -548,6 +548,54 @@ export const MG_CSS = `
 /* ------------------------------ the verdict ----------------------------- */
 /* 佐野:「最低パック数を超えたら『今週はこの事務所にタマゴが届きます！』、
    届かなかったら残念賞のメッセージ」 */
+/* --------------------------- 今週のモラエッグ ---------------------------
+   佐野's 初回の受付スタート card, as type in boxes rather than a drawing,
+   so the dates in it are this week's. Her shapes: a sun panel with the
+   dotted ground, the deadline in a white box with a navy keyline, the
+   three steps as dated chips, her bubble and the robot.
+------------------------------------------------------------------------- */
+.mg .mg-weekcard{
+  position:relative;background:var(--mg-sun);border-radius:16px;
+  padding:11px 12px 12px;margin-bottom:12px;box-shadow:var(--mg-pop);
+  background-image:radial-gradient(rgba(255,255,255,.45) 1.5px, transparent 1.6px);
+  background-size:13px 13px;
+}
+.mg .mg-wc-h{display:block;margin:1px 0 8px;text-align:center;
+  font-size:19px;font-weight:900;color:var(--mg-navy);letter-spacing:.01em}
+.mg .mg-wc-due{background:var(--mg-paper);border:2px solid var(--mg-navy);
+  border-radius:12px;padding:6px 10px 7px;text-align:center}
+.mg .mg-wc-due em{display:block;font-style:normal;font-size:12px;font-weight:800;
+  color:var(--mg-navy)}
+.mg .mg-wc-due strong{display:block;font-size:25px;font-weight:900;
+  color:var(--mg-royal);line-height:1.2;letter-spacing:-.01em}
+.mg .mg-wc-due strong span{font-size:21px}
+.mg .mg-wc-due i{display:block;font-style:normal;font-size:10.5px;font-weight:700;
+  color:#3E4F6E;margin-top:1px;line-height:1.4}
+.mg .mg-wc-rows{list-style:none;margin:7px 0 0;padding:0;display:grid;gap:5px}
+.mg .mg-wc-rows li{display:flex;align-items:center;gap:9px;
+  background:var(--mg-paper);border:2px solid var(--mg-navy);border-radius:10px;
+  padding:3px 9px 4px}
+.mg .mg-wc-d{flex:none;min-width:5.4em;text-align:center;border-radius:7px;
+  padding:2px 7px 3px;font-size:12px;font-weight:900;color:#fff;
+  font-variant-numeric:tabular-nums}
+.mg .mg-wc-d.ship{background:#1F7A33}
+.mg .mg-wc-d.arrive{background:var(--mg-royal)}
+.mg .mg-wc-d.pick{background:var(--mg-navy)}
+.mg .mg-wc-rows em{font-style:normal;font-size:13px;font-weight:800;
+  color:var(--mg-navy)}
+.mg .mg-wc-foot{display:flex;align-items:flex-end;gap:10px;margin-top:8px}
+.mg .mg-wc-bub{position:relative;margin:0;max-width:11em;padding:6px 11px 7px;
+  background:var(--mg-paper);border:2px solid var(--mg-navy);border-radius:10px;
+  font-size:13px;font-weight:900;color:var(--mg-navy);line-height:1.35}
+.mg .mg-wc-bub::after{content:'';position:absolute;left:14px;bottom:-9px;
+  width:11px;height:11px;background:var(--mg-paper);
+  border-right:2px solid var(--mg-navy);border-bottom:2px solid var(--mg-navy);
+  transform:rotate(45deg) skew(6deg,6deg)}
+.mg .mg-wc-foot img{width:62px;height:62px;margin-left:auto;flex:none}
+.mg .mg-wc-note{margin:9px 0 0;padding:7px 10px 8px;border-radius:9px;
+  background:rgba(255,255,255,.72);font-size:12px;font-weight:700;
+  color:var(--mg-navy);line-height:1.5}
+
 /* ---------------------------- あなたの今週 ------------------------------
    One card for the reader's own week: the verdict across the top in its
    own tint, the facts under it as a row of labelled values, the buttons
@@ -578,19 +626,20 @@ export const MG_CSS = `
 /* The facts: as many across as fit, each a small grey label over its
    value, so three of them read as one line of answer rather than three
    cards. */
-.mg .eg-me2-facts{display:grid;gap:11px 26px;padding:12px 15px 2px}
-.mg .eg-me2-facts>div{min-width:0}
-.mg .eg-me2-facts em{display:block;font-style:normal;font-size:11px;font-weight:700;
+/* The facts and the buttons on one line: a label over its value, as
+   many as fit, and the buttons at the end of the row. */
+.mg .eg-me2-body{display:flex;flex-wrap:wrap;align-items:flex-start;
+  gap:11px 26px;padding:11px 15px 12px}
+.mg .eg-me2-body>div{min-width:0}
+.mg .eg-me2-body em{display:block;font-style:normal;font-size:11px;font-weight:700;
   color:#78849A;margin-bottom:2px}
-.mg .eg-me2-facts b{display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+.mg .eg-me2-body>div>b{display:flex;align-items:center;gap:8px;flex-wrap:wrap;
   font-size:14.5px;font-weight:900;color:var(--mg-navy);line-height:1.4}
+.mg .eg-me2-at{flex:1 1 15em}
 .mg .eg-me2-at span{display:block;font-size:11.5px;font-weight:500;color:#5B6B86;
   margin-top:1px}
-.mg .eg-me2-note{margin:8px 15px 0;font-size:12.5px;font-weight:600;color:#3E4F6E}
-.mg .eg-me2 .eg-acts{margin:11px 15px 13px}
-@media(min-width:620px){
-  .mg .eg-me2-facts{grid-template-columns:auto minmax(0,1fr) auto;align-items:start}
-}
+.mg .eg-me2-note{margin:0 15px 11px;font-size:12.5px;font-weight:600;color:#3E4F6E}
+.mg .eg-me2 .eg-acts{margin:0 0 0 auto;align-self:flex-end}
 
 .mg-verdict{
   display:flex;align-items:center;gap:14px;

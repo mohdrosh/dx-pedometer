@@ -183,6 +183,42 @@
     "ja": "確定前の見込みです。確定すると、この内容になります。",
     "en": "A forecast, before confirming. Confirming makes it this."
   },
+  "wkFirst": {
+    "ja": "初回の受付スタート！",
+    "en": "The first round is open!"
+  },
+  "wkWeek": {
+    "ja": "今週のモラエッグ",
+    "en": "Moraegg this week"
+  },
+  "wkDueFirst": {
+    "ja": "初回リクエストの締切",
+    "en": "First round closes"
+  },
+  "wkDue": {
+    "ja": "リクエストの締切",
+    "en": "Requests close"
+  },
+  "wkTime": {
+    "ja": "朝{h}:00",
+    "en": "{h}:00"
+  },
+  "wkShip": {
+    "ja": "丹波から発送",
+    "en": "Ships from Tamba"
+  },
+  "wkArrive": {
+    "ja": "事業所に到着！",
+    "en": "Arrives at your office!"
+  },
+  "wkPick": {
+    "ja": "受け取り期限",
+    "en": "Collect by"
+  },
+  "wkBubble": {
+    "ja": "はじめての卵、お楽しみに！",
+    "en": "Your first eggs — enjoy!"
+  },
   "shipList": {
     "ja": "発送一覧",
     "en": "Shipping list"
