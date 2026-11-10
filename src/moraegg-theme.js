@@ -870,6 +870,18 @@ export const MG_CSS = `
    them. */
 .mg .eg-wide{display:block;margin-top:13px}
 .mg .eg-wide>.card{margin-bottom:11px}
+/* 毎週のルール・これまでの申請・印刷して使えます: read once, then known.
+   A band of their own under the week, two across from 760px and three
+   from 900, so the page ends in one even row instead of three cards
+   hanging off the bottom of whichever column had room. */
+.mg .eg-ref{display:block;margin-top:4px}
+.mg .eg-ref .sechead:first-child{margin-top:13px}
+@media(min-width:760px){
+  /* Two rules to a row, so four of them are a card two lines deep
+     rather than a column of four. */
+  .mg .eg-ref .eg-r2{grid-template-columns:repeat(2,minmax(0,1fr));
+    column-gap:26px}
+}
 .mg .eg-acts{display:flex;gap:9px;flex-wrap:wrap;margin-top:13px}
 .mg .eg-req .fld{margin-top:12px}
 .mg .eg-step{display:flex;align-items:center;gap:11px}
@@ -1288,6 +1300,7 @@ export const MG_CSS = `
   .mg .eg-p2-l{grid-column:1;grid-row:1}
   /* Under both of them, the width of the page. */
   .mg .eg-wide{grid-column:1/-1;grid-row:2}
+  .mg .eg-ref{grid-column:1/-1;grid-row:3}
   /* 締切・発送・到着・受け取り in the 430px column: two by two. Four across
      is a column each of 95px, and 「11/16（月）9:00」 does not fit one. */
   .mg .eg-p2-r .eg-steps{grid-template-columns:repeat(2,minmax(0,1fr))}

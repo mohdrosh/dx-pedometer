@@ -1006,18 +1006,6 @@ export default function EggPortal({ d, reload: load, lang, toast, screen = 'all'
 
 
 
-        {/* 毎週のルール — reference, under the form it is about. */}
-        {onRequest && (
-          <>
-            <div className="sechead"><span>{mgs('rules')}</span></div>
-            <div className="card">
-              <ul className="eg-rules">
-                {['r1', 'r2', 'r3', 'r4'].map((k) => <li key={k}>{mgs(k)}</li>)}
-              </ul>
-            </div>
-          </>
-        )}
-
       </div>
 
       {/* ------------------------------ right ----------------------------- */}
@@ -1114,6 +1102,9 @@ export default function EggPortal({ d, reload: load, lang, toast, screen = 'all'
             which is 330px of it, and the other ended half a screen
             higher — cream between the request and the week. */}
 
+        {/* これまでの申請 — the reader's own past weeks, under her
+            picture, because that column is otherwise one picture and a
+            column of cream. */}
         {onRequest && !!d.history?.length && (
           <>
             <div className="sechead"><span>{t('history')}</span></div>
@@ -1160,25 +1151,48 @@ export default function EggPortal({ d, reload: load, lang, toast, screen = 'all'
               offices={d.offices} packs={d.harvestPacks} lang={lang} t={t} img={img}
             />
           </div>
-
-          {/* 印刷して使えます, at the foot of the page. Two of the three
-              are for whoever ends up holding the carton rather than for
-              the person reading this, so they belong under the week
-              rather than above it — which is where they were, between
-              the request and the two cards the page is for. */}
-          <div className="sechead"><span>{t('printables')}</span></div>
-          <div className="mg-print eg-print3">
-            {[['label-asadore', 'printLabel', 'printLabelNote'],
-              ['seal-round', 'printSeal', 'printSealNote'],
-              ['thankyou-egg', 'printThanks', 'printThanksNote']].map(([file, title, note]) => (
-                <a key={file} href={img(file)} target="_blank" rel="noreferrer">
-                  <img src={img(file)} alt="" />
-                  <span><b>{t(title)}</b><span>{t(note)}</span></span>
-                </a>
-            ))}
-          </div>
         </div>
       )}
+
+      {/* ---- the reference cards, in a band of their own -------------
+
+          毎週のルール and 印刷して使えます are the things somebody reads
+          once and then knows. They were scattered through the two
+          columns above, which put a list of standing rules between the
+          reader's own week and the two cards the page is for. Equal
+          columns at the foot of the page: still here, and no longer in
+          the way. */}
+      <div className="eg-ref">
+        {onRequest && (
+          <>
+            <div className="sechead"><span>{mgs('rules')}</span></div>
+            <div className="card">
+              {/* Four short rules across the page rather than down a
+                  column: two by two, which is one card's depth instead
+                  of four. */}
+              <ul className="eg-rules eg-r2">
+                {['r1', 'r2', 'r3', 'r4'].map((k) => <li key={k}>{mgs(k)}</li>)}
+              </ul>
+            </div>
+          </>
+        )}
+
+        {onStatus && (
+          <>
+            <div className="sechead"><span>{t('printables')}</span></div>
+            <div className="mg-print eg-print3">
+              {[['label-asadore', 'printLabel', 'printLabelNote'],
+                ['seal-round', 'printSeal', 'printSealNote'],
+                ['thankyou-egg', 'printThanks', 'printThanksNote']].map(([file, title, note]) => (
+                  <a key={file} href={img(file)} target="_blank" rel="noreferrer">
+                    <img src={img(file)} alt="" />
+                    <span><b>{t(title)}</b><span>{t(note)}</span></span>
+                  </a>
+              ))}
+            </div>
+          </>
+        )}
+      </div>
 
       {/* 丹波の鶏舎だより was here: a photo collage of the coop, under
           everything useful. It is the one thing on the page nobody opened
