@@ -550,29 +550,120 @@ function OfficeRace({ offices, packs, lang, t, img }) {
    a face, not a colour: the green card and the blue one say different
    things in words before they say anything in paint.
 --------------------------------------------------------------------------- */
-function Verdict({ office, lang, t, img }) {
-  const min = Math.max(0, Number(office.minPacks) || 0);
-  const asked = Math.max(0, Number(office.asked) || 0);
-  /* No minimum set means every week is a delivery week, so there is no
-     verdict to give and the card would only be noise. */
-  if (!min) return null;
-  const short = min - asked;
-  const state = short <= 0 ? 'go' : (asked > 0 ? 'wait' : 'miss');
-  const line = {
+/* Verdict lived here: the green 今週◯◯に卵が届きます banner as its
+   own component. It is the top half of MyWeek below now, because the
+   banner and the three facts under it were always one answer. */
+
+/**
+ * あなたの今週 — the reader's own week, in one card.
+ *
+ * 2026/11/10. It was four: the green 今週◯◯に卵が届きます banner, the
+ * あなたの結果 line, the あなたの申請 row and the 受け取り場所 address,
+ * each with its own heading and its own box. Four headings and four
+ * borders around about twenty words, all of them answering the same
+ * question — am I getting eggs, how many, where do I go, by when — and
+ * between them they filled the column while the picture beside it sat
+ * over empty cream.
+ *
+ * One card: the verdict in its own tint across the top, then the facts
+ * as a row of labelled values, then the two buttons. 「あなたの結果」
+ * (resMine / resMineText) is not in it, because the verdict says the
+ * office and the facts row says the packs, which is the whole of that
+ * sentence; her strings stay in the dictionary.
+ */
+function MyWeek({
+  d, mine, status, lang, t, img, open, busy, onEdit, onCollect,
+}) {
+  const mgs = (k, vars) => mg(k, lang, vars);
+  const name = mine?.office || d.offices.find((o) => o.minPacks > 0)?.name;
+  const office = d.offices.find((x) => x.name === name);
+  const min = Math.max(0, Number(office?.minPacks) || 0);
+  const asked = Math.max(0, Number(office?.asked) || 0);
+  /* No minimum means every week is a delivery week for that office, so
+     there is no verdict to give — the card is then the facts alone. */
+  const state = !office || !min ? null
+    : (min - asked <= 0 ? 'go' : (asked > 0 ? 'wait' : 'miss'));
+  const line = state && {
     go: [t('comingTo'), t('comingSub')],
     wait: [t('almost'), t('almostSub')],
     miss: [t('missed'), t('missedSub')],
   }[state];
-  const fill = (x) => x.replace('{o}', office.name)
-    .replace('{n}', String(state === 'go' ? asked : short))
+  const fill = (x) => x.replace('{o}', office?.name || '')
+    .replace('{n}', String(state === 'go' ? asked : min - asked))
     .replace('{m}', String(min));
+  /* The office they will actually collect from, which for somebody moved
+     to 本社 is not the one they asked at. */
+  const at = mine && d.offices.find((x) => x.name === (mine.atOffice || mine.office));
+  const got = status === 'confirmed' || status === 'picked';
+  if (!state && !mine) return null;
   return (
-    <div className={`mg-verdict ${state}`}>
-      <img src={img(state === 'go' ? 'basket' : state === 'wait' ? 'hug' : 'empty')} alt="" />
-      <div>
-        <b>{fill(line[0])}</b>
-        <p>{fill(line[1])}</p>
-      </div>
+    <div className={`eg-me2${state ? ` ${state}` : ''}`}>
+      {state && (
+        <div className="eg-me2-top">
+          <img src={img(state === 'go' ? 'basket' : state === 'wait' ? 'hug' : 'empty')} alt="" />
+          <div>
+            <b>{fill(line[0])}</b>
+            <p>{fill(line[1])}</p>
+          </div>
+          {/* 佐野's sticker, as a seal on the corner of the card once the
+              week is the reader's to collect. */}
+          {got && (
+            <img
+              src={img(status === 'picked' ? 'thankyou-egg' : 'seal-round')}
+              alt="" className="eg-me2-stamp"
+            />
+          )}
+        </div>
+      )}
+
+      {mine && (
+        <div className="eg-me2-facts">
+          <div>
+            <em>{t('mine')}</em>
+            <b>
+              <span className={`pill ${status === 'missed' || status === 'expired' ? 'warn'
+                : status === 'received' ? '' : 'ok'}`}>{t(`st_${status}`)}</span>
+              {got
+                ? `${mine.atOffice || mine.office}／${t('gotPacks').replace('{n}', String(mine.got))}`
+                : mgs('sumLine', {
+                  office: mine.office,
+                  n: String(mine.packs),
+                  purpose: mgs(mine.purpose === 'work' ? 'pWork' : 'pPersonal'),
+                })}
+            </b>
+          </div>
+          {/* Where to walk to, once there is something there to collect.
+              Before that it is the office they registered, which they
+              already know and which マイ設定 is for. */}
+          {got && at?.address && (
+            <div className="eg-me2-at">
+              <em>{t('whereTo')}</em>
+              <b>{at.name}</b>
+              <span>{at.address}</span>
+            </div>
+          )}
+          {got && (
+            <div>
+              <em>{t('pickupBy')}</em>
+              <b>{md(d.week.pickup, lang)}</b>
+            </div>
+          )}
+        </div>
+      )}
+
+      {mine && status === 'missed' && <p className="eg-me2-note">{t('missedNote')}</p>}
+      {mine && status === 'expired' && <p className="eg-me2-note">{t('expiredNote')}</p>}
+
+      {mine && (open || status === 'confirmed') && (
+        <div className="eg-acts">
+          {open && <button className="btn" onClick={onEdit}>{t('update')}</button>}
+          {status === 'confirmed' && (
+            <button className="btn primary" disabled={busy} onClick={onCollect}>
+              {t('collect')}
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -694,11 +785,18 @@ export default function EggPortal({ d, reload: load, lang, toast, screen = 'all'
             which made four stacked announcements of which three were about
             somewhere the reader is not going. The 事務所対決 beside this
             says how all of them are doing; this says how YOURS is. */}
-        {(() => {
-          const mineName = mine?.office || d.offices.find((o) => o.minPacks > 0)?.name;
-          const o = d.offices.find((x) => x.name === mineName);
-          return o ? <Verdict office={o} lang={lang} t={t} img={img} /> : null;
-        })()}
+        {/* あなたの今週: the verdict, the reader's own row, where to
+            collect and by when — one card instead of four. */}
+        <MyWeek
+          d={d} mine={onRequest && !editing ? mine : null} status={status}
+          lang={lang} t={t} img={img} open={d.open} busy={busy}
+          onEdit={() => setEditing(true)}
+          onCollect={async () => {
+            setBusy(true);
+            await api('/pickup', 'POST', { id: mine.id });
+            setBusy(false); load();
+          }}
+        />
 
 
         {/* 配布状況 reads down the left: what is happening this week, then
@@ -727,18 +825,6 @@ export default function EggPortal({ d, reload: load, lang, toast, screen = 'all'
           </div>
         )}
 
-        {/* 「あなたの結果」, once the week is decided: the one line a person
-            came to this screen for, said before the office-by-office
-            table that explains it. */}
-        {d.final && mine && mine.got > 0 && (
-          <div className="card eg-mine-res">
-            <em>{mgs('resMine')}</em>
-            <strong>
-              {mgs('resMineText', { a: mine.atOffice || mine.office, b: String(mine.got) })}
-            </strong>
-          </div>
-        )}
-
         {/* 「今週はお休みです」. About the week people are in, which during
             a shutdown is not the week the form is taking requests for —
             so it says both rather than letting one stand for the other. */}
@@ -752,7 +838,11 @@ export default function EggPortal({ d, reload: load, lang, toast, screen = 'all'
           </div>
         )}
 
-        {onRequest && !d.consented && (
+        {/* 受け取りの条件: only while the window is open. Agreeing to them
+            is the step before a request, so on a closed week it was a
+            form card with nothing behind it, sitting under the reader's
+            own confirmed packs. */}
+        {onRequest && d.open && !d.consented && (
           <>
             <div className="sechead"><span>{t('terms')}</span></div>
             <div className="card eg-terms">
@@ -885,126 +975,6 @@ export default function EggPortal({ d, reload: load, lang, toast, screen = 'all'
             </div>
           </>
         )}
-
-        {onRequest && mine && !editing && (
-          <>
-            <div className="sechead"><span>{t('mine')}</span></div>
-            <div className="card eg-mystat">
-              {/* A sticker on the card, in the row rather than floating over
-                  it: absolutely positioned it landed on the heading above
-                  and on the button beside it, depending on the width. */}
-              {(status === 'confirmed' || status === 'picked') && (
-                <img
-                  src={img(status === 'picked' ? 'thankyou-egg' : 'seal-round')}
-                  alt="" className="eg-stamp"
-                />
-              )}
-              <span className={`pill ${status === 'missed' || status === 'expired' ? 'warn'
-                : status === 'received' ? '' : 'ok'}`}>
-                {t(`st_${status}`)}
-              </span>
-              {/* 「{office}／{n}パック／{purpose}」 — her one line, which is
-                  what was asked for. Once the week is decided it says what
-                  was given instead, because that is the number that
-                  matters from then on. */}
-              <div className="eg-mystat-v">
-                {status === 'confirmed' || status === 'picked' ? (
-                  <b>{`${mine.atOffice || mine.office}／${t('gotPacks').replace('{n}', String(mine.got))}`}</b>
-                ) : (
-                  <b>
-                    {mgs('sumLine', {
-                      office: mine.office,
-                      n: String(mine.packs),
-                      purpose: mgs(mine.purpose === 'work' ? 'pWork' : 'pPersonal'),
-                    })}
-                  </b>
-                )}
-              </div>
-              {status === 'missed' && <p className="muted sm">{t('missedNote')}</p>}
-              {status === 'expired' && <p className="muted sm">{t('expiredNote')}</p>}
-              <div className="eg-acts">
-                {d.open && <button className="btn" onClick={() => setEditing(true)}>{t('update')}</button>}
-                {status === 'confirmed' && (
-                  <button
-                    className="btn primary" disabled={busy}
-                    onClick={async () => {
-                      setBusy(true);
-                      await api('/pickup', 'POST', { id: mine.id });
-                      setBusy(false); load();
-                    }}
-                  >{t('collect')}</button>
-                )}
-              </div>
-            </div>
-          </>
-        )}
-
-        {/* Once there are packs waiting, where to walk to is the next thing
-            this person needs — and the left of the screen is otherwise a
-            card and a lot of nothing. */}
-        {onRequest && (status === 'confirmed' || status === 'picked') && (() => {
-          const o = d.offices.find((x) => x.name === mine.office);
-          /* The address and nothing else: there is no 連絡担当者 to name
-             since 2026/11/06, and the parcel is simply at the office. */
-          return o && o.address ? (
-            <>
-              <div className="sechead"><span>{t('whereTo')}</span></div>
-              <div className="card eg-where">
-                <b>{o.name}</b>
-                <span>{o.address}</span>
-                <span className="eg-where-by">{t('pickupBy')} {md(d.week.pickup, lang)}</span>
-              </div>
-            </>
-          ) : null;
-        })()}
-
-        {/* 今週の確定結果 and 毎週のルール sit here, under the person's own
-           row, since 配布状況 and リクエスト became one page on
-           2026/11/06. On two tabs they were each near the top of their
-           own; on one page that put the whole company's table and four
-           lines of standing rules between 「あなたの結果」 and 「あなたの
-           申請」, which are the same fact about the same person. The
-           reader's own week reads straight through now, and everybody
-           else's follows it. */}
-        {/* 今週の結果. Until the deadline the race above is the whole
-            story; once the week is allocated it is history, and what
-            people came to find out is how many packs are coming to them.
-
-            Two headings, because there are two states (仕様書 4.7): the
-            numbers appear as soon as the system has worked them out, but
-            they are 「振り分け結果」 and 「ただいま最終の確認を行っています」
-            until the Tamba staff have checked them. Showing them earlier
-            than that is deliberate — people can see the week moving —
-            and calling them 確定 earlier would not be. */}
-        {d.decided && (
-          <>
-            <div className="sechead">
-              <span>{mgs(d.final ? 'resTitle' : 'resTitleCheck')}</span>
-              {!d.final && <span className="eg-chk">{mgs('checking')}</span>}
-            </div>
-            <div className="card eg-done">
-              <p className="muted sm">{mgs(d.final ? 'resLead' : 'resLeadCheck')}</p>
-              {!d.final && <p className="eg-chk-msg">{mgs('checkingMsg')}</p>}
-              <ul className="eg-res-l">
-                {d.offices.filter((o) => (o.sent || 0) > 0).map((o) => (
-                  <li key={o.name}>
-                    <b>{o.name}</b>
-                    <span className="eg-res-n">{packs(o.sent, lang)}</span>
-                    {o.spare > 0 && (
-                      <small>
-                        {mgs('resHq', { a: String(o.sent - o.spare), b: String(o.spare) })}
-                      </small>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </>
-        )}
-
-
-
-
 
       </div>
 
@@ -1142,6 +1112,37 @@ export default function EggPortal({ d, reload: load, lang, toast, screen = 'all'
           last thing on the page. */}
       {onStatus && (
         <div className="eg-wide">
+          {/* 今週の確定結果 — the company's week, so it belongs with the
+              other two cards about the week rather than in the column
+              about the reader. First of the three: once the allocation
+              has run, what each office is getting is the news, and the
+              harvest and the request table behind it are the working. */}
+          {d.decided && (
+            <>
+              <div className="sechead">
+                <span>{mgs(d.final ? 'resTitle' : 'resTitleCheck')}</span>
+                {!d.final && <span className="eg-chk">{mgs('checking')}</span>}
+              </div>
+              <div className="card eg-done">
+                <p className="muted sm">{mgs(d.final ? 'resLead' : 'resLeadCheck')}</p>
+                {!d.final && <p className="eg-chk-msg">{mgs('checkingMsg')}</p>}
+                <ul className="eg-res-l">
+                  {d.offices.filter((o) => (o.sent || 0) > 0).map((o) => (
+                    <li key={o.name}>
+                      <b>{o.name}</b>
+                      <span className="eg-res-n">{packs(o.sent, lang)}</span>
+                      {o.spare > 0 && (
+                        <small>
+                          {mgs('resHq', { a: String(o.sent - o.spare), b: String(o.spare) })}
+                        </small>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </>
+          )}
+
           <HarvestVs
             offices={d.offices} packs={d.harvestPacks} lang={lang} t={t}
             harvest={d.harvest} week0={d.week0} today={d.today}

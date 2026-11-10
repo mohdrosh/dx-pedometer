@@ -548,6 +548,50 @@ export const MG_CSS = `
 /* ------------------------------ the verdict ----------------------------- */
 /* 佐野:「最低パック数を超えたら『今週はこの事務所にタマゴが届きます！』、
    届かなかったら残念賞のメッセージ」 */
+/* ---------------------------- あなたの今週 ------------------------------
+   One card for the reader's own week: the verdict across the top in its
+   own tint, the facts under it as a row of labelled values, the buttons
+   last. It replaced four cards with four headings, which is why nothing
+   in here has a heading of its own — the labels do that work at 11px.
+------------------------------------------------------------------------- */
+.mg .eg-me2{
+  background:var(--mg-paper);border:1px solid var(--mg-line-s);
+  border-radius:var(--mg-round);box-shadow:var(--mg-pop);
+  margin-bottom:12px;overflow:hidden;
+}
+.mg .eg-me2-top{
+  position:relative;display:flex;align-items:center;gap:13px;
+  padding:11px 15px 12px;border-bottom:1px solid var(--mg-line);
+}
+.mg .eg-me2.go .eg-me2-top{background:#E7F5E5;border-bottom-color:#BFE3BB}
+.mg .eg-me2.wait .eg-me2-top{background:#FFF6DF;border-bottom-color:var(--mg-line-y)}
+.mg .eg-me2.miss .eg-me2-top{background:var(--mg-sky);border-bottom-color:var(--mg-line-b)}
+.mg .eg-me2-top>img{width:48px;height:48px;flex:none}
+.mg .eg-me2-top b{display:block;font-size:17px;font-weight:900;line-height:1.3;
+  color:var(--mg-navy)}
+.mg .eg-me2.go .eg-me2-top b{color:#0C5E06}
+.mg .eg-me2-top p{margin:2px 0 0;font-size:12.5px;font-weight:600;color:#3E4F6E}
+/* 佐野's seal, on the corner of the card rather than in the row: the row
+   is two lines of text and a picture already. */
+.mg .eg-me2-stamp{width:46px;height:46px;margin-left:auto;flex:none;opacity:.95}
+
+/* The facts: as many across as fit, each a small grey label over its
+   value, so three of them read as one line of answer rather than three
+   cards. */
+.mg .eg-me2-facts{display:grid;gap:11px 26px;padding:12px 15px 2px}
+.mg .eg-me2-facts>div{min-width:0}
+.mg .eg-me2-facts em{display:block;font-style:normal;font-size:11px;font-weight:700;
+  color:#78849A;margin-bottom:2px}
+.mg .eg-me2-facts b{display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+  font-size:14.5px;font-weight:900;color:var(--mg-navy);line-height:1.4}
+.mg .eg-me2-at span{display:block;font-size:11.5px;font-weight:500;color:#5B6B86;
+  margin-top:1px}
+.mg .eg-me2-note{margin:8px 15px 0;font-size:12.5px;font-weight:600;color:#3E4F6E}
+.mg .eg-me2 .eg-acts{margin:11px 15px 13px}
+@media(min-width:620px){
+  .mg .eg-me2-facts{grid-template-columns:auto minmax(0,1fr) auto;align-items:start}
+}
+
 .mg-verdict{
   display:flex;align-items:center;gap:14px;
   border:1px solid var(--mg-line-s);border-radius:var(--mg-round);
