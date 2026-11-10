@@ -1225,15 +1225,17 @@ export default function EggPortal({ d, reload: load, lang, toast, screen = 'all'
 /* `pdf` is off on the 丹波 screen, where 発送の確定 carries the same
    button: two identical 箱に入れる紙 on one page is the sort of thing
    somebody has to stop and compare before pressing either. */
-function WeekResult({ r, lang, t, ship, final = true, withNames = false, pdf = true }) {
+function WeekResult({
+  r, lang, t, ship, final = true, withNames = false, pdf = true, title = null,
+}) {
   const mgs = (k, vars) => mg(k, lang, vars);
   if (!r?.lines?.length) return null;
   const file = `moraegg-${ship || r.ship || ''}`;
   return (
     <>
       <div className="sechead">
-        <span>{mgs(final ? 'resTitle' : 'resTitleCheck')}</span>
-        {!final && <span className="eg-chk">{mgs('checking')}</span>}
+        <span>{title || mgs(final ? 'resTitle' : 'resTitleCheck')}</span>
+        {!final && !title && <span className="eg-chk">{mgs('checking')}</span>}
       </div>
       <div className="card eg-res">
         {r.needsAdmin && <p className="eg-warn sm">{t('resNeeds')}</p>}
@@ -1391,142 +1393,110 @@ function EggShip({ lang, toast, t, onDone }) {
 
   return (
     <div className="eg-ship">
-      <div className="sechead"><span>{mgs('shipTitle')}</span></div>
+      {/* ---- 1. 発送可能なパック数の確定 ---------------------------------- */}
+      <div className="sechead"><span>{mgs('s1Title')}</span></div>
+      <div className="card eg-ship-1">
+        {/* 部長, 2026/11/10: in red, because the one way to get this
+            week wrong is to press it before the deadline. */}
+        <p className="eg-ship-warn">{mgs('s1Note')}</p>
+        <label className="fld"><span>{mgs('shipStep1')}</span>
+          <input
+            type="number" min={0} max={999} value={packs} disabled={d.final}
+            onChange={(e) => setPacks(e.target.value)}
+          />
+        </label>
+        {/* 9:00 に確定済み — the allocation the system made at the
+            deadline off the register, which is why the box already has a
+            number in it. */}
+        {d.drawn && <p className="eg-ship-ok">{mgs('shipConfirmed')}</p>}
+        <button
+          className="btn primary" disabled={busy || d.final}
+          onClick={() => post('/draw', { ship: d.ship, packs: n })}
+        >{mgs('s1Btn')}</button>
+      </div>
 
-      {!d.final && (
-        <div className="card eg-ship-1">
-          <label className="fld"><span>{mgs('shipStep1')}</span>
-            <input
-              type="number" min={0} max={999} value={packs} disabled={!!ask}
-              onChange={(e) => { setAsk(null); setPacks(e.target.value); }}
-            />
-          </label>
-          {/* 9:00 に確定済み — the allocation the system made at the
-              deadline off the register. Saying so is what tells the
-              staff that the number in the box is already theirs to
-              correct rather than something still to be entered. */}
-          {d.drawn && !ask && <p className="eg-ship-ok">{mgs('shipConfirmed')}</p>}
-          {/* 「月曜9時の締切後に、発送できるパック数を入力して確定します」.
-              Her sentence used to stand in for the card while requests
-              were open, which meant nobody could see the Monday screen
-              before a Monday — not the committee, and not whoever is
-              being shown how the site works. The card is always here
-              now and her sentence is its warning: pressing before the
-              deadline decides the week early, which is what the
-              administrators' 配分を確定 has always done, and 確定を
-              取り消す undoes. */}
-          {d.open && !ask && <p className="muted sm">{mgs('beforeShip')}</p>}
-
-          {!ask && (
+      {/* ---- 2. 結果のお知らせ -------------------------------------------- */}
+      <div className="sechead"><span>{mgs('s2Title')}</span></div>
+      <div className={`card eg-ship-2${d.drawn ? '' : ' eg-dim'}`}>
+        <p className="muted sm">{mgs('s2Note')}</p>
+        {!d.final && (
+          <>
             <button
-              className="btn primary" disabled={busy}
+              className="btn primary" disabled={busy || !d.drawn}
               onClick={async () => {
-                const j = await post('/draw', { ship: d.ship, packs: n });
+                const j = await post('/final', { ship: d.ship });
+                /* What actually happened to the letters, which is not
+                   always 送信しました: a server without SMTP writes them
+                   to its log. */
                 if (j) {
-                  setAsk({
-                    s: j.shipped ?? 0,
-                    p: (j.list || []).length,
-                    n: j.missed || 0,
-                  });
+                  toast?.(mgs(j.mail?.dryRun ? 'finalDry'
+                    : j.mail?.failed ? 'finalNg' : 'finalDone'));
                 }
               }}
-            >{mgs('goFinal')}</button>
-          )}
-
-          {/* The last look, asked rather than filed on a second card.
-              The numbers are the allocation just made, so what it says
-              here is what the letters will say. */}
-          {ask && (
-            <div className="eg-ship-ask">
-              <p>
-                {mgs('askBody', ask)}
-                {ask.n > 0 ? mgs('askMiss', ask) : ''}
-              </p>
-              <p className="muted sm">{mgs('askMail')}</p>
-              <div className="eg-ship-ask-b">
+            >{mgs('s2Btn')}</button>
+            {!d.drawn && <p className="muted sm">{mgs('s2Wait')}</p>}
+          </>
+        )}
+        {d.final && (
+          <>
+            <p className="eg-ship-ok">{mgs('finalShort')}</p>
+            {!undo && (
+              <div className="eg-acts">
+                {/* 箱に入れる紙, beside the press that makes it
+                    possible: the route refuses a week that is not
+                    final, which is exactly when this appears. */}
+                <a
+                  className="btn sm eg-dl-box"
+                  href={`${apiRoot()}/egg/list.pdf?ship=${d.ship}`}
+                  download={`moraegg-${d.ship}.pdf`}
+                >{mgs('boxSheet')}</a>
+                {/* A confirmed week locks the harvest register, so a
+                    week confirmed too early has to be undoable by the
+                    person who confirmed it. */}
                 <button
-                  className="btn primary" disabled={busy}
-                  onClick={async () => {
-                    const j = await post('/final', { ship: d.ship });
-                    setAsk(null);
-                    /* What actually happened to the letters, which is
-                       not always 送信しました: a server without SMTP
-                       writes them to its log. */
-                    if (j) {
-                      toast?.(mgs(j.mail?.dryRun ? 'finalDry'
-                        : j.mail?.failed ? 'finalNg' : 'finalDone'));
-                    }
-                  }}
-                >{mgs('askYes')}</button>
-                {/* やめる leaves the week drawn and unpublished: the
-                    screens keep saying 確認中 and the number can be
-                    corrected and pressed again. */}
-                <button
-                  className="btn ghost" disabled={busy}
-                  onClick={() => setAsk(null)}
-                >{mgs('askNo')}</button>
+                  className="btn ghost sm" disabled={busy}
+                  onClick={() => setUndo(true)}
+                >{mgs('undoFinal')}</button>
               </div>
-            </div>
-          )}
-        </div>
-      )}
-      {/* 最終確定しました。 and nothing about the mail: this card is drawn
-          on every later visit, long after the send, and the GET it reads
-          does not know how that went.
-
-          With the way out beside it. A confirmed week locks the harvest
-          register — 丹波 cannot correct a day once the allocation has
-          run — so a week confirmed too early has to be undoable by the
-          person who confirmed it, not only by next Monday. */}
-      {d.final && (
-        <div className="card eg-ship-2">
-          <p className="eg-ship-ok">{mgs('finalShort')}</p>
-          {/* 箱に入れる紙, where the week was confirmed rather than only
-              at the foot of the results table: the press and the paper
-              that comes out of it are one job. The route refuses a week
-              that is not final, which is exactly when this card is
-              drawn. */}
-          {!undo && (
-            <a
-              className="btn sm eg-dl-box"
-              href={`${apiRoot()}/egg/list.pdf?ship=${d.ship}`}
-              download={`moraegg-${d.ship}.pdf`}
-            >{mgs('boxSheet')}</a>
-          )}
-          {!undo && (
-            <button
-              className="btn ghost sm" disabled={busy}
-              onClick={() => setUndo(true)}
-            >{mgs('undoFinal')}</button>
-          )}
-          {undo && (
-            <div className="eg-ship-ask">
-              <p>{mgs('undoAsk')}</p>
-              <p className="muted sm">{mgs('undoMail')}</p>
-              <div className="eg-ship-ask-b">
-                <button
-                  className="btn primary" disabled={busy}
-                  onClick={async () => {
-                    const j = await post('/undraw', { ship: d.ship });
-                    setUndo(false);
-                    if (j) toast?.(mgs('undoDone'));
-                  }}
-                >{mgs('undoYes')}</button>
-                <button
-                  className="btn ghost" disabled={busy}
-                  onClick={() => setUndo(false)}
-                >{mgs('askNo')}</button>
+            )}
+            {undo && (
+              <div className="eg-ship-ask">
+                <p>{mgs('undoAsk')}</p>
+                <p className="muted sm">{mgs('undoMail')}</p>
+                <div className="eg-ship-ask-b">
+                  <button
+                    className="btn primary" disabled={busy}
+                    onClick={async () => {
+                      const j = await post('/undraw', { ship: d.ship });
+                      setUndo(false);
+                      if (j) toast?.(mgs('undoDone'));
+                    }}
+                  >{mgs('undoYes')}</button>
+                  <button
+                    className="btn ghost" disabled={busy}
+                    onClick={() => setUndo(false)}
+                  >{mgs('askNo')}</button>
+                </div>
               </div>
-            </div>
-          )}
-        </div>
-      )}
+            )}
+          </>
+        )}
+      </div>
 
+      {/* ---- 3. 今週のリクエスト結果  4. 発送一覧 --------------------------
+          Both are drawn before anything has been confirmed, greyed, off
+          a dry run of the same allocation: 部長 asked for the boxes to
+          be there from the start rather than appearing out of nowhere
+          on the Monday, and a forecast of the real thing says more than
+          an empty frame would. */}
       {d.result && (
-        <WeekResult
-          r={d.result} lang={lang} t={t} ship={d.ship} final={d.final} withNames
-          pdf={false}
-        />
+        <div className={d.preview ? 'eg-dim' : undefined}>
+          {d.preview && <p className="eg-ship-fc">{mgs('previewNote')}</p>}
+          <WeekResult
+            r={d.result} lang={lang} t={t} ship={d.ship}
+            final={d.final} withNames pdf={false} title={mgs('s3Title')}
+          />
+        </div>
       )}
     </div>
   );

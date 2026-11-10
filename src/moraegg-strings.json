@@ -147,6 +147,42 @@
     "ja": "確定を取り消しました。",
     "en": "The confirmation has been undone."
   },
+  "s1Title": {
+    "ja": "発送可能なパック数の確定",
+    "en": "Confirm how many packs can ship"
+  },
+  "s1Note": {
+    "ja": "月曜9時の締め切り後に、最終発送可能なパック数を確認し、確定してください。",
+    "en": "After the Monday 9:00 deadline, check the final number of packs that can ship and confirm it."
+  },
+  "s1Btn": {
+    "ja": "確定",
+    "en": "Confirm"
+  },
+  "s2Title": {
+    "ja": "結果のお知らせ",
+    "en": "Tell everybody the result"
+  },
+  "s2Note": {
+    "ja": "リクエストした人に、結果をお知らせします。",
+    "en": "Everybody who made a request is emailed their result."
+  },
+  "s2Btn": {
+    "ja": "メール送信",
+    "en": "Send the emails"
+  },
+  "s2Wait": {
+    "ja": "先にパック数を確定してください。",
+    "en": "Confirm the pack count first."
+  },
+  "s3Title": {
+    "ja": "今週のリクエスト結果",
+    "en": "This week’s requests"
+  },
+  "previewNote": {
+    "ja": "確定前の見込みです。確定すると、この内容になります。",
+    "en": "A forecast, before confirming. Confirming makes it this."
+  },
   "shipList": {
     "ja": "発送一覧",
     "en": "Shipping list"

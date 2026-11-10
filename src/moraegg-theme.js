@@ -346,7 +346,7 @@ export const MG_CSS = `
     justify-content:space-between;gap:16px;padding-top:14px}
   .mg .mg-subbar .mg-me{order:0}
   .mg .mg-subbar .eg-sub{flex:1 1 auto;min-width:0}
-  .mg .mg-me{flex:0 0 auto;font-size:14px}
+  .mg .mg-me{flex:0 0 auto;font-size:14.5px}
 }
 .mg .eg-sub{
   display:flex;gap:8px;padding:0;background:none;border:0;
@@ -359,7 +359,7 @@ export const MG_CSS = `
 .mg .eg-sub button{
   padding:7px 14px 8px;border:0;border-radius:9px;
   background:transparent;color:#5B6B86;
-  font:inherit;font-size:14.5px;font-weight:700;white-space:nowrap;
+  font:inherit;font-size:15.5px;font-weight:700;white-space:nowrap;
   box-shadow:none;transition:background .14s, color .14s;
 }
 .mg .eg-sub button:hover{background:rgba(11,41,106,.055);color:var(--mg-navy)}
@@ -398,7 +398,7 @@ export const MG_CSS = `
 .mg .sechead:first-child{margin-top:2px}
 .mg .sechead>span:first-child{
   position:relative;padding-left:11px;
-  font-size:15.5px;font-weight:800;color:var(--mg-navy);letter-spacing:.005em;
+  font-size:17px;font-weight:800;color:var(--mg-navy);letter-spacing:.005em;
 }
 .mg .sechead>span:first-child::before{
   content:'';position:absolute;left:0;top:50%;transform:translateY(-50%);
@@ -1267,6 +1267,16 @@ export const MG_CSS = `
 .mg .eg-ship-1 input{width:7em}
 .mg .eg-ship-2 p{flex:1 1 100%;margin:0;font-size:13px;font-weight:700}
 .mg .eg-ship-ok{margin:0;font-size:12px;font-weight:800;color:var(--mg-leaf)}
+/* 部長's warning, in red above the box it is about: the one way to get a
+   week wrong is to confirm it before the deadline. */
+.mg .eg-ship-warn{flex:1 1 100%;margin:0 0 2px;font-size:13px;font-weight:800;
+  color:#B3261E;line-height:1.5}
+/* A step that cannot be taken yet, and the forecast of a week nobody has
+   confirmed: there, readable, and plainly not live. */
+.mg .eg-dim{opacity:.62;filter:saturate(.55)}
+.mg .eg-dim .btn,.mg .eg-dim a.btn{pointer-events:none}
+.mg .eg-ship-fc{margin:13px 0 -4px;font-size:12.5px;font-weight:800;
+  color:#5B6B86}
 /* The question asked before the letters go: it takes the whole width of
    the card so the number in the box above stays readable beside it, and
    it is tinted so that a card waiting for an answer cannot be mistaken

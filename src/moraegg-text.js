@@ -106,6 +106,27 @@ const PENDING_1109B = ['finalShort', 'finalDry', 'finalNg'];
      undoDone   確定を取り消しました。 */
 const PENDING_1109C = ['undoFinal', 'undoAsk', 'undoMail', 'undoYes', 'undoDone'];
 
+/* 2026/11/10. 丹波の「発送の確定」を、部長の指示で4つの箱に分けた。
+   Wording from the company, kept as sent except that 「お知らせする」
+   became 「お知らせします」 in the sentence under step two:
+
+     s1Title  発送可能なパック数の確定
+     s1Note   月曜9時の締め切り後に、最終発送可能なパック数を確認し、
+              確定してください。          —— shown in red on the card
+     s1Btn    確定                      —— was 確定して知らせる
+     s2Title  結果のお知らせ
+     s2Note   リクエストした人に、結果をお知らせします。
+     s2Btn    メール送信
+     s3Title  今週のリクエスト結果
+
+   Mine, for the two boxes that now stand there before anything has been
+   confirmed, showing the week as it would be decided today:
+
+     s2Wait       先にパック数を確定してください。
+     previewNote  確定前の見込みです。確定すると、この内容になります。 */
+const PENDING_1110 = ['s1Title', 's1Note', 's1Btn', 's2Title', 's2Note', 's2Btn',
+  's2Wait', 's3Title', 'previewNote'];
+
 /* 2026/11/09: which shipment the 丹波 week belongs to, said on the screen.
    Both screens now count the same week, and on the days when that week is
    not the calendar week the person typing has to be able to see it. Mine:
@@ -150,6 +171,7 @@ const PENDING_1109D = ['tShipFor', 'tNotIn'];
 export const pendingKeys = () => [
   ...PENDING_1105, ...PENDING_1106, ...PENDING_1108,
   ...PENDING_1109, ...PENDING_1109B, ...PENDING_1109C, ...PENDING_1109D,
+  ...PENDING_1110,
 ];
 
 export function mg(key, lang = 'ja', vars = null) {

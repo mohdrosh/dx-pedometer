@@ -1625,7 +1625,15 @@ const server = http.createServer(async (req, res) => {
         drawn: !!week?.drawnAt,
         final: !!week?.finalAt,
         packs: week?.packs ?? null,
-        result: week?.drawnAt ? await weekResult(ship) : null,
+        /* The week as it stands. Once it has been run, that is what was
+           decided; before that it is a dry run of the same allocation —
+           the same function, nothing written — so the 丹波 screen can
+           show the result boxes greyed rather than empty, and whoever
+           is about to press 確定 can see what pressing it would do.
+           2026/11/10, 部長. */
+        result: week?.drawnAt ? await weekResult(ship)
+          : await runAllot(ship, { dry: true }),
+        preview: !week?.drawnAt,
       });
     }
 
