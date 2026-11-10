@@ -1006,26 +1006,14 @@ export default function EggPortal({ d, reload: load, lang, toast, screen = 'all'
 
 
 
-        {/* 印刷して使えます. The same three of her printables the 丹波 screen
-            has, because two of the three are for whoever ends up holding
-            the pack rather than for the shed: the ありがとうカード goes in
-            with an おすそわけ, and the シール goes on the lid of a carton
-            somebody is passing on. Three across rather than stacked —
-            that keeps this column level with the other one in both the
-            ordinary week and the 初回 week, where it fills the cream the
-            受付終了 card used to leave. */}
-        {onStatus && (
+        {/* 毎週のルール — reference, under the form it is about. */}
+        {onRequest && (
           <>
-            <div className="sechead"><span>{t('printables')}</span></div>
-            <div className="mg-print eg-print3">
-              {[['label-asadore', 'printLabel', 'printLabelNote'],
-                ['seal-round', 'printSeal', 'printSealNote'],
-                ['thankyou-egg', 'printThanks', 'printThanksNote']].map(([file, title, note]) => (
-                  <a key={file} href={img(file)} target="_blank" rel="noreferrer">
-                    <img src={img(file)} alt="" />
-                    <span><b>{t(title)}</b><span>{t(note)}</span></span>
-                  </a>
-              ))}
+            <div className="sechead"><span>{mgs('rules')}</span></div>
+            <div className="card">
+              <ul className="eg-rules">
+                {['r1', 'r2', 'r3', 'r4'].map((k) => <li key={k}>{mgs(k)}</li>)}
+              </ul>
             </div>
           </>
         )}
@@ -1121,19 +1109,10 @@ export default function EggPortal({ d, reload: load, lang, toast, screen = 'all'
 
 
 
-        {/* 毎週のルール and これまでの申請. Reference, and this is the
-            column with room for them — the other one carries the week,
-            the request and the pair of cards under it. */}
-        {onRequest && (
-          <>
-            <div className="sechead"><span>{mgs('rules')}</span></div>
-            <div className="card">
-              <ul className="eg-rules">
-                {['r1', 'r2', 'r3', 'r4'].map((k) => <li key={k}>{mgs(k)}</li>)}
-              </ul>
-            </div>
-          </>
-        )}
+        {/* 毎週のルール moved to the left-hand column on 2026/11/10, to
+            even the two of them up: this one carries her 初回 picture,
+            which is 330px of it, and the other ended half a screen
+            higher — cream between the request and the week. */}
 
         {onRequest && !!d.history?.length && (
           <>
@@ -1180,6 +1159,23 @@ export default function EggPortal({ d, reload: load, lang, toast, screen = 'all'
             <OfficeRace
               offices={d.offices} packs={d.harvestPacks} lang={lang} t={t} img={img}
             />
+          </div>
+
+          {/* 印刷して使えます, at the foot of the page. Two of the three
+              are for whoever ends up holding the carton rather than for
+              the person reading this, so they belong under the week
+              rather than above it — which is where they were, between
+              the request and the two cards the page is for. */}
+          <div className="sechead"><span>{t('printables')}</span></div>
+          <div className="mg-print eg-print3">
+            {[['label-asadore', 'printLabel', 'printLabelNote'],
+              ['seal-round', 'printSeal', 'printSealNote'],
+              ['thankyou-egg', 'printThanks', 'printThanksNote']].map(([file, title, note]) => (
+                <a key={file} href={img(file)} target="_blank" rel="noreferrer">
+                  <img src={img(file)} alt="" />
+                  <span><b>{t(title)}</b><span>{t(note)}</span></span>
+                </a>
+            ))}
           </div>
         </div>
       )}

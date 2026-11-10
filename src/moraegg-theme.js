@@ -156,7 +156,7 @@ export const MG_CSS = `
 .mg-back{
   display:inline-flex;align-items:center;gap:6px;
   padding:5px 2px;border:0;background:none;color:rgba(255,255,255,.72);
-  font:inherit;font-size:12.5px;font-weight:700;white-space:nowrap;
+  font:inherit;font-size:13px;font-weight:700;white-space:nowrap;
 }
 .mg-back:hover{color:var(--mg-sun)}
 /* Centred on the bar itself rather than in the space the two sets of
@@ -337,7 +337,7 @@ export const MG_CSS = `
    rather than being left between the tabs and the first card. */
 .mg .mg-subbar .mg-me{order:-1}
 .mg .mg-me{
-  margin:0;font-size:12px;font-weight:800;color:var(--mg-navy);
+  margin:0;font-size:13.5px;font-weight:800;color:var(--mg-navy);
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;
 }
 .mg .mg-me span{font-weight:600;color:#5B6B86}
@@ -346,7 +346,7 @@ export const MG_CSS = `
     justify-content:space-between;gap:16px;padding-top:14px}
   .mg .mg-subbar .mg-me{order:0}
   .mg .mg-subbar .eg-sub{flex:1 1 auto;min-width:0}
-  .mg .mg-me{flex:0 0 auto;font-size:12.5px}
+  .mg .mg-me{flex:0 0 auto;font-size:14px}
 }
 .mg .eg-sub{
   display:flex;gap:8px;padding:0;background:none;border:0;
@@ -357,9 +357,9 @@ export const MG_CSS = `
    and at four or five of them the borders are most of what you see. The
    tab that is chosen is filled; the others are just their words. */
 .mg .eg-sub button{
-  padding:7px 13px 8px;border:0;border-radius:9px;
+  padding:7px 14px 8px;border:0;border-radius:9px;
   background:transparent;color:#5B6B86;
-  font:inherit;font-size:12.5px;font-weight:700;white-space:nowrap;
+  font:inherit;font-size:14.5px;font-weight:700;white-space:nowrap;
   box-shadow:none;transition:background .14s, color .14s;
 }
 .mg .eg-sub button:hover{background:rgba(11,41,106,.055);color:var(--mg-navy)}
@@ -383,7 +383,7 @@ export const MG_CSS = `
   background:var(--mg-paper);
   border:1px solid var(--mg-line-s);border-radius:var(--mg-round);
   box-shadow:var(--mg-pop);
-  padding:14px 16px;margin-bottom:12px;
+  padding:12px 15px;margin-bottom:10px;
 }
 .mg .card.soft{background:var(--mg-sky)}
 
@@ -393,18 +393,18 @@ export const MG_CSS = `
    upright tick at the left — an accent you notice once per section. */
 .mg .sechead{
   display:flex;align-items:center;gap:10px;justify-content:space-between;
-  background:none;border:0;padding:0;margin:18px 0 9px;
+  background:none;border:0;padding:0;margin:13px 0 7px;
 }
 .mg .sechead:first-child{margin-top:2px}
 .mg .sechead>span:first-child{
   position:relative;padding-left:11px;
-  font-size:13.5px;font-weight:800;color:var(--mg-navy);letter-spacing:.005em;
+  font-size:15.5px;font-weight:800;color:var(--mg-navy);letter-spacing:.005em;
 }
 .mg .sechead>span:first-child::before{
   content:'';position:absolute;left:0;top:50%;transform:translateY(-50%);
   width:3px;height:1.05em;border-radius:2px;background:var(--mg-sun);
 }
-.mg .sechead>span+span{font-size:11.5px;font-weight:700;color:var(--mg-royal)}
+.mg .sechead>span+span{font-size:12.5px;font-weight:700;color:var(--mg-royal)}
 
 /* ------------------------------ the buttons ----------------------------- */
 .mg .btn{
@@ -551,10 +551,10 @@ export const MG_CSS = `
 .mg-verdict{
   display:flex;align-items:center;gap:14px;
   border:1px solid var(--mg-line-s);border-radius:var(--mg-round);
-  padding:13px 16px;margin-bottom:14px;box-shadow:var(--mg-pop);
+  padding:10px 14px;margin-bottom:10px;box-shadow:var(--mg-pop);
 }
-.mg-verdict img{width:66px;height:66px;flex:none}
-.mg-verdict b{display:block;font-size:17px;font-weight:900;line-height:1.35}
+.mg-verdict img{width:52px;height:52px;flex:none}
+.mg-verdict b{display:block;font-size:16px;font-weight:900;line-height:1.3}
 .mg-verdict p{margin:3px 0 0;font-size:12.5px;font-weight:500;color:#3E4F6E}
 .mg-verdict.go{background:#E7F5E5;border-color:var(--mg-leaf)}
 .mg-verdict.go b{color:#0C5E06}
@@ -868,8 +868,8 @@ export const MG_CSS = `
 /* The two cards that are the page: the full width of it, stacked. Their
    own block under both columns, so neither column's height can squeeze
    them. */
-.mg .eg-wide{display:block}
-.mg .eg-wide>.card{margin-bottom:13px}
+.mg .eg-wide{display:block;margin-top:13px}
+.mg .eg-wide>.card{margin-bottom:11px}
 .mg .eg-acts{display:flex;gap:9px;flex-wrap:wrap;margin-top:13px}
 .mg .eg-req .fld{margin-top:12px}
 .mg .eg-step{display:flex;align-items:center;gap:11px}
@@ -1004,7 +1004,7 @@ export const MG_CSS = `
    The two numbers are the same size and the same weight because the
    whole point is the comparison; making the harvest larger would answer
    the question before the reader has looked. */
-.mg .eg-hvs{padding:15px 16px}
+.mg .eg-hvs{padding:12px 16px 13px}
 .mg .eg-hvs-row{display:flex;align-items:center;justify-content:center;gap:clamp(10px,4vw,34px)}
 .mg .eg-hvs-side{display:flex;flex-direction:column;align-items:center;gap:1px;
   flex:1 1 0;min-width:0}
@@ -1024,7 +1024,7 @@ export const MG_CSS = `
 /* The week as one track: requests fill it from the left, what is left
    over is the empty part. A dotted rule used to separate the sentence
    from the numbers; the bar does that job and carries information too. */
-.mg .eg-hvs-bar{position:relative;height:10px;margin:14px 0 9px;border-radius:999px;
+.mg .eg-hvs-bar{position:relative;height:9px;margin:11px 0 8px;border-radius:999px;
   background:#EDF1F8;border:1px solid var(--mg-line);overflow:hidden}
 .mg .eg-hvs-bar i{display:block;height:100%;background:var(--mg-royal);
   border-radius:999px 0 0 999px;
@@ -1046,7 +1046,7 @@ export const MG_CSS = `
 /* 日ごとの取れ高 — seven cells under the week's total, one per day. A
    staircase chart had a section of its own for this; the figures are the
    part people wanted and they fit on one line. */
-.mg .eg-hvs-days{margin-top:12px;padding-top:11px;
+.mg .eg-hvs-days{margin-top:10px;padding-top:9px;
   border-top:1px solid var(--mg-line)}
 .mg .eg-hvs-days h4{
   margin:0 0 7px;font-size:11.5px;font-weight:800;color:#5B6B86}
@@ -1233,7 +1233,8 @@ export const MG_CSS = `
   background:var(--mg-sun);font-size:12px;font-weight:700;color:var(--mg-navy)}
 .mg .eg-bub::before{content:'';position:absolute;top:-5px;left:18px;width:10px;height:10px;
   background:var(--mg-sun);transform:rotate(45deg)}
-.mg .eg-mine-res{display:flex;flex-direction:column;gap:3px;margin-bottom:14px}
+.mg .eg-mine-res{display:flex;flex-direction:column;gap:1px;margin-bottom:10px;
+  padding-top:10px;padding-bottom:10px}
 .mg .eg-mine-res em{font-style:normal;font-size:11.5px;color:#5B6B86}
 .mg .eg-mine-res strong{font-size:16px;color:var(--mg-navy)}
 
