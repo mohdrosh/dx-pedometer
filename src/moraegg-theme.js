@@ -641,7 +641,12 @@ export const MG_CSS = `
 /* 初回の受付スタート, in the right-hand column since 2026/11/08. That
    column is its own width (430px at a desk, the screen on a phone), so
    the square fills it exactly and there is no cream either side. */
-.mg .mg-first-pic{display:block;width:100%;height:auto;margin:0 0 12px}
+/* 初回の受付スタート, at the head of the right-hand column. Capped
+   rather than filling it: at the column's full 430px the picture was the
+   loudest thing on the page, over a card that says the same dates in
+   words. */
+.mg .mg-first-pic{display:block;width:100%;max-width:330px;height:auto;
+  margin:0 0 12px auto}
 .mg .eg-sched{padding:12px 14px}
 .mg .eg-steps{list-style:none;margin:0;padding:0;display:grid;gap:6px}
 .mg .eg-steps li{display:flex;align-items:baseline;gap:9px;
@@ -860,6 +865,11 @@ export const MG_CSS = `
   .mg .eg-pair{grid-template-columns:repeat(2,minmax(0,1fr));align-items:stretch}
   .mg .eg-pair>.card{height:calc(100% - 12px)}
 }
+/* The two cards that are the page: the full width of it, stacked. Their
+   own block under both columns, so neither column's height can squeeze
+   them. */
+.mg .eg-wide{display:block}
+.mg .eg-wide>.card{margin-bottom:13px}
 .mg .eg-acts{display:flex;gap:9px;flex-wrap:wrap;margin-top:13px}
 .mg .eg-req .fld{margin-top:12px}
 .mg .eg-step{display:flex;align-items:center;gap:11px}
@@ -1275,6 +1285,8 @@ export const MG_CSS = `
      was the taller. Both have gone back into their own columns. */
   .mg .eg-p2-r{order:0;grid-column:2;grid-row:1}
   .mg .eg-p2-l{grid-column:1;grid-row:1}
+  /* Under both of them, the width of the page. */
+  .mg .eg-wide{grid-column:1/-1;grid-row:2}
   /* 締切・発送・到着・受け取り in the 430px column: two by two. Four across
      is a column each of 95px, and 「11/16（月）9:00」 does not fit one. */
   .mg .eg-p2-r .eg-steps{grid-template-columns:repeat(2,minmax(0,1fr))}

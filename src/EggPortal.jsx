@@ -1005,29 +1005,6 @@ export default function EggPortal({ d, reload: load, lang, toast, screen = 'all'
 
 
 
-        {/* 丹波の取れ高 and 事業所の表, side by side at the foot of this
-            column: two cards the same size, asking two halves of one
-            question — how much there is this week, and who it reaches.
-
-            They spent an hour as a row spanning both columns, which only
-            made each of them 860px wide — the same two cards, stretched.
-            This column is 780px, so here they are two ordinary cards, and
-            this is also the gap they were meant to fill: on the 初回 week
-            the left-hand side ended at the 受付終了 card with half a screen
-            of cream under it. */}
-        <div className="eg-pair">
-          {/* The week in one line, then the same week office by office. */}
-          <HarvestVs
-            offices={d.offices} packs={d.harvestPacks} lang={lang} t={t}
-            harvest={d.harvest} week0={d.week0} today={d.today}
-          />
-          <div className="card">
-            <OfficeRace
-              offices={d.offices} packs={d.harvestPacks} lang={lang} t={t} img={img}
-            />
-          </div>
-        </div>
-
 
         {/* 印刷して使えます. The same three of her printables the 丹波 screen
             has, because two of the three are for whoever ends up holding
@@ -1058,15 +1035,17 @@ export default function EggPortal({ d, reload: load, lang, toast, screen = 'all'
       {/* ------------------------------ right ----------------------------- */}
       {onStatus && (
       <div className="eg-p2-r">
-        {/* 佐野:「丹波の取れ高をもっと目立たせてほしい」 — her artwork is the
-            heading, so the harvest announces itself before any number is
-            read. Swappable like the rest: the file is what changes when
-            the schedule does, not this screen. */}
-        <img src={img('harvest-vs')} alt={t('race')} className="mg-pic mg-vs-pic" />
-        {/* 初回の受付スタート, moved here from the left column: square, so
-            it fits the width of this one exactly. The dates printed inside
-            it are repeated live in the 今週の予定 card on the left, which
-            is what the system will actually act on. */}
+        {/* 佐野's 対決 banner was the heading of this column until
+            2026/11/10. It is a picture of the two words that the card
+            under it already prints over two live numbers, and with that
+            card now the width of the page the picture was the only thing
+            between the reader and it. Her file is still in public/
+            moraegg; nothing else used it.
+
+            初回の受付スタート leads the column instead. It is the one
+            picture with this week's real dates in it, so during the first
+            round it IS the schedule — which is why the four dates that
+            used to be printed under it are gone. */}
         {d.firstRound && (
           <img src={img('first-round')} alt={t('schedHead')} className="mg-pic mg-first-pic" />
         )}
@@ -1100,20 +1079,19 @@ export default function EggPortal({ d, reload: load, lang, toast, screen = 'all'
           </picture>
         )}
 
+        {/* 締切・発送・到着・受け取り, for an ordinary week.
+
+            Not during the first round: her picture above prints those
+            four dates and the 祝日 note itself, and the card repeated all
+            of it immediately underneath. The live dates are the ones the
+            system acts on, so losing them is a real cost — if the first
+            shipment ever moves, the picture is a drawing of the old plan
+            and nothing on the screen corrects it. The answer to that is a
+            new picture from 佐野, which is the answer to every other
+            dated thing she has drawn. */}
+        {!d.firstRound && (
         <div className="card eg-sched">
-          {/* Her 初回 card already prints 締切・発送・到着・受け取り, so the
-              four boxes under it would be the same four dates twice. One
-              line instead — and it is the computed one, so if the picture
-              is ever left behind by a change of schedule the dates beneath
-              it are still the ones the system will act on. */}
-          {d.firstRound ? (
-            <p className="eg-sched-one">
-              <span><em>{t('stepDeadline')}</em><b>{md(d.week.deadline.date, lang)} {d.week.deadline.hour}:00</b></span>
-              <span><em>{t('stepShip')}</em><b>{md(d.week.shipDay, lang)}</b></span>
-              <span><em>{t('stepArrive')}</em><b>{md(d.week.arrive, lang)}</b></span>
-              <span><em>{t('stepPickup')}</em><b>{md(d.week.pickup, lang)}</b></span>
-            </p>
-          ) : (
+          {(
             <ol className="eg-steps">
               <li className="now">
                 <em>{t('stepDeadline')}</em>
@@ -1131,6 +1109,13 @@ export default function EggPortal({ d, reload: load, lang, toast, screen = 'all'
               about. */}
           {d.week.note && <p className="eg-sched-n">{d.week.note}</p>}
         </div>
+        )}
+        {/* An administrator's note about this week still has to reach the
+            screen during the first round, where the card above it is not
+            drawn. */}
+        {d.firstRound && d.week.note && (
+          <div className="card"><p className="eg-sched-n">{d.week.note}</p></div>
+        )}
 
 
 
@@ -1169,6 +1154,34 @@ export default function EggPortal({ d, reload: load, lang, toast, screen = 'all'
         )}
       </div>
 
+      )}
+
+      {/* 丹波の取れ高 and 事業所ごとのリクエスト: the width of the page,
+          one under the other, under both columns.
+
+          They were a pair at the foot of the left-hand column, two cards
+          of 380px side by side. They are what the page is for — how many
+          eggs there are this week, and which offices that reaches — and
+          at that size the dots ran out of room while the cream either
+          side of the columns stayed empty. Across the page, each row of
+          the office table is one line and the harvest reads at a glance
+          from the doorway.
+
+          Outside both columns rather than spanning them: a child of the
+          grid with no column of its own, which on a phone is simply the
+          last thing on the page. */}
+      {onStatus && (
+        <div className="eg-wide">
+          <HarvestVs
+            offices={d.offices} packs={d.harvestPacks} lang={lang} t={t}
+            harvest={d.harvest} week0={d.week0} today={d.today}
+          />
+          <div className="card">
+            <OfficeRace
+              offices={d.offices} packs={d.harvestPacks} lang={lang} t={t} img={img}
+            />
+          </div>
+        </div>
       )}
 
       {/* 丹波の鶏舎だより was here: a photo collage of the coop, under
