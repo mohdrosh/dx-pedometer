@@ -1256,7 +1256,13 @@ function WeekResult({ r, lang, t, ship, final = true, withNames = false, pdf = t
           </li>
         </ul>
         {r.moved > 0 && <p className="muted sm">{t('resMoved').replace('{n}', String(r.moved))}</p>}
-        <p className="muted sm">{t('resMiss').replace('{n}', String(r.missed || 0))}</p>
+        {/* 「今回は受け取れない方：{n}名（優先ポイント+1）」 was here. 佐野,
+            2026/11/10: taken off this card. It read 0名 on every week
+            where everybody was served, which is most of them, and a line
+            that usually says nothing is a line people stop reading.
+            The string stays in the table (resMiss) for whoever wants it
+            back, and 優先ポイント itself is unaffected — it is added by
+            the allocation, not by this sentence. */}
       </div>
 
       {withNames && !!r.list?.length && (
