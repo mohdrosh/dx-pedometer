@@ -556,22 +556,24 @@ export const MG_CSS = `
 ------------------------------------------------------------------------- */
 .mg .mg-weekcard{
   position:relative;background:var(--mg-sun);border-radius:16px;
-  padding:11px 12px 12px;margin-bottom:12px;box-shadow:var(--mg-pop);
+  padding:10px 11px 11px;margin-bottom:12px;box-shadow:var(--mg-pop);
   background-image:radial-gradient(rgba(255,255,255,.45) 1.5px, transparent 1.6px);
   background-size:13px 13px;
 }
-.mg .mg-wc-h{display:block;margin:1px 0 8px;text-align:center;
-  font-size:19px;font-weight:900;color:var(--mg-navy);letter-spacing:.01em}
+.mg .mg-wc-h{display:flex;align-items:center;justify-content:center;gap:7px;
+  margin:0 0 7px;font-size:18px;font-weight:900;color:var(--mg-navy);
+  letter-spacing:.01em}
+.mg .mg-wc-h img{width:34px;height:34px;flex:none}
 .mg .mg-wc-due{background:var(--mg-paper);border:2px solid var(--mg-navy);
   border-radius:12px;padding:6px 10px 7px;text-align:center}
 .mg .mg-wc-due em{display:block;font-style:normal;font-size:12px;font-weight:800;
   color:var(--mg-navy)}
-.mg .mg-wc-due strong{display:block;font-size:25px;font-weight:900;
+.mg .mg-wc-due strong{display:block;font-size:23px;font-weight:900;
   color:var(--mg-royal);line-height:1.2;letter-spacing:-.01em}
-.mg .mg-wc-due strong span{font-size:21px}
+.mg .mg-wc-due strong span{font-size:19px}
 .mg .mg-wc-due i{display:block;font-style:normal;font-size:10.5px;font-weight:700;
   color:#3E4F6E;margin-top:1px;line-height:1.4}
-.mg .mg-wc-rows{list-style:none;margin:7px 0 0;padding:0;display:grid;gap:5px}
+.mg .mg-wc-rows{list-style:none;margin:6px 0 0;padding:0;display:grid;gap:4px}
 .mg .mg-wc-rows li{display:flex;align-items:center;gap:9px;
   background:var(--mg-paper);border:2px solid var(--mg-navy);border-radius:10px;
   padding:3px 9px 4px}
@@ -583,15 +585,6 @@ export const MG_CSS = `
 .mg .mg-wc-d.pick{background:var(--mg-navy)}
 .mg .mg-wc-rows em{font-style:normal;font-size:13px;font-weight:800;
   color:var(--mg-navy)}
-.mg .mg-wc-foot{display:flex;align-items:flex-end;gap:10px;margin-top:8px}
-.mg .mg-wc-bub{position:relative;margin:0;max-width:11em;padding:6px 11px 7px;
-  background:var(--mg-paper);border:2px solid var(--mg-navy);border-radius:10px;
-  font-size:13px;font-weight:900;color:var(--mg-navy);line-height:1.35}
-.mg .mg-wc-bub::after{content:'';position:absolute;left:14px;bottom:-9px;
-  width:11px;height:11px;background:var(--mg-paper);
-  border-right:2px solid var(--mg-navy);border-bottom:2px solid var(--mg-navy);
-  transform:rotate(45deg) skew(6deg,6deg)}
-.mg .mg-wc-foot img{width:62px;height:62px;margin-left:auto;flex:none}
 .mg .mg-wc-note{margin:9px 0 0;padding:7px 10px 8px;border-radius:9px;
   background:rgba(255,255,255,.72);font-size:12px;font-weight:700;
   color:var(--mg-navy);line-height:1.5}

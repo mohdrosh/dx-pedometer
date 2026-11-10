@@ -576,7 +576,14 @@ function WeekCard({ d, lang, t, img, first }) {
   ];
   return (
     <div className="mg-weekcard">
-      <b className="mg-wc-h">{mgs(first ? 'wkFirst' : 'wkWeek')}</b>
+      {/* The robot beside the title rather than under the dates. 佐野's
+          bubble, 「はじめての卵、お楽しみに！」, is gone with the row it
+          sat in: it said nothing about this week, and it and the robot
+          were a third of the card's height between them. */}
+      <b className="mg-wc-h">
+        <img src={img('basket')} alt="" />
+        <span>{mgs(first ? 'wkFirst' : 'wkWeek')}</span>
+      </b>
       <div className="mg-wc-due">
         <em>{mgs(first ? 'wkDueFirst' : 'wkDue')}</em>
         <strong>
@@ -596,10 +603,6 @@ function WeekCard({ d, lang, t, img, first }) {
           </li>
         ))}
       </ol>
-      <div className="mg-wc-foot">
-        {first && <p className="mg-wc-bub">{mgs('wkBubble')}</p>}
-        <img src={img('basket')} alt="" />
-      </div>
       {/* 仕様書 4.6:「お知らせ（みんなの画面に表示）」 — whatever an
           administrator wrote about this week, inside the card the week
           is on rather than in one of its own underneath. */}
