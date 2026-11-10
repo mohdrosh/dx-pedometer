@@ -1040,6 +1040,23 @@ export default function EggPortal({ d, reload: load, lang, toast, screen = 'all'
           </>
         )}
 
+        {/* 毎週のルール, at the foot of this column. It spent a day at
+            the bottom of the page, which is the right place for it on a
+            week where this column is full — and the wrong one on a week
+            where the reader has already asked and the column ends after
+            two cards, leaving a screen of cream beside the week card.
+            Here it fills that, and the two cards the page is for are
+            still below it, the width of the page. */}
+        {onRequest && (
+          <>
+            <div className="sechead"><span>{mgs('rules')}</span></div>
+            <div className="card">
+              <ul className="eg-rules">
+                {['r1', 'r2', 'r3', 'r4'].map((k) => <li key={k}>{mgs(k)}</li>)}
+              </ul>
+            </div>
+          </>
+        )}
       </div>
 
       {/* ------------------------------ right ----------------------------- */}
@@ -1144,20 +1161,6 @@ export default function EggPortal({ d, reload: load, lang, toast, screen = 'all'
           columns at the foot of the page: still here, and no longer in
           the way. */}
       <div className="eg-ref">
-        {onRequest && (
-          <>
-            <div className="sechead"><span>{mgs('rules')}</span></div>
-            <div className="card">
-              {/* Four short rules across the page rather than down a
-                  column: two by two, which is one card's depth instead
-                  of four. */}
-              <ul className="eg-rules eg-r2">
-                {['r1', 'r2', 'r3', 'r4'].map((k) => <li key={k}>{mgs(k)}</li>)}
-              </ul>
-            </div>
-          </>
-        )}
-
         {onStatus && (
           <>
             <div className="sechead"><span>{t('printables')}</span></div>
