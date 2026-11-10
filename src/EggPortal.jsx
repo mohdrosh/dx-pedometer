@@ -1198,7 +1198,10 @@ export default function EggPortal({ d, reload: load, lang, toast, screen = 'all'
    the same table — a difference between them would mean one of them was
    looking at something nobody shipped.
    --------------------------------------------------------------------- */
-function WeekResult({ r, lang, t, ship, final = true, withNames = false }) {
+/* `pdf` is off on the 丹波 screen, where 発送の確定 carries the same
+   button: two identical 箱に入れる紙 on one page is the sort of thing
+   somebody has to stop and compare before pressing either. */
+function WeekResult({ r, lang, t, ship, final = true, withNames = false, pdf = true }) {
   const mgs = (k, vars) => mg(k, lang, vars);
   if (!r?.lines?.length) return null;
   const file = `moraegg-${ship || r.ship || ''}`;
@@ -1258,7 +1261,7 @@ function WeekResult({ r, lang, t, ship, final = true, withNames = false }) {
               {/* 箱に入れる紙. Only once the week is final: the route
                   refuses a week still 確認中, and a button that returns
                   an error is worse than one that is not there yet. */}
-              {final && (
+              {final && pdf && (
                 <a className="btn sm eg-dl-box" href={`${apiRoot()}/egg/list.pdf?ship=${ship || r.ship}`}
                   download={`${file}.pdf`}>{mgs('boxSheet')}</a>
               )}
@@ -1360,13 +1363,7 @@ function EggShip({ lang, toast, t, onDone }) {
     <div className="eg-ship">
       <div className="sechead"><span>{mgs('shipTitle')}</span></div>
 
-      {/* 「月曜9時の締切後に、発送できるパック数を入力して確定します」 — said
-          while the week is still open, so nobody presses it on Friday. */}
-      {d.open && !d.drawn && (
-        <div className="card"><p className="muted sm">{mgs('beforeShip')}</p></div>
-      )}
-
-      {!d.open && !d.final && (
+      {!d.final && (
         <div className="card eg-ship-1">
           <label className="fld"><span>{mgs('shipStep1')}</span>
             <input
@@ -1379,6 +1376,16 @@ function EggShip({ lang, toast, t, onDone }) {
               staff that the number in the box is already theirs to
               correct rather than something still to be entered. */}
           {d.drawn && !ask && <p className="eg-ship-ok">{mgs('shipConfirmed')}</p>}
+          {/* 「月曜9時の締切後に、発送できるパック数を入力して確定します」.
+              Her sentence used to stand in for the card while requests
+              were open, which meant nobody could see the Monday screen
+              before a Monday — not the committee, and not whoever is
+              being shown how the site works. The card is always here
+              now and her sentence is its warning: pressing before the
+              deadline decides the week early, which is what the
+              administrators' 配分を確定 has always done, and 確定を
+              取り消す undoes. */}
+          {d.open && !ask && <p className="muted sm">{mgs('beforeShip')}</p>}
 
           {!ask && (
             <button
@@ -1444,6 +1451,18 @@ function EggShip({ lang, toast, t, onDone }) {
       {d.final && (
         <div className="card eg-ship-2">
           <p className="eg-ship-ok">{mgs('finalShort')}</p>
+          {/* 箱に入れる紙, where the week was confirmed rather than only
+              at the foot of the results table: the press and the paper
+              that comes out of it are one job. The route refuses a week
+              that is not final, which is exactly when this card is
+              drawn. */}
+          {!undo && (
+            <a
+              className="btn sm eg-dl-box"
+              href={`${apiRoot()}/egg/list.pdf?ship=${d.ship}`}
+              download={`moraegg-${d.ship}.pdf`}
+            >{mgs('boxSheet')}</a>
+          )}
           {!undo && (
             <button
               className="btn ghost sm" disabled={busy}
@@ -1476,6 +1495,7 @@ function EggShip({ lang, toast, t, onDone }) {
       {d.result && (
         <WeekResult
           r={d.result} lang={lang} t={t} ship={d.ship} final={d.final} withNames
+          pdf={false}
         />
       )}
     </div>
@@ -1490,6 +1510,8 @@ export function EggFarm({ lang, toast }) {
   const [busy, setBusy] = useState(false);
   /* day -> what is in its box, while it differs from the register. */
   const [edits, setEdits] = useState({});
+  /* The employees' view of the same week, for the office table. */
+  const [pub, setPub] = useState(null);
 
   /* One screen, not two tabs.
 
@@ -1527,7 +1549,12 @@ export function EggFarm({ lang, toast }) {
   }, [t, toast]);
 
   /* The first read is a no-op nudge, so the screen and the register agree
-     from the first paint rather than after the first edit. */
+     from the first paint rather than after the first edit.
+
+     The employees' view is read alongside it, for the 事業所ごとの
+     リクエスト table below: it is the same table they see, from the same
+     endpoint, so the shed and the floor cannot be looking at two
+     different accounts of the week. */
   const load = useCallback(async () => {
     const res = await fetch(`${apiRoot()}/egg/harvest`, {
       method: 'POST',
@@ -1536,6 +1563,8 @@ export function EggFarm({ lang, toast }) {
       body: JSON.stringify({ delta: 0 }),
     });
     if (res.ok) setD(await res.json());
+    const p = await fetch(`${apiRoot()}/egg/portal`, { credentials: 'same-origin' });
+    if (p.ok) setPub(await p.json());
   }, []);
   useEffect(() => { load(); }, [load]);
 
@@ -1698,29 +1727,38 @@ export function EggFarm({ lang, toast }) {
           </div>
           {locked && <p className="muted sm">{t('fixShut')}</p>}
         </div>
+
+        {/* 事業所ごとのリクエスト — the employees' table, on the shed's
+            screen too. 丹波 is the one deciding what can ship, and that
+            decision is about which offices are above their line: the
+            box above holds the whole week, and this is where it is
+            going. Under the harvest rather than beside the Monday
+            decision, because it is about the same number as the card it
+            sits under — and because the left-hand column ended halfway
+            down the screen without it.
+
+            It replaced 佐野's three printables, which are for whoever
+            ends up holding a carton rather than for the shed: the
+            employees' page carries them and 丹波 does not need a second
+            copy. */}
+        {pub?.offices?.length > 0 && (
+          <>
+            <div className="sechead"><span>{mg('byOffice', lang)}</span></div>
+            <div className="card">
+              <OfficeRace
+                offices={pub.offices} packs={pub.harvestPacks}
+                lang={lang} t={t} img={img}
+              />
+            </div>
+          </>
+        )}
       </div>
 
-      {/* ---- the Monday decision, and the printables ------------------- */}
+      {/* ---- the Monday decision, and who is asking ------------------- */}
       <div className="eg-farm-r">
         {/* 発送の確定, on the same screen as the number it is about. */}
         <EggShip lang={lang} toast={toast} t={t} onDone={load} />
 
-        {/* 佐野's print artwork, offered where the person packing the
-            cartons actually is. Opened in a tab and printed; nothing is
-            generated. Three across, the way the employees' page shows
-            them — which is why this column is half the screen now and
-            not 400px. */}
-        <div className="sechead"><span>{t('printables')}</span></div>
-        <div className="mg-print eg-print3">
-          {[['label-asadore', 'printLabel', 'printLabelNote'],
-            ['seal-round', 'printSeal', 'printSealNote'],
-            ['thankyou-egg', 'printThanks', 'printThanksNote']].map(([file, title, note]) => (
-              <a key={file} href={img(file)} target="_blank" rel="noreferrer">
-                <img src={img(file)} alt="" />
-                <span><b>{t(title)}</b><span>{t(note)}</span></span>
-              </a>
-          ))}
-        </div>
       </div>
     </div>
   );
