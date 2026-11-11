@@ -179,6 +179,11 @@ const L = {
   printSealNote: ['パックのふたに', 'For the lid of the carton'],
   printThanks: ['ありがとうカード', 'Thank-you card'],
   printThanksNote: ['おすそわけに添えて', 'To tuck in with a gift'],
+  /* 2026/11/11: one sheet instead of three pictures. */
+  printSet: ['ラベル・シール・ありがとうカード', 'Label, sticker and thank-you card'],
+  printSetNote: ['A4の1枚にまとまっています。印刷して、点線で切り取ってお使いください。',
+    'All three on one A4 sheet. Print it and cut along the dashed lines.'],
+  printSetBtn: ['PDFをダウンロード', 'Download the PDF'],
 
   /* 合計と対決グラフ */
   race: ['丹波の取れ高　対　みんなのリクエスト', "Tamba's harvest vs everyone's requests"],
@@ -1161,18 +1166,32 @@ export default function EggPortal({ d, reload: load, lang, toast, screen = 'all'
           columns at the foot of the page: still here, and no longer in
           the way. */}
       <div className="eg-ref">
+        {/* 印刷して使えます — one sheet, one button.
+
+            It was three cards, each a link to a .webp: three tabs, three
+            print dialogs, and a picture that prints at whatever size the
+            browser decides. public/moraegg/print-set.pdf has all three
+            at their real sizes, several of each, with dashed lines to
+            cut along; tools/print-set.mjs builds it from the same three
+            files, so new artwork from 佐野 means re-running that. */}
         {onStatus && (
           <>
             <div className="sechead"><span>{t('printables')}</span></div>
-            <div className="mg-print eg-print3">
-              {[['label-asadore', 'printLabel', 'printLabelNote'],
-                ['seal-round', 'printSeal', 'printSealNote'],
-                ['thankyou-egg', 'printThanks', 'printThanksNote']].map(([file, title, note]) => (
-                  <a key={file} href={img(file)} target="_blank" rel="noreferrer">
-                    <img src={img(file)} alt="" />
-                    <span><b>{t(title)}</b><span>{t(note)}</span></span>
-                  </a>
-              ))}
+            <div className="card mg-printone">
+              <div className="mg-printone-pics">
+                {['label-asadore', 'seal-round', 'thankyou-egg'].map((f) => (
+                  <img key={f} src={img(f)} alt="" />
+                ))}
+              </div>
+              <div className="mg-printone-t">
+                <b>{t('printSet')}</b>
+                <span>{t('printSetNote')}</span>
+              </div>
+              <a
+                className="btn primary sm"
+                href={`${import.meta.env.BASE_URL}moraegg/print-set.pdf`}
+                download="moraegg-print-set.pdf"
+              >{t('printSetBtn')}</a>
             </div>
           </>
         )}

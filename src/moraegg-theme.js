@@ -892,6 +892,16 @@ export const MG_CSS = `
 /* No border of its own: every row inside is already a bordered tile, and
    a box around the three of them drew a second line that met the first at
    every corner. */
+/* 印刷して使えます: one row — what is on the sheet, and the button. */
+.mg .mg-printone{display:flex;align-items:center;gap:13px;flex-wrap:wrap;
+  padding:10px 14px}
+.mg .mg-printone-pics{display:flex;align-items:center;gap:7px;flex:none}
+.mg .mg-printone-pics img{height:38px;width:auto;border-radius:5px}
+.mg .mg-printone-t{min-width:0;margin-right:auto}
+.mg .mg-printone-t b{display:block;font-size:13.5px;font-weight:900;
+  color:var(--mg-navy)}
+.mg .mg-printone-t span{font-size:11.5px;font-weight:500;color:#5B6B86}
+
 .mg-print{display:grid;gap:11px}
 .mg-print a span{min-width:0}
 .mg-print a{
@@ -934,6 +944,16 @@ export const MG_CSS = `
 
 /* 配布 */
 .mg .eg-p2{display:grid}
+/* On a phone the dates come first. 佐野, 2026/11/11: the card with the
+   week's four dates in it is the one thing on this page that is about
+   when, and on a narrow screen it was below the request and the rules.
+   The right-hand column dissolves into the grid so that its first card
+   can be ordered to the top on its own, and これまでの申請 — the other
+   thing in it — stays where it was, after the reader's own week. */
+@media(max-width:899px){
+  .mg .eg-p2-r{display:contents}
+  .mg .eg-p2-r .mg-weekcard{order:-1}
+}
 /* On a phone the person's own column comes first, then the charts.
    The charts led until 2026/11/06, and on 配布状況 that was right —
    the chart was the page and the answer. Now that the request form
