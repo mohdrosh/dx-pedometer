@@ -273,7 +273,14 @@ export const MG_CSS = `
 .mg .eg-opts.mg-reg-offs .eg-opt{position:relative;padding-right:34px}
 .mg .mg-reg-offs .eg-opt small{display:block;margin-top:2px;font-size:11px;
   font-weight:600;color:#6B7A92}
-.mg .mg-reg-mail{margin:0 0 2px}
+/* メインのアドレス. The label is a sentence now —「メインのアドレス
+   （基本的には会社のアドレスになります）」— so the row wraps instead of
+   squeezing the address against the right edge, and the address keeps
+   its own line on a phone. */
+.mg .mg-reg-mail{margin:0 0 2px;flex-wrap:wrap;gap:2px 14px;
+  align-items:baseline}
+.mg .mg-reg-mail>span{flex:1 1 14em;min-width:0}
+.mg .mg-reg-mail>strong{word-break:break-all}
 .mg .mg-reg-go{display:flex;gap:9px;flex-wrap:wrap;margin-top:14px;
   padding-top:13px;border-top:1px solid var(--mg-line)}
 .mg .mg-reg-go .btn.primary{margin-left:auto}

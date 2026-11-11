@@ -540,20 +540,20 @@
     "en": "We’ll send Moraegg notices to the address below."
   },
   "workMail": {
-    "ja": "会社のメールアドレス",
-    "en": "Work email"
+    "ja": "メインのアドレス（基本的には会社のアドレスになります）",
+    "en": "Main address (normally your work address)"
   },
   "mailFixed": {
-    "ja": "会社のメールアドレスは変更できません。",
-    "en": "Your work email can’t be changed."
+    "ja": "メインアドレスは変更できません。別のアドレスで案内を受けたい場合は、下記に登録してください。",
+    "en": "The main address cannot be changed. To be notified at another address, register one below."
   },
   "addPrivate": {
-    "ja": "プライベートのメールアドレスにも送る",
-    "en": "Also send to my personal email"
+    "ja": "サブ・メールにも送る",
+    "en": "Also send to my second address"
   },
   "privMail": {
-    "ja": "プライベートのメールアドレス",
-    "en": "Personal email"
+    "ja": "サブ・メールアドレス",
+    "en": "Second address"
   },
   "privPh": {
     "ja": "例：taro@example.com",
