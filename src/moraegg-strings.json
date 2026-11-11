@@ -219,6 +219,14 @@
     "ja": "はじめての卵、お楽しみに！",
     "en": "Your first eggs — enjoy!"
   },
+  "preTitle": {
+    "ja": "受付はまだ始まっていません",
+    "en": "Requests are not open yet"
+  },
+  "preNote": {
+    "ja": "{d}から受付を開始します。",
+    "en": "Requests open on {d}."
+  },
   "shipList": {
     "ja": "発送一覧",
     "en": "Shipping list"

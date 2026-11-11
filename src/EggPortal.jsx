@@ -638,7 +638,7 @@ function WeekCard({ d, lang, t, img, first }) {
  * sentence; her strings stay in the dictionary.
  */
 function MyWeek({
-  d, mine, status, lang, t, img, open, busy, onEdit, onCollect,
+  d, mine, status, lang, t, img, open, busy, onEdit, onCollect, notYet = false,
 }) {
   const mgs = (k, vars) => mg(k, lang, vars);
   const name = mine?.office || d.offices.find((o) => o.minPacks > 0)?.name;
@@ -647,7 +647,9 @@ function MyWeek({
   const asked = Math.max(0, Number(office?.asked) || 0);
   /* No minimum means every week is a delivery week for that office, so
      there is no verdict to give — the card is then the facts alone. */
-  const state = !office || !min ? null
+  /* No verdict before the window opens: 「今週お休みです」 on a week
+     nobody could ask for is the card answering its own question. */
+  const state = notYet || !office || !min ? null
     : (min - asked <= 0 ? 'go' : (asked > 0 ? 'wait' : 'miss'));
   const line = state && {
     go: [t('comingTo'), t('comingSub')],
@@ -831,6 +833,9 @@ export default function EggPortal({ d, reload: load, lang, toast, screen = 'all'
   const showForm = d.open && (!mine || editing);
   const needReason = form.packs >= 2 && !form.reason.trim();
 
+  /* Before the day requests open, nothing about this week has happened
+     yet: no request can exist, so no office can have missed its line. */
+  const notYet = !!d.dates?.requestsFrom && String(d.today) < String(d.dates.requestsFrom);
   const onStatus = screen === 'all' || screen === 'status';
   const onRequest = screen === 'all' || screen === 'request';
 
@@ -857,7 +862,7 @@ export default function EggPortal({ d, reload: load, lang, toast, screen = 'all'
         {/* あなたの今週: the verdict, the reader's own row, where to
             collect and by when — one card instead of four. */}
         <MyWeek
-          d={d} mine={onRequest && !editing ? mine : null} status={status}
+          d={d} notYet={notYet} mine={onRequest && !editing ? mine : null} status={status}
           lang={lang} t={t} img={img} open={d.open} busy={busy}
           onEdit={() => setEditing(true)}
           onCollect={async () => {
@@ -939,7 +944,31 @@ export default function EggPortal({ d, reload: load, lang, toast, screen = 'all'
           <div className="card"><p className="muted sm">{t('noOffice')}</p></div>
         )}
 
-        {onRequest && d.consented && !!d.offices.length && !d.open && !mine && (
+        {/* Before the first round there is nothing to say about a week
+            that has not happened. It used to say two things: 「今週お休み
+            です・申請が4パックに届きませんでした」, which is true of any
+            week with no requests in it and misleading about one where
+            nobody could have made any, and 「申請の受付は終了しました」,
+            which is the opposite of what is going on. 佐野, 2026/11/11.
+            One card, naming the day it opens. */}
+        {/* Not yet open. Shown whether or not the terms have been
+            agreed to, because agreeing is the step before requesting and
+            there is nothing to request yet: without this the whole
+            column was empty for anybody who had not signed up. */}
+        {onRequest && notYet && !mine && (
+          <div className="card eg-shut">
+            <img src={img('about-to-lay')} alt="" />
+            <div>
+              <strong>{mgs('preTitle')}</strong>
+              <p className="muted sm">
+                {mgs('preNote', { d: md(d.dates.requestsFrom, lang) })}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {onRequest && !notYet && d.consented && !!d.offices.length
+          && !d.open && !mine && (
           <div className="card eg-shut">
             <img src={img('empty')} alt="" />
             <div>

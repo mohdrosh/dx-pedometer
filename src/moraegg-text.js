@@ -145,6 +145,15 @@ const PENDING_1110 = ['s1Title', 's1Note', 's1Btn', 's2Title', 's2Note', 's2Btn'
 const PENDING_1110B = ['wkFirst', 'wkWeek', 'wkDueFirst', 'wkDue', 'wkTime',
   'wkShip', 'wkArrive', 'wkPick', 'wkBubble'];
 
+/* 2026/11/11: 受付開始前の画面。開始日より前は、リクエストが0件なのは
+   当たり前なのに「今週お休みです（申請が4パックに届きませんでした）」と
+   「申請の受付は終了しました」の2枚が出ていた。どちらも終わった週の話で、
+   まだ始まってもいない。当方の文言:
+
+     preTitle  受付はまだ始まっていません
+     preNote   {d}から受付を開始します。 */
+const PENDING_1111 = ['preTitle', 'preNote'];
+
 /* 2026/11/09: which shipment the 丹波 week belongs to, said on the screen.
    Both screens now count the same week, and on the days when that week is
    not the calendar week the person typing has to be able to see it. Mine:
@@ -189,7 +198,7 @@ const PENDING_1109D = ['tShipFor', 'tNotIn'];
 export const pendingKeys = () => [
   ...PENDING_1105, ...PENDING_1106, ...PENDING_1108,
   ...PENDING_1109, ...PENDING_1109B, ...PENDING_1109C, ...PENDING_1109D,
-  ...PENDING_1110, ...PENDING_1110B,
+  ...PENDING_1110, ...PENDING_1110B, ...PENDING_1111,
 ];
 
 export function mg(key, lang = 'ja', vars = null) {
