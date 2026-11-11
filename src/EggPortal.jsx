@@ -2055,6 +2055,32 @@ export function EggAdmin({ lang, toast, cfg = {}, setCfg, onDone, today = null }
     if (j.result === 'closed') toast?.(t('closedOffice'));
   };
 
+  /* 配分のきまり, while it is being typed. Empty until something is
+     changed, so the fields read from the stored settings until then and
+     a save elsewhere on the page still shows up in them. */
+  const [set, setSet] = useState({});
+  const setVal = (k, fallback) => {
+    const v = k in set ? set[k] : cfg.egg?.[k];
+    return v === null || v === undefined ? fallback : v;
+  };
+  const setEdit = (k, v) => setSet((x) => ({ ...x, [k]: v }));
+  const setDirty = Object.keys(set).some(
+    (k) => String(set[k] ?? '') !== String(cfg.egg?.[k] ?? ''),
+  );
+  const saveSet = async () => {
+    /* Dates go in as a date or as nothing — never as '' — and the two
+       numbers as numbers, whatever the input element hands back. */
+    const patch = {};
+    for (const k of Object.keys(set)) {
+      const v = set[k];
+      if (k === 'deadlineHour') patch[k] = Math.min(23, Math.max(0, Number(v) || 0));
+      else if (k === 'maxPacks') patch[k] = Math.min(99, Math.max(1, Number(v) || 1));
+      else patch[k] = v || null;
+    }
+    await saveCfg(patch);
+    setSet({});
+  };
+
   /* Both halves, or neither: config written to the store and to React state
      together. Writing only the state is how the survey window shipped
      looking saved and reaching nobody. */
@@ -2177,6 +2203,15 @@ export function EggAdmin({ lang, toast, cfg = {}, setCfg, onDone, today = null }
      </div>
 
      <div className="eg-adm-r">
+      {/* 配分のきまり — typed, then saved.
+
+          Every field here used to write on blur, which is the right
+          behaviour for a note and the wrong one for the five settings
+          that decide when the site opens: tabbing through them to read
+          what they say saved each one in turn, and a half-typed date
+          (2026/11/0) is a real value the browser hands over on the way
+          to 2026/11/09. One button now, and nothing leaves the screen
+          until it is pressed. 佐野, 2026/11/11. */}
       <div className="sechead"><span>{t('rules2')}</span></div>
       <div className="card ad-set">
         {/* 最低パック数 moved to 事業所の設定 on 2026/11/05, because it is
@@ -2184,8 +2219,8 @@ export function EggAdmin({ lang, toast, cfg = {}, setCfg, onDone, today = null }
             turned on. What is left here is what is the same everywhere. */}
         <label className="fld"><span>{t('deadlineHour')}</span>
           <select
-            value={String(cfg.egg?.deadlineHour ?? 9)}
-            onChange={(e) => saveCfg({ deadlineHour: Number(e.target.value) })}
+            value={String(setVal('deadlineHour', 9))}
+            onChange={(e) => setEdit('deadlineHour', Number(e.target.value))}
           >
             {Array.from({ length: 24 }, (_, h) => <option key={h} value={h}>{h}:00</option>)}
           </select>
@@ -2197,36 +2232,43 @@ export function EggAdmin({ lang, toast, cfg = {}, setCfg, onDone, today = null }
             turn it off: it stops mattering once the week arrives. */}
         <label className="fld wide"><span>{t('firstShip')}</span>
           <input
-            type="date" defaultValue={cfg.egg?.firstShip || ''}
-            onBlur={(e) => saveCfg({ firstShip: e.target.value || null })}
+            type="date" value={setVal('firstShip', '')}
+            onChange={(e) => setEdit('firstShip', e.target.value)}
           />
           <small className="muted sm">{t('firstShipNote')}</small>
         </label>
-        {/* 「11/21（土）初回リクエストの受付開始」「11/14から参加登録」 —
+        {/* 「11/19（木）初回リクエストの受付開始」「11/14から参加登録」 —
             the site shows 受付前 until the first of these, so this is the
             field that opens it. Blank means no date gate at all, which is
             what the ordinary weekly cycle wants once the first round is
             behind them. */}
         <label className="fld wide"><span>{t('reqFrom')}</span>
           <input
-            type="date" defaultValue={cfg.egg?.requestsFrom || ''}
-            onBlur={(e) => saveCfg({ requestsFrom: e.target.value || null })}
+            type="date" value={setVal('requestsFrom', '')}
+            onChange={(e) => setEdit('requestsFrom', e.target.value)}
           />
           <small className="muted sm">{t('reqFromNote')}</small>
         </label>
         <label className="fld wide"><span>{t('signFrom')}</span>
           <input
-            type="date" defaultValue={cfg.egg?.signupFrom || ''}
-            onBlur={(e) => saveCfg({ signupFrom: e.target.value || null })}
+            type="date" value={setVal('signupFrom', '')}
+            onChange={(e) => setEdit('signupFrom', e.target.value)}
           />
           <small className="muted sm">{t('signFromNote')}</small>
         </label>
         <label className="fld"><span>{t('maxPacks')}</span>
           <input
-            type="number" min={1} max={99} defaultValue={cfg.egg?.maxPacks ?? 10}
-            onBlur={(e) => saveCfg({ maxPacks: Number(e.target.value) })}
+            type="number" min={1} max={99} value={setVal('maxPacks', 10)}
+            onChange={(e) => setEdit('maxPacks', e.target.value)}
           />
         </label>
+        <div className="eg-acts ad-set-save">
+          <button
+            type="button" className="btn primary"
+            disabled={busy || !setDirty}
+            onClick={saveSet}
+          >{t('save')}</button>
+        </div>
       </div>
 
       {/* 仕様書 4.6. Hers, by her heading. */}

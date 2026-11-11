@@ -1379,6 +1379,9 @@ export const MG_CSS = `
 .mg .eg-res-who li.head{background:none;font-size:11.5px;color:#5B6B86}
 .mg .eg-res-who em{font-style:normal;font-weight:800;font-variant-numeric:tabular-nums}
 .mg .ad-set,.mg .eg-admin{display:grid;gap:4px}
+/* 保存する under the settings it saves, across whatever columns the card
+   has split itself into. */
+.mg .ad-set-save{grid-column:1/-1;margin-top:4px}
 .mg .eg-admin{align-items:end}
 
 @media(min-width:900px){
