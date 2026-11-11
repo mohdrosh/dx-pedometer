@@ -437,6 +437,16 @@ const STR = {
   targetStatus: ['目標達成状況', 'Target status'],
   prevMonth: ['前月', 'Prev'],
   nextMonth: ['翌月', 'Next'],
+  /* 2026/11/11, the two-step sign-in on the egg door. 佐野 wrote these
+     for the same check on 参加登録 (whoLead / whoName / whoRedo in the
+     モラエッグ dictionary); they are her words, repeated here because
+     this file has its own table and does not read hers. 確認 is the
+     company's word from the request. */
+  whoCheck: ['確認', 'Check'],
+  whoName: ['お名前', 'Name'],
+  whoLead: ['お名前に間違いがなければ、ログインを押してください。',
+    'If this is you, press log in.'],
+  whoRedo: ['社員番号を入力し直す', 'Enter a different number'],
   trialSignup: ['お試し登録（対象者以外の方）', 'Trial sign-up (non-participants)'],
   trialTitle: ['お試し登録', 'Trial sign-up'],
   trialNote: ['対象者以外の方が、お試しでご利用いただくための登録です。入力された記録は、健康対策推進活動の集計・完歩賞には含まれません。', 'For people outside the official participant list who would like to try the system. Trial records are excluded from the aggregation and the walking bonus.'],
@@ -1015,19 +1025,60 @@ function MaintenanceBanner({ cfg }) {
   );
 }
 
-function Login({ onLogin, onTrial, lang, setLang, notice, cfg }) {
+function Login({ onLogin, onEnter, onTrial, lang, setLang, notice, cfg }) {
   const t = useT();
   const [id, setId] = useState('');
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
+  /* モラエッグ asks twice: the number, then the name it belongs to.
 
-  const go = async () => {
+     2026/11/11:「202と打ち間違えて201のつもりでログインすると、人の
+     アカウントに入ってしまう」. A seven-digit number one key out is
+     another colleague, and nothing on the way in said whose eggs you
+     were about to request. So 確認 signs in without moving the screen,
+     the name comes back, and ログイン is the second press. 入力し直す
+     ends the session again.
+
+     The name is not looked up before signing in: a number-to-name
+     service open to anybody who can reach the site is the staff list,
+     one request at a time. This asks the same question the sign-in asks
+     and shows the answer to whoever already passed it. */
+  const [who, setWho] = useState(null);
+
+  const check = async () => {
     const v = id.trim();
     if (!v || busy) return;
+    setBusy(true);
+    const r = await onLogin(v, { apply: false });
+    setBusy(false);
+    if (r?.error) { setErr(t(r.error === 'too_many' ? 'tooMany' : 'notFound')); return; }
+    setWho(r);
+  };
+
+  const go = async () => {
+    if (busy) return;
+    if (AT_EGG_DOOR) {
+      if (!who) { await check(); return; }
+      setBusy(true);
+      await onEnter(who);
+      setBusy(false);
+      return;
+    }
+    const v = id.trim();
+    if (!v) return;
     setBusy(true);
     const r = await onLogin(v);
     setBusy(false);
     if (r?.error) setErr(t(r.error === 'too_many' ? 'tooMany' : 'notFound'));
+  };
+
+  /* Not me: the session that 確認 opened is closed again before the box
+     is cleared, so a half-finished sign-in never sits on the device. */
+  const redo = async () => {
+    setBusy(true);
+    await apiLogout();
+    setBusy(false);
+    setWho(null); setId(''); setErr('');
   };
 
   /* Somebody arriving by QR code lands here before they land on モラエッグ,
@@ -1081,6 +1132,7 @@ function Login({ onLogin, onTrial, lang, setLang, notice, cfg }) {
             /* An example, not a colleague. This used to be a real employee
                number, displayed to everyone who opened the sign-in page. */
             value={id} inputMode="numeric" autoComplete="off" placeholder="1234567"
+            disabled={!!who}
             onChange={(e) => { setId(e.target.value); setErr(''); }}
             onKeyDown={(e) => e.key === 'Enter' && go()}
           />
@@ -1088,7 +1140,21 @@ function Login({ onLogin, onTrial, lang, setLang, notice, cfg }) {
         {notice === 'expired' && !err && <div className="notice">{t('sessionGone')}</div>}
         {err && <div className="err">{err}</div>}
 
-        <button className="btn primary big" disabled={busy} onClick={go}>{t('login')}</button>
+        {/* 確認 first, on the egg door. The name it finds, and then the
+            way in beside the way back. */}
+        {AT_EGG_DOOR && who && (
+          <div className="login-who">
+            <span>{t('whoName')}</span>
+            <b>{who.user?.name || ''}</b>
+            <p>{t('whoLead')}</p>
+          </div>
+        )}
+        <button className="btn primary big" disabled={busy} onClick={go}>
+          {AT_EGG_DOOR && !who ? t('whoCheck') : t('login')}
+        </button>
+        {AT_EGG_DOOR && who && (
+          <button className="btn" disabled={busy} onClick={redo}>{t('whoRedo')}</button>
+        )}
         {/* お試し登録 is the pedometer's: somebody outside the official
             participant list can try that and have their steps left out
             of the totals. モラエッグ has no such thing — eggs are either
@@ -3075,7 +3141,25 @@ export default function App() {
   /* Sign-in is a server call: it checks the number and returns the one
      record this person is allowed to see. The consent is not asked here —
      it has its own screen, shown once afterwards. */
-  const signIn = useCallback(async (id) => {
+  /* What signing in does once the person is known. Split out so that the
+     egg door can show whose name the number belongs to and let them look
+     at it before the screen changes under them. */
+  const enter = useCallback(async (r) => {
+    setUser(r.user);
+    setTab(landingTab(r.user));
+    if (r.user.admin && !IS_LOCAL) {
+      const [full, rr] = await Promise.all([S.get('cfg'), S.get('roster')]);
+      if (full) setCfg({ ...DEFAULT_CFG, ...full });
+      setRoster(rr || []);
+    }
+    return r;
+  }, []);
+
+  /* `apply: false` signs in and stops: the session exists, the screen
+     does not move, and what comes back is the name to show. Nothing is
+     read with it until the person says it is them, and 入力し直す throws
+     the session away. */
+  const signIn = useCallback(async (id, { apply = true } = {}) => {
     if (IS_LOCAL) {
       const rr = (await S.get('roster')) || [];
       const c = (await S.get('cfg')) || DEFAULT_CFG;
@@ -3083,20 +3167,12 @@ export default function App() {
       const p = rr.find((x) => String(x.id) === id);
       if (!admin && !p) return { error: 'not_found' };
       const u = admin ? { admin: true, id, name: '健康対策委員会' } : { admin: false, ...p };
-      setUser(u); setTab(landingTab(u));
-      return { user: u };
+      return apply ? enter({ user: u }) : { user: u };
     }
     const r = await apiLogin(id);
     if (r.error) return r;
-    setUser(r.user);
-    setTab(landingTab(r.user));
-    if (r.user.admin) {
-      const [full, rr] = await Promise.all([S.get('cfg'), S.get('roster')]);
-      if (full) setCfg({ ...DEFAULT_CFG, ...full });
-      setRoster(rr || []);
-    }
-    return r;
-  }, []);
+    return apply ? enter(r) : r;
+  }, [enter]);
 
   /* The gate's answer. Recorded server-side against the session, so the
      screen cannot be dismissed by anything other than a stored choice. */
@@ -3203,7 +3279,7 @@ export default function App() {
           <Login
             onTrial={() => setShowTrial(true)}
             lang={lang} setLang={setLang}
-            onLogin={signIn} cfg={cfg}
+            onLogin={signIn} onEnter={enter} cfg={cfg}
             notice={expired ? 'expired' : null}
           />
         </div>

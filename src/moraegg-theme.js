@@ -129,6 +129,21 @@ export const MG_CSS = `
 .login.mg-door .fld input:focus{background:#fff;box-shadow:0 0 0 3px rgba(255,198,47,.55)}
 .login.mg-door .fld input::placeholder{color:#9AA7BC;font-weight:600}
 
+/* 社員番号の確認 — the name the number belongs to, between the box and
+   the way in. Plain and large: on this screen it is the one thing the
+   person is being asked to read. */
+.login.mg-door .login-who{
+  margin:2px 0 10px;padding:10px 13px 11px;border-radius:12px;
+  background:var(--mg-sky);border:1px solid var(--mg-line-b);
+}
+.login.mg-door .login-who>span{display:block;font-size:11px;font-weight:700;
+  color:#5B6B86}
+.login.mg-door .login-who b{display:block;margin:1px 0 4px;font-size:21px;
+  font-weight:900;color:var(--mg-navy);line-height:1.3}
+.login.mg-door .login-who p{margin:0;font-size:12px;font-weight:600;
+  color:#3E4F6E;line-height:1.5}
+.login.mg-door .fld input:disabled{background:#F4F6FA;color:#5B6B86}
+
 .login.mg-door .err{color:#B3261E;font-weight:800}
 .login.mg-door .notice{
   background:var(--mg-sky);border:1px solid var(--mg-line-b);border-radius:12px;
