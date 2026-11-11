@@ -1153,7 +1153,9 @@ function Login({ onLogin, onEnter, onTrial, lang, setLang, notice, cfg }) {
           {AT_EGG_DOOR && !who ? t('whoCheck') : t('login')}
         </button>
         {AT_EGG_DOOR && who && (
-          <button className="btn" disabled={busy} onClick={redo}>{t('whoRedo')}</button>
+          <button className="btn login-redo" disabled={busy} onClick={redo}>
+            {t('whoRedo')}
+          </button>
         )}
         {/* お試し登録 is the pedometer's: somebody outside the official
             participant list can try that and have their steps left out

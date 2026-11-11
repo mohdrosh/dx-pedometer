@@ -150,6 +150,10 @@ export const MG_CSS = `
 .login.mg-door .login-who p{margin:0;font-size:11.5px;font-weight:500;
   color:#3E4F6E;line-height:1.45}
 .login.mg-door .fld input:disabled{background:#F4F6FA;color:#5B6B86}
+/* 社員番号を入力し直す, under ログイン. The sign-in column has no gap of
+   its own — every other button in it carries its own margin — so without
+   this the two sit edge to edge and read as one control. */
+.login.mg-door .login-redo{margin-top:11px}
 
 .login.mg-door .err{color:#B3261E;font-weight:800}
 .login.mg-door .notice{
