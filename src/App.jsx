@@ -1089,11 +1089,21 @@ function Login({ onLogin, onTrial, lang, setLang, notice, cfg }) {
         {err && <div className="err">{err}</div>}
 
         <button className="btn primary big" disabled={busy} onClick={go}>{t('login')}</button>
-        <button className="btn trial-cta" onClick={onTrial}>{t('trialSignup')}</button>
+        {/* お試し登録 is the pedometer's: somebody outside the official
+            participant list can try that and have their steps left out
+            of the totals. モラエッグ has no such thing — eggs are either
+            shipped to you or they are not — so 佐野 asked for it off the
+            egg door. 2026/11/11. */}
+        {!AT_EGG_DOOR && (
+          <button className="btn trial-cta" onClick={onTrial}>{t('trialSignup')}</button>
+        )}
 
+        {/* 健康対策委員会 under the company name, likewise: the committee
+            runs the pedometer, and on the egg door it is a line nobody
+            there needs. */}
         <div className="login-foot">
           <span>{t('company')}</span>
-          <span>{t('moduleSub')}</span>
+          {!AT_EGG_DOOR && <span>{t('moduleSub')}</span>}
         </div>
       </div>
     </div>
