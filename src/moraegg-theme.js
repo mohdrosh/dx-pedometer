@@ -46,6 +46,13 @@ export const MG_CSS = `
   --mg-pop-s:0 1px 2px rgba(11,41,106,.05);
   font-family:"Zen Maru Gothic","Noto Sans JP","Hiragino Maru Gothic ProN",
     "Inter",system-ui,sans-serif;
+  /* Zen Maru Gothic ships 500, 700 and 900 — no 600 and no 800. Asked
+     for either, the browser smears the nearest one wider by itself, and
+     faux-bold on a rounded face is what made some lines look like a
+     different font. Off: a weight we do not have falls back to one we
+     do, as drawn. */
+  font-synthesis:none;
+  -webkit-font-synthesis:none;
 }
 
 /* The ground. It used to carry her printed dot screen at 19px, which is
@@ -133,15 +140,15 @@ export const MG_CSS = `
    the way in. Plain and large: on this screen it is the one thing the
    person is being asked to read. */
 .login.mg-door .login-who{
-  margin:2px 0 10px;padding:10px 13px 11px;border-radius:12px;
+  margin:0 0 9px;padding:7px 11px 8px;border-radius:11px;
   background:var(--mg-sky);border:1px solid var(--mg-line-b);
 }
-.login.mg-door .login-who>span{display:block;font-size:11px;font-weight:700;
+.login.mg-door .login-who>span{display:block;font-size:10.5px;font-weight:700;
   color:#5B6B86}
-.login.mg-door .login-who b{display:block;margin:1px 0 4px;font-size:21px;
-  font-weight:900;color:var(--mg-navy);line-height:1.3}
-.login.mg-door .login-who p{margin:0;font-size:12px;font-weight:600;
-  color:#3E4F6E;line-height:1.5}
+.login.mg-door .login-who b{display:block;margin:0 0 2px;font-size:18px;
+  font-weight:700;color:var(--mg-navy);line-height:1.35}
+.login.mg-door .login-who p{margin:0;font-size:11.5px;font-weight:500;
+  color:#3E4F6E;line-height:1.45}
 .login.mg-door .fld input:disabled{background:#F4F6FA;color:#5B6B86}
 
 .login.mg-door .err{color:#B3261E;font-weight:800}
