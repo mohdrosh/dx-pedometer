@@ -630,6 +630,14 @@ export const MG_CSS = `
   background:rgba(255,255,255,.72);font-size:12px;font-weight:700;
   color:var(--mg-navy);line-height:1.5}
 
+/* 「{d}お届け分のリクエストを受け付けています」 — the state of the site
+   today, in one line above the reader's own week. */
+.mg .eg-openfor{
+  margin:0 0 10px;padding:7px 13px 8px;border-radius:10px;
+  background:var(--mg-sun);color:var(--mg-navy);
+  font-size:13px;font-weight:900;line-height:1.5;
+}
+
 /* ---------------------------- あなたの今週 ------------------------------
    One card for the reader's own week: the verdict across the top in its
    own tint, the facts under it as a row of labelled values, the buttons

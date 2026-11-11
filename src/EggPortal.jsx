@@ -331,6 +331,16 @@ const L = {
 
 const DOW_JA = ['日', '月', '火', '水', '木', '金', '土'];
 const dow = (iso) => new Date(`${iso}T00:00:00Z`).getUTCDay();
+/* 11月25日（水）— her form when the date is inside a sentence, as
+   against the 11/25（水） the cards and tables use. */
+const mdLong = (iso, lang) => {
+  if (!iso) return '';
+  const [, m, d] = iso.split('-');
+  return lang === 'ja'
+    ? `${+m}月${+d}日（${DOW_JA[dow(iso)]}）`
+    : `${+m}/${+d}`;
+};
+
 const md = (iso, lang) => {
   if (!iso) return '';
   const [, m, d] = iso.split('-');
@@ -376,14 +386,17 @@ function HarvestVs({ offices, packs, lang, t, harvest = [], week0 = null, today 
   const got = Math.max(0, Number(packs) || 0);
   const asked = (offices || []).reduce((a, o) => a + Math.max(0, Number(o.asked) || 0), 0);
   const short = asked > got && got > 0;
-  /* The same comparison as a share of the week rather than a subtraction.
-     Two numbers side by side say which is bigger; they do not say by how
-     much without arithmetic, and 45% is the answer to the question people
-     are actually asking — is there still room for me. Clamped at both
-     ends: over-requested reads 残り0%, not a negative. */
-  const left = Math.max(0, got - asked);
-  const pct = got > 0 ? Math.round((left / got) * 100) : 0;
+  /* 残り{n}% was here, in front of the sentence. 佐野, 2026/11/11:
+     「残り○%は分かりにくいので、あと○パック余裕があります だけに」 —
+     a share of a number people do not hold in their head, beside the
+     count that says the same thing in packs. The bar is the share now,
+     and the sentence is the words. */
   const used = got > 0 ? Math.min(100, (asked / got) * 100) : 0;
+  /* Neither eggs nor requests: a week that has not started rather than
+     a week that came out even. 「残り0%・取れ高とリクエストがぴったり
+     同じです」 was arithmetically true of 0 against 0 and said nothing
+     anybody could use. */
+  const blank = got <= 0 && asked <= 0;
   /* The seven days behind the big number, as a strip rather than the
      staircase chart that used to have a section to itself. Same seven
      days — 丹波 types one figure per day and this is where they land. */
@@ -426,11 +439,11 @@ function HarvestVs({ offices, packs, lang, t, harvest = [], week0 = null, today 
         <i style={{ width: `${used}%` }} />
       </div>
       <div className="eg-hvs-foot">
-        <b className={short ? 'warn' : ''}>{mgs('remainPct', { n: String(pct) })}</b>
         <p className={short ? 'warn' : ''}>
-          {short ? mgs('short', { n: String(asked - got) })
-            : asked === got ? mgs('even')
-              : mgs('spare', { n: String(got - asked) })}
+          {blank ? mgs('noReqYet')
+            : short ? mgs('short', { n: String(asked - got) })
+              : asked === got ? mgs('even')
+                : mgs('spare', { n: String(got - asked) })}
         </p>
       </div>
 
@@ -641,7 +654,12 @@ function MyWeek({
   d, mine, status, lang, t, img, open, busy, onEdit, onCollect, notYet = false,
 }) {
   const mgs = (k, vars) => mg(k, lang, vars);
-  const name = mine?.office || d.offices.find((o) => o.minPacks > 0)?.name;
+  /* The reader's own office: the one their request names, or failing
+     that the one they registered. It used to fall back to the first
+     office with a minimum set, so somebody in 大阪 who had not asked yet
+     was told how 本社 was doing. */
+  const name = mine?.office || d.signup?.office
+    || d.offices.find((o) => o.minPacks > 0)?.name;
   const office = d.offices.find((x) => x.name === name);
   const min = Math.max(0, Number(office?.minPacks) || 0);
   const asked = Math.max(0, Number(office?.asked) || 0);
@@ -859,6 +877,15 @@ export default function EggPortal({ d, reload: load, lang, toast, screen = 'all'
             which made four stacked announcements of which three were about
             somewhere the reader is not going. The 事務所対決 beside this
             says how all of them are doing; this says how YOURS is. */}
+        {/* 受付中: which delivery these requests are for — the first
+            line of the column, because it is what the site is doing
+            today. 佐野, 2026/11/11. */}
+        {onRequest && d.open && (
+          <p className="eg-openfor">
+            {mgs('openFor', { d: mdLong(d.week.arrive, lang) })}
+          </p>
+        )}
+
         {/* あなたの今週: the verdict, the reader's own row, where to
             collect and by when — one card instead of four. */}
         <MyWeek
@@ -959,10 +986,7 @@ export default function EggPortal({ d, reload: load, lang, toast, screen = 'all'
           <div className="card eg-shut">
             <img src={img('about-to-lay')} alt="" />
             <div>
-              <strong>{mgs('preTitle')}</strong>
-              <p className="muted sm">
-                {mgs('preNote', { d: md(d.dates.requestsFrom, lang) })}
-              </p>
+              <strong>{mgs('preOpen', { d: md(d.dates.requestsFrom, lang) })}</strong>
             </div>
           </div>
         )}

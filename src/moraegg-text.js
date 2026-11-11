@@ -150,9 +150,14 @@ const PENDING_1110B = ['wkFirst', 'wkWeek', 'wkDueFirst', 'wkDue', 'wkTime',
    「申請の受付は終了しました」の2枚が出ていた。どちらも終わった週の話で、
    まだ始まってもいない。当方の文言:
 
-     preTitle  受付はまだ始まっていません
-     preNote   {d}から受付を開始します。 */
-const PENDING_1111 = ['preTitle', 'preNote'];
+     preOpen   リクエストは{d}から受け付けます  —— 佐野さんの文（11/11）
+     noReqYet  まだリクエストはありません       —— 同上。取れ高もリクエスト
+               も0のとき、「残り0%・取れ高とリクエストがぴったり同じです」
+               と出ていたため
+     openFor   {d}お届け分のリクエストを受け付けています —— 佐野さんの文。
+               受付中の期間、どの発送分を受け付けているのかを画面の上に
+               出す（受付前の1枚と同じ場所） */
+const PENDING_1111 = ['preOpen', 'noReqYet', 'openFor'];
 
 /* 2026/11/09: which shipment the 丹波 week belongs to, said on the screen.
    Both screens now count the same week, and on the days when that week is

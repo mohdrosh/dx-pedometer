@@ -122,7 +122,13 @@ export default function EggSettings({ d, reload, lang, toast, img }) {
         <p className="muted sm">{t('mailFixed')}</p>
         <label className="fld"><span>{t('privMail')}</span>
           <input
+            /* No autofill. 佐野, 2026/11/11: the box came up already
+               holding her work address — nothing writes it there, so it
+               was the browser filling in an <input type="email">. The
+               sub address is optional and starts empty. */
             type="email" value={priv} placeholder={t('privPh')} maxLength={120}
+            autoComplete="off" name="egg-sub-mail"
+
             onChange={(e) => { setPriv(e.target.value); setErr(''); }}
           />
         </label>

@@ -147,6 +147,23 @@ async function send(to, subject, text, from = MAIL_FROM) {
   return true;
 }
 
+/**
+ * サブ・メールアドレス, as it should be stored.
+ *
+ * Returns the address, '' for none, or false when it is not an address
+ * at all. The same address as the main one is stored as none: it is
+ * optional, it exists to reach somebody somewhere else, and a browser
+ * that autofills the work address into it would otherwise have every
+ * letter sent to the same inbox twice.
+ */
+function subMail(raw, mainMail) {
+  const v = String(raw || '').trim().slice(0, 120);
+  if (!v) return '';
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v)) return false;
+  const main = String(mainMail || '').split(/[;\n,]/)[0].trim();
+  return main && v.toLowerCase() === main.toLowerCase() ? '' : v;
+}
+
 /* ------------------------------ sessions --------------------------------- */
 /* Identity comes from this cookie and nothing else. The browser never sends
    its own employee number to say who it is — an earlier version trusted the
@@ -1067,10 +1084,8 @@ const server = http.createServer(async (req, res) => {
       /* 「会社のメールアドレスは変更できない」 — it comes from the record,
          never from the browser, so only the optional private one is read
          off the request at all. */
-      const priv = String(b?.privateMail || '').trim().slice(0, 120);
-      if (priv && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(priv)) {
-        return sendJson(res, 400, { error: 'bad_mail' });
-      }
+      const priv = subMail(b?.privateMail, (await getEmployee(sess.employeeId))?.email);
+      if (priv === false) return sendJson(res, 400, { error: 'bad_mail' });
 
       const live = eggTerms(cfg);
       await eggConsentSave(sess.employeeId, live.version);
@@ -1094,10 +1109,8 @@ const server = http.createServer(async (req, res) => {
       if (!EGG_OFFICES.includes(office)) return sendJson(res, 400, { error: 'bad_office' });
       const priv = b?.privateMail === undefined
         ? now.privateMail
-        : String(b.privateMail || '').trim().slice(0, 120);
-      if (priv && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(priv)) {
-        return sendJson(res, 400, { error: 'bad_mail' });
-      }
+        : subMail(b.privateMail, (await getEmployee(sess.employeeId))?.email);
+      if (priv === false) return sendJson(res, 400, { error: 'bad_mail' });
       await eggSignupSave(sess.employeeId, {
         office,
         privateMail: priv || null,

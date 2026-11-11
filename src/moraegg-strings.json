@@ -219,13 +219,17 @@
     "ja": "はじめての卵、お楽しみに！",
     "en": "Your first eggs — enjoy!"
   },
-  "preTitle": {
-    "ja": "受付はまだ始まっていません",
-    "en": "Requests are not open yet"
+  "preOpen": {
+    "ja": "リクエストは{d}から受け付けます",
+    "en": "Requests open on {d}"
   },
-  "preNote": {
-    "ja": "{d}から受付を開始します。",
-    "en": "Requests open on {d}."
+  "noReqYet": {
+    "ja": "まだリクエストはありません",
+    "en": "No requests yet"
+  },
+  "openFor": {
+    "ja": "{d}お届け分のリクエストを受け付けています",
+    "en": "Taking requests for the {d} delivery"
   },
   "shipList": {
     "ja": "発送一覧",
