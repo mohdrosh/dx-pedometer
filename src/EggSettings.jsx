@@ -85,11 +85,17 @@ export default function EggSettings({ d, reload, lang, toast, img }) {
 
       <section className="card">
         <h3 className="eg-q">{t('locTitle')}</h3>
-        <p className="muted sm">{t('locLead')}</p>
-        {/* 「変更すると、次のリクエストから反映されます」 — a note about
-            changing it, so it sits with the control rather than being
-            used as the heading. */}
-        <p className="muted sm">{t('locChange')}</p>
+        {/* 佐野, 2026/11/11, as three starred lines: what this setting
+            does, when to change it, and what happens if it is changed
+            after a request has gone in. The middle one is new — the two
+            that were here said where the eggs go and that a change takes
+            effect next week, and left out the sentence people actually
+            needed, which is to change it first. */}
+        <ul className="mg-set-notes">
+          <li>{t('locLead')}</li>
+          <li>{t('locBefore')}</li>
+          <li>{t('locChange')}</li>
+        </ul>
         {/* 「受取場所を変えたい人は、リクエストの前にマイ設定で変更する」 —
             so the deadline for changing it is said here, where it is
             changed, not only on the sign-up. */}

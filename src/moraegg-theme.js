@@ -340,6 +340,14 @@ export const MG_CSS = `
 
 /* ------------------------------ マイ設定 -------------------------------- */
 .mg .mg-set{max-width:680px}
+/* 受取場所の注意書き: her ＊ lines, hanging so the second line of a
+   long one lines up under the first word and not under the star. */
+.mg .mg-set-notes{list-style:none;margin:0 0 9px;padding:0;display:grid;gap:3px}
+.mg .mg-set-notes li{position:relative;padding-left:1.1em;font-size:12px;
+  font-weight:500;color:#5B6B86;line-height:1.55}
+.mg .mg-set-notes li::before{content:'＊';position:absolute;left:0;top:0;
+  color:#8894A8}
+
 .mg .mg-set-by{display:inline-block;margin:0 0 9px;font-size:12px;font-weight:900;
   color:var(--mg-navy);background:var(--mg-sun);border-radius:8px;padding:3px 12px}
 .mg .mg-set-agreed{margin:0 0 9px;font-size:13px;font-weight:900;color:var(--mg-green)}

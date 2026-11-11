@@ -860,8 +860,12 @@
     "en": "My settings"
   },
   "locChange": {
-    "ja": "変更すると、次のリクエストから反映されます。",
-    "en": "Changes apply from your next request."
+    "ja": "リクエスト後に事業所を変更した場合、次のリクエストから反映されます。",
+    "en": "If you change office after requesting, the change applies from your next request."
+  },
+  "locBefore": {
+    "ja": "受け取り場所を変更したい場合は、リクエストする前に、変更してください。",
+    "en": "If you want a different office, change it here before you make a request."
   },
   "termsSet": {
     "ja": "受け取りの条件",
