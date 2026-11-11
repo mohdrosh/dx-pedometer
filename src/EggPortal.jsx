@@ -1057,26 +1057,6 @@ export default function EggPortal({ d, reload: load, lang, toast, screen = 'all'
             drawing of a single week. */}
         <WeekCard d={d} lang={lang} t={t} img={img} first={d.firstRound} />
 
-        {/* これまでの申請 — the reader's own past weeks, under her
-            picture, because that column is otherwise one picture and a
-            column of cream. */}
-        {onRequest && !!d.history?.length && (
-          <>
-            <div className="sechead"><span>{t('history')}</span></div>
-            <div className="card">
-              <ul className="eg-hist">
-                {d.history.map((h) => (
-                  <li key={h.ship}>
-                    <span>{md(h.ship, lang)}</span>
-                    <span>{h.office}</span>
-                    <b>{h.got === null ? `${h.packs} ${t('pack')}` : `${h.got}/${h.packs}`}</b>
-                    <em>{t(`st_${h.status || 'received'}`)}</em>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </>
-        )}
       </div>
 
       )}
@@ -1149,6 +1129,27 @@ export default function EggPortal({ d, reload: load, lang, toast, screen = 'all'
           columns at the foot of the page: still here, and no longer in
           the way. */}
       <div className="eg-ref">
+        {/* これまでの申請 — the reader's own past weeks. Reference like
+            the two under it: worth having, not worth the top of the
+            page or the column beside the week. */}
+        {onRequest && !!d.history?.length && (
+          <>
+            <div className="sechead"><span>{t('history')}</span></div>
+            <div className="card">
+              <ul className="eg-hist">
+                {d.history.map((h) => (
+                  <li key={h.ship}>
+                    <span>{md(h.ship, lang)}</span>
+                    <span>{h.office}</span>
+                    <b>{h.got === null ? `${h.packs} ${t('pack')}` : `${h.got}/${h.packs}`}</b>
+                    <em>{t(`st_${h.status || 'received'}`)}</em>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </>
+        )}
+
         {/* 毎週のルール, the width of the page, above the printables.
             It has been in three places in two days: the right column,
             then the foot of the left one to fill the cream beside the
