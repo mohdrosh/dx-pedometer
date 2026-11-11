@@ -1045,23 +1045,6 @@ export default function EggPortal({ d, reload: load, lang, toast, screen = 'all'
           </>
         )}
 
-        {/* 毎週のルール, at the foot of this column. It spent a day at
-            the bottom of the page, which is the right place for it on a
-            week where this column is full — and the wrong one on a week
-            where the reader has already asked and the column ends after
-            two cards, leaving a screen of cream beside the week card.
-            Here it fills that, and the two cards the page is for are
-            still below it, the width of the page. */}
-        {onRequest && (
-          <>
-            <div className="sechead"><span>{mgs('rules')}</span></div>
-            <div className="card">
-              <ul className="eg-rules">
-                {['r1', 'r2', 'r3', 'r4'].map((k) => <li key={k}>{mgs(k)}</li>)}
-              </ul>
-            </div>
-          </>
-        )}
       </div>
 
       {/* ------------------------------ right ----------------------------- */}
@@ -1166,6 +1149,24 @@ export default function EggPortal({ d, reload: load, lang, toast, screen = 'all'
           columns at the foot of the page: still here, and no longer in
           the way. */}
       <div className="eg-ref">
+        {/* 毎週のルール, the width of the page, above the printables.
+            It has been in three places in two days: the right column,
+            then the foot of the left one to fill the cream beside the
+            week card, and now here — read once and then known, like the
+            sheet under it, and out of the way of the week. */}
+        {onRequest && (
+          <>
+            <div className="sechead"><span>{mgs('rules')}</span></div>
+            <div className="card">
+              {/* Two rules to a row from 760px: four of them are a card
+                  two lines deep rather than a column of four. */}
+              <ul className="eg-rules eg-r2">
+                {['r1', 'r2', 'r3', 'r4'].map((k) => <li key={k}>{mgs(k)}</li>)}
+              </ul>
+            </div>
+          </>
+        )}
+
         {/* 印刷して使えます — one sheet, one button.
 
             It was three cards, each a link to a .webp: three tabs, three
