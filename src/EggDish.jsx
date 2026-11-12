@@ -44,7 +44,8 @@ const L = {
   /* the front of the site */
   heroKicker: ['丹波の鶏舎から', 'From the coop in Tamba'],
   heroTitle: ['モラエッグ', 'Moraegg'],
-  heroSub: ['朝どれたまごを、みんなで。', 'Fresh eggs, shared.'],
+  /* 朝採れ卵 — the spelling on 佐野's 11/12 label. */
+  heroSub: ['朝採れ卵を、みんなで。', 'Fresh eggs, shared.'],
   capMorning: ['朝のお出迎え', 'Morning welcome'],
   capHarvest: ['今日の取れ高', "Today's eggs"],
   capLaying: ['産卵中…', 'Laying…'],

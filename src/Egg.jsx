@@ -30,7 +30,8 @@ import EggDish from './EggDish';
    destroy what people answered. */
 const L = {
   head: ['モラエッグ', 'Moraegg'],
-  tagline: ['丹波の鶏舎から、朝どれたまご', 'Fresh eggs from the coop in Tamba'],
+  /* 朝採れ卵 — the spelling on 佐野's 11/12 label. */
+  tagline: ['丹波の鶏舎から、朝採れ卵', 'Fresh eggs from the coop in Tamba'],
   back: ['マイページに戻る', 'Back to My Page'],
   logout: ['ログアウト', 'Sign out'],
   lede: ['丹波の鶏の卵を、正社員へ無料でお配りします。まずは希望をお聞かせください。',

@@ -496,7 +496,10 @@ const STR = {
   mypageEyebrow: ['モラブ阪神工業株式会社', 'Morabu Hanshin'],
   mypageHello: ['こんにちは！\nマイページへようこそ。', 'Hello! Welcome to your page.'],
   eggDoorTitle: ['モラエッグ', 'Moraegg'],
-  eggDoorEyebrow: ['丹波の鶏舎から、朝どれたまご', 'Fresh eggs from the coop in Tamba'],
+  /* 朝採れ卵, her spelling since the 11/12 artwork — the label she had
+     printed says 朝採れ卵 and the site saying 朝どれたまご beside it read
+     like two different schemes. */
+  eggDoorEyebrow: ['丹波の鶏舎から、朝採れ卵', 'Fresh eggs from the coop in Tamba'],
   eggDoorHello: ['こんにちは！\n今週の卵、どうぞ。', "Hello! This week's eggs are here."],
   thisMonth: ['今月度', 'Current month'],
   subWindow: ['提出期間', 'Submission'],
