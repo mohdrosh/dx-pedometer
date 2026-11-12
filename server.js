@@ -104,6 +104,11 @@ const MAIL_FROM = process.env.MAIL_FROM || 'kenkou@morabu.com';
    already works. */
 const EGG_MAIL_FROM = process.env.EGG_MAIL_FROM || 'admin_egg@morabu.com';
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || '';
+/* 不具合の報告 goes here. Separate from ADMIN_EMAIL because that address
+   also receives the Monday summary and the job notices, and whoever
+   fixes the site is not always whoever reads those. A comma-separated
+   list is fine. Unset, the reports go to ADMIN_EMAIL. */
+const REPORT_EMAIL = process.env.REPORT_EMAIL || process.env.ADMIN_EMAIL || '';
 const DRY_RUN = process.env.MAIL_DRY_RUN === '1' || !process.env.SMTP_HOST;
 const SERVE_STATIC = fs.existsSync(DIST);
 const SESSION_DAYS = Number(process.env.SESSION_DAYS || 7);
@@ -2143,13 +2148,48 @@ const server = http.createServer(async (req, res) => {
     if (url.pathname === '/api/feedback') {
       if (!sess) return deny(res);
       if (req.method === 'POST') {
+        if (rateLimited(`fb:${sess.sid}`, 10, 3600_000)) {
+          return sendJson(res, 429, { error: 'too_many' });
+        }
         const b = await readBody(req).catch(() => null);
         if (!b || !b.message) return sendJson(res, 400, { error: 'message_required' });
         /* Attributed from the session, never from the body. */
         const who = sess.isAdmin ? null : await getEmployee(sess.employeeId);
-        return sendJson(res, 200, await addFeedback({
+        const row = await addFeedback({
           ...b, name: who?.name || null, email: who?.email || null, employeeId: who?.id || null,
-        }));
+        });
+
+        /* The report reaches a person, not only the table.
+           2026/11/11: モラエッグ's 不具合の報告 asks the server to send it
+           rather than the browser. The pedometer's form mails through
+           EmailJS, from the page, off four VITE_ variables baked in at
+           build time — which is fine while they are set and silent when
+           they are not. This runs on the machine that already sends the
+           weekly letters, so whether a report arrives depends on the
+           same SMTP settings as everything else and on ADMIN_EMAIL,
+           which can list more than one address.
+
+           Only when the browser did not send it, so a pedometer report
+           that EmailJS already delivered is not sent twice. */
+        if (!b.sent && REPORT_EMAIL) {
+          const label = String(b.category || 'ご意見');
+          const body = [
+            `区分　　：${label}`,
+            `お名前　：${who?.name || '管理者'}`,
+            `社員番号：${who?.id || '－'}`,
+            `返信先　：${who?.email || '－'}`,
+            '',
+            String(b.message).slice(0, 4000),
+          ].join('\n');
+          try {
+            await send(REPORT_EMAIL, `【${label}】${String(b.message).slice(0, 30)}`, body);
+            row.mailed = true;
+          } catch (e) {
+            console.warn('feedback mail failed', e?.message || e);
+            row.mailed = false;
+          }
+        }
+        return sendJson(res, 200, row);
       }
       if (req.method === 'GET') {
         if (!sess.isAdmin) return deny(res, 403);

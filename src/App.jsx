@@ -836,8 +836,13 @@ function FeedbackButton({ user, toast, system = '万歩計実績表', bugOnly = 
       category: bugOnly ? `${system}：不具合` : f.category,
       message: f.message.trim(),
     };
+    /* モラエッグ's reports are sent by the server (see /api/feedback):
+       its mail does not depend on the four VITE_ variables being present
+       in whichever build is running, and ADMIN_EMAIL can hold more than
+       one address. The pedometer's form keeps EmailJS, which is what it
+       has always used. */
     let sent = false;
-    if (EMAILJS.service && EMAILJS.template && EMAILJS.key && EMAILJS.to) {
+    if (!bugOnly && EMAILJS.service && EMAILJS.template && EMAILJS.key && EMAILJS.to) {
       /* 区分 and 社員番号 have no field of their own in the shared template,
          so they go at the top of the body. */
       const body = [

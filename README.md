@@ -156,6 +156,16 @@ the app still works, but nothing is sent and nothing is auto-submitted.
 Each run records the date it ran, so restarting the server never sends twice.
 `ADMIN_EMAIL` receives a summary of both runs.
 
+### 不具合の報告 (Moraegg)
+
+The button at the bottom right of モラエッグ stores the report in `feedback`
+and mails it from the server over the same SMTP as everything else, to
+`REPORT_EMAIL` (comma-separated; falls back to `ADMIN_EMAIL`). It does not
+use EmailJS, so it does not depend on the `VITE_EMAILJS_*` variables being
+present in the build. The pedometer's ご意見 form still uses EmailJS, and the
+server only mails a report the browser did not already send. Both lists are
+read by an administrator at 管理 → ご意見; nobody else can see them.
+
 ### Consent
 
 The checkbox appears on the login screen the first time someone signs in and is
