@@ -476,6 +476,37 @@ function HarvestVs({ offices, packs, lang, t, harvest = [], week0 = null, today 
   );
 }
 
+/**
+ * 「姫路・京都・東京2パック、それ以外4パック」 — the offices grouped by
+ * the minimum that makes a run to them worth making.
+ *
+ * The largest group becomes それ以外, the rest are named. An office set
+ * to 0 ships every week whatever happens, which is a different thing
+ * from a small minimum and is said separately.
+ */
+function minGroups(rows, lang) {
+  const sep = lang === 'ja' ? '、' : ', ';
+  const join = lang === 'ja' ? '・' : ', ';
+  const by = new Map();
+  (rows || []).forEach((r) => {
+    const n = Math.max(0, Number(r.min) || 0);
+    if (!by.has(n)) by.set(n, []);
+    by.get(n).push(r.name);
+  });
+  if (!by.size) return '';
+  const every = by.get(0);
+  by.delete(0);
+  /* The biggest group is the one not worth naming. */
+  const groups = [...by.entries()].sort((a, b) => b[1].length - a[1].length);
+  const rest = groups.shift();
+  const out = groups
+    .sort((a, b) => a[0] - b[0])
+    .map(([n, names]) => `${names.join(join)}${packs(n, lang)}`);
+  if (rest) out.push(`${mg('minRest', lang)}${packs(rest[0], lang)}`);
+  if (every?.length) out.push(`${every.join(join)}${mg('minEvery', lang)}`);
+  return out.join(sep);
+}
+
 function OfficeRace({ offices, packs, lang, t, img }) {
   const mgs = (k, vars) => mg(k, lang, vars);
   const rows = (offices || []).map((o) => ({
@@ -551,11 +582,12 @@ function OfficeRace({ offices, packs, lang, t, img }) {
         })}
         {!ranked.length && <li className="muted"><span className="eg-vs-n">{t('noneYet')}</span></li>}
       </ul>
-      {/* The notch on each bar, explained once underneath. Her minNote
-          takes a single number and there is no single number any more —
-          本社 1, 姫路・京都 2, the rest 4 — so this is minNoteAll, which
-          she wrote for exactly that. */}
-      <p className="eg-nn">{mgs('minNoteAll')}</p>
+      {/* 最低発送パック数, built from the offices rather than written
+          out. 佐野, 2026/11/12: the sentence had the numbers inside it
+          —「本社1パック、姫路・京都2パック、それ以外4パック」— and the
+          offices had moved on without it; 本社 was on 4 by then and
+          東京 on 2. Her heading, the office settings' numbers. */}
+      <p className="eg-nn">{mgs('minNoteAll', { g: minGroups(rows, lang) })}</p>
     </div>
   );
 }

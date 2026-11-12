@@ -12,8 +12,16 @@
     "en": "Location (set in admin)"
   },
   "minNoteAll": {
-    "ja": "線がお届けラインです（本社1パック、姫路・京都2パック、それ以外4パック）",
-    "en": "The line marks the minimum (Head Office 1 pack, Himeji and Kyoto 2, all others 4)"
+    "ja": "最低発送パック数（{g}）",
+    "en": "Minimum to ship ({g})"
+  },
+  "minRest": {
+    "ja": "それ以外",
+    "en": "all others"
+  },
+  "minEvery": {
+    "ja": "は毎週発送",
+    "en": " every week"
   },
   "workNote": {
     "ja": "仕事用は1パックでも発送できますが、できるだけ2パック以上でお願いします。",

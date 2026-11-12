@@ -58,10 +58,11 @@ export const DEFAULT_CFG = {
     deadlineHour: 9,
     signupFrom: '2026-11-14',
     locDeadline: '2026-11-17',
-    /* 2026/11/11:「木曜19日から受付開始」. It was the 21st — the company
-       moved it two days earlier, so that people have the Thursday and
-       Friday as well as the weekend to ask before the 24th. */
-    requestsFrom: '2026-11-19',
+    /* 2026/11/12, 佐野:「リクエストは11/21（土）から受け付けます」. It was
+       moved to the 19th on the 11th and back on the 12th; the screen
+       prints whichever date is in the settings, so this is only what a
+       database with nothing in it starts from. */
+    requestsFrom: '2026-11-21',
     firstShip: '2026-11-23',
     /* 2026/11/05: both of the provisional settings here were answered by
        the company. The minimum is per office now (事業所の設定), and this

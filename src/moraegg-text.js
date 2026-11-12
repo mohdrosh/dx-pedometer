@@ -159,6 +159,17 @@ const PENDING_1110B = ['wkFirst', 'wkWeek', 'wkDueFirst', 'wkDue', 'wkTime',
                出す（受付前の1枚と同じ場所） */
 const PENDING_1111 = ['preOpen', 'noReqYet', 'openFor'];
 
+/* 2026/11/12, 佐野さん:「線がお届けラインです（本社1パック、姫路・京都
+   2パック、それ以外4パック）」→「最低発送パック数（姫路・京都・東京
+   2パック、それ以外4パック）」。前の文は数字が文の中に書いてあり、設定を
+   変えても直らないため、実際の事業所の設定から組み立てるようにした
+   （彼女の新しい見出しの中に入れる）。minRest／minEvery はその部品。
+
+     minNoteAll  最低発送パック数（{g}）   —— 佐野さんの文
+     minRest     それ以外                 —— 当方
+     minEvery    は毎週発送               —— 当方。最低パック数0の事業所 */
+const PENDING_1112 = ['minRest', 'minEvery'];
+
 /* 2026/11/09: which shipment the 丹波 week belongs to, said on the screen.
    Both screens now count the same week, and on the days when that week is
    not the calendar week the person typing has to be able to see it. Mine:
@@ -203,7 +214,7 @@ const PENDING_1109D = ['tShipFor', 'tNotIn'];
 export const pendingKeys = () => [
   ...PENDING_1105, ...PENDING_1106, ...PENDING_1108,
   ...PENDING_1109, ...PENDING_1109B, ...PENDING_1109C, ...PENDING_1109D,
-  ...PENDING_1110, ...PENDING_1110B, ...PENDING_1111,
+  ...PENDING_1110, ...PENDING_1110B, ...PENDING_1111, ...PENDING_1112,
 ];
 
 export function mg(key, lang = 'ja', vars = null) {
