@@ -121,6 +121,28 @@ async function shrink(file, edge, quality) {
   return new Promise((done) => canvas.toBlob(done, 'image/jpeg', quality));
 }
 
+/**
+ * 丹波の鶏舎から — her three pinned photographs.
+ *
+ * Pinned up rather than framed: a white edge, a soft shadow and a few
+ * degrees of tilt. Above the feed when the feed is empty, under it when
+ * it is not, so the page always opens on whichever of the two has
+ * something to show.
+ */
+function CoopPics({ img, t, foot = false }) {
+  return (
+    <div className={`mg-hero-pics${foot ? ' foot' : ''}`}>
+      {[['coop-door', 'capMorning', -5], ['dish-hero', 'capHarvest', 2],
+        ['coop-nest', 'capLaying', 5]].map(([file, cap, deg]) => (
+          <figure key={file} style={{ '--tilt': `${deg}deg` }}>
+            <img src={img(file)} alt="" />
+            <figcaption>{t(cap)}</figcaption>
+          </figure>
+      ))}
+    </div>
+  );
+}
+
 export default function EggDish({ lang, toast }) {
   const t = useCallback((k) => (HERS[k] ? mg(HERS[k], lang)
     : L[k] ? L[k][lang === 'ja' ? 0 : 1] || L[k][0] : k), [lang]);
@@ -266,15 +288,12 @@ export default function EggDish({ lang, toast }) {
           few degrees of tilt, which is what gives the Hay Day pages their
           hand-made feel. */}
       <div className="mg-hero">
-        <div className="mg-hero-pics">
-          {[['coop-door', 'capMorning', -5], ['dish-hero', 'capHarvest', 2],
-            ['coop-nest', 'capLaying', 5]].map(([file, cap, deg]) => (
-              <figure key={file} style={{ '--tilt': `${deg}deg` }}>
-                <img src={img(file)} alt="" />
-                <figcaption>{t(cap)}</figcaption>
-              </figure>
-          ))}
-        </div>
+        {/* The three coop photographs lead the page while there is
+            nothing else on it, and move to the foot once there is.
+            2026/11/12: they are 丹波's pictures, not anybody's cooking,
+            and a screen of them above the first dish somebody posted
+            put the page's own content below the fold. */}
+        {!d.posts.length && <CoopPics img={img} t={t} />}
 
         <img src={img('hug')} alt="" className="mg-hero-egg" />
 
@@ -429,6 +448,9 @@ export default function EggDish({ lang, toast }) {
           </button>
         ))}
       </div>
+
+      {/* 丹波の鶏舎から, at the foot of the dishes. */}
+      {!!d.posts.length && <CoopPics img={img} t={t} foot />}
 
       {/* ------------------------- one post, opened --------------------- */}
       {showing && (() => {

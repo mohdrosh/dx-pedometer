@@ -1552,6 +1552,9 @@ export const MG_CSS = `
    feel hand-made rather than laid out; the same three things here.
 ------------------------------------------------------------------------ */
 .mg-hero{display:grid;justify-items:center;margin:4px auto 20px;width:100%;max-width:820px}
+/* At the foot of the page, under the dishes: the same three pictures,
+   with room above them and none of the hero's pull. */
+.mg .mg-hero-pics.foot{max-width:820px;margin:26px auto 8px}
 .mg-hero-pics{display:grid;grid-template-columns:repeat(3,1fr);
   gap:4px;width:100%;align-items:start}
 .mg-hero-pics figure{
