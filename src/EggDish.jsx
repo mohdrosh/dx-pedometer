@@ -20,7 +20,7 @@ import {
   PHOTO_EDGE, THUMB_EDGE, PHOTOS_MAX,
   DISH_MAX, BODY_MAX, RECIPE_MAX, COMMENT_MAX, BADGES,
 } from './dish.js';
-import { mg } from './moraegg-text.js';
+import { mg, art } from './moraegg-text.js';
 
 /* 仕様書 6. The keys 佐野 has written are answered from her dictionary;
    what is left below is what she has not — the badges, the moderation
@@ -146,7 +146,7 @@ function CoopPics({ img, t, foot = false }) {
 export default function EggDish({ lang, toast }) {
   const t = useCallback((k) => (HERS[k] ? mg(HERS[k], lang)
     : L[k] ? L[k][lang === 'ja' ? 0 : 1] || L[k][0] : k), [lang]);
-  const img = (n) => `${import.meta.env.BASE_URL}moraegg/${n}.webp`;
+  const img = art;
   const pic = (id, thumb) => `${apiRoot()}/egg/photo?id=${id}${thumb ? '&thumb=1' : ''}`;
 
   const [d, setD] = useState(null);

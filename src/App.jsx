@@ -4,6 +4,7 @@ import MoraBot, { MORABOT_CSS } from './MoraBot';
 import KintaiTab, { KINTAI_CSS } from './Kintai';
 import KoutsuuhiTab, { KOUTSUUHI_CSS } from './Koutsuuhi';
 import EggTab, { EGG_CSS } from './Egg';
+import { ART_V } from './moraegg-text.js';
 import { inSubmissionWindow } from './submission-window.js';
 import { matches as fareMatches, parsePaste, mergeRows, cleanRow } from './fare-table';
 import { DEFAULT_RULES } from './kintai.js';
@@ -1145,7 +1146,7 @@ function Login({ onLogin, onEnter, onTrial, lang, setLang, notice, cfg }) {
             ? (
               <img
                 className="mbot mg-door-bot"
-                src={`${import.meta.env.BASE_URL}moraegg/bot-hello.webp`}
+                src={`${import.meta.env.BASE_URL}moraegg/bot-hello.webp?v=${ART_V}`}
                 alt=""
               />
             )

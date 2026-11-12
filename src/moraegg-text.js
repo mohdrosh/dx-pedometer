@@ -228,6 +228,14 @@ export function mg(key, lang = 'ja', vars = null) {
   return out;
 }
 
+/* 佐野's artwork, with the date of the last change on the end of the
+   URL. The files keep their names when she sends a new drawing, so
+   without this a browser that cached one yesterday shows it tomorrow;
+   with it the URL is a different URL and the new drawing arrives. Bump
+   it whenever a file in public/moraegg is replaced. */
+export const ART_V = '20261112';
+export const art = (n) => `${import.meta.env.BASE_URL}moraegg/${n}.webp?v=${ART_V}`;
+
 /** The eight offices, as 佐野 writes them, in her order. */
 export function officeList(lang = 'ja') {
   const row = STRINGS.offices;

@@ -18,7 +18,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { apiRoot } from './storage';
 import EggSignup from './EggSignup';
 import EggSettings from './EggSettings';
-import { mg } from './moraegg-text.js';
+import { mg, art } from './moraegg-text.js';
 import { MG_CSS } from './moraegg-theme';
 import EggPortal, { EggFarm, EggOffice, EggAdmin } from './EggPortal';
 import EggDish from './EggDish';
@@ -171,7 +171,7 @@ export default function EggTab({
 
   if (!ready) return <div className="mg-page"><div className="pad muted">…</div></div>;
 
-  const img = (name) => `${import.meta.env.BASE_URL}moraegg/${name}.webp`;
+  const img = art;
 
   /* Which screens this person has. Not a menu of everything with the
      irrelevant ones greyed out — a 丹波 registrar and an office contact do

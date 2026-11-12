@@ -22,7 +22,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { S, apiRoot } from './storage';
 import { EGG_TERMS_JA, HQ_OFFICE, TOKYO_OFFICE } from './egg.js';
-import { mg, packs } from './moraegg-text.js';
+import { mg, packs, art, ART_V } from './moraegg-text.js';
 import { mondayOf, shiftDay, shipDay, weekPlan } from './egg-week.js';
 import { PUBLIC_HOLIDAYS } from './holidays.js';
 
@@ -810,7 +810,7 @@ export default function EggPortal({ d, reload: load, lang, toast, screen = 'all'
   const [ticked, setTicked] = useState(false);
   const t = useCallback((k) => (HERS[k] ? mg(HERS[k], lang)
     : L[k] ? L[k][lang === 'ja' ? 0 : 1] || L[k][0] : k), [lang]);
-  const img = (n) => `${import.meta.env.BASE_URL}moraegg/${n}.webp`;
+  const img = art;
 
   const [busy, setBusy] = useState(false);
   const [form, setForm] = useState({ office: '', packs: 1, purpose: 'private', reason: '' });
@@ -1276,7 +1276,7 @@ export default function EggPortal({ d, reload: load, lang, toast, screen = 'all'
               </div>
               <a
                 className="btn primary sm"
-                href={`${import.meta.env.BASE_URL}moraegg/print-set.pdf`}
+                href={`${import.meta.env.BASE_URL}moraegg/print-set.pdf?v=${ART_V}`}
                 download="moraegg-print-set.pdf"
               >{t('printSetBtn')}</a>
             </div>
@@ -1594,7 +1594,7 @@ function EggShip({ lang, toast, t, onDone }) {
 export function EggFarm({ lang, toast }) {
   const t = useCallback((k) => (HERS[k] ? mg(HERS[k], lang)
     : L[k] ? L[k][lang === 'ja' ? 0 : 1] || L[k][0] : k), [lang]);
-  const img = (n) => `${import.meta.env.BASE_URL}moraegg/${n}.webp`;
+  const img = art;
   const [d, setD] = useState(null);
   const [busy, setBusy] = useState(false);
   /* day -> what is in its box, while it differs from the register. */

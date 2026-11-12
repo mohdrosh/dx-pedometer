@@ -718,8 +718,27 @@ function serveStatic(req, res, pathname) {
   if (!file.startsWith(DIST)) { res.writeHead(403); return res.end(); }
   if (!fs.existsSync(file) || fs.statSync(file).isDirectory()) file = path.join(DIST, 'index.html');
   const ext = path.extname(file);
-  const cache = ext === '.html' ? 'no-cache' : 'public, max-age=31536000, immutable';
-  res.writeHead(200, { 'Content-Type': MIME[ext] || 'application/octet-stream', 'Cache-Control': cache });
+  /* A year, and never ask again — but only for the files whose name
+     carries a hash of their contents, which is what Vite writes into
+     /assets. Everything else under dist is a name somebody chose:
+     佐野's artwork, the printables PDF, the logos. Those get new
+     contents under the same name, and 2026/11/12 is what that costs —
+     a new label shipped, and every browser that had seen the old one
+     went on showing it, because it had been told the file would never
+     change. They revalidate now: a 304 when nothing moved, the new
+     bytes when something did. */
+  const hashed = pathname.startsWith('/assets/');
+  const cache = ext === '.html' || !hashed
+    ? 'no-cache'
+    : 'public, max-age=31536000, immutable';
+  const stamp = fs.statSync(file).mtime.toUTCString();
+  const head = {
+    'Content-Type': MIME[ext] || 'application/octet-stream',
+    'Cache-Control': cache,
+    'Last-Modified': stamp,
+  };
+  if (req.headers['if-modified-since'] === stamp) { res.writeHead(304, head); return res.end(); }
+  res.writeHead(200, head);
   fs.createReadStream(file).pipe(res);
 }
 
