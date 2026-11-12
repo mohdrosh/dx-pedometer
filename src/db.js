@@ -625,6 +625,36 @@ export async function initSchema() {
     );
     if (u.rowCount) console.log('  Eggs     : requests open 2026-11-21 (was the 19th)');
   }
+
+  /* サブ・メールアドレス is optional and is meant to come up empty, with
+     only its placeholder showing. It came up holding the person's work
+     address instead: the browser autofilled the <input type="email"> on
+     the sign-up screen and the value was saved with the rest of the form.
+     The screens stopped offering autofill on 11/11 and the server now
+     drops a sub address equal to the main one, but the rows written
+     before that still carry it, and 佐野 is looking at one of them.
+
+     A sub address that merely repeats the main one sends nothing extra,
+     so clearing it loses no one any mail. Only an exact match goes; a
+     different address is a real second address. */
+  const subFix = await pool.query("SELECT 1 FROM config WHERE key = 'job:subMail1112'");
+  if (!subFix.rowCount) {
+    const u = await pool.query(
+      `UPDATE egg_signup s
+          SET private_mail = NULL, notify_priv = FALSE
+         FROM employees e
+        WHERE e.id = s.employee_id
+          AND s.private_mail IS NOT NULL
+          AND lower(btrim(s.private_mail))
+              = lower(btrim(split_part(regexp_replace(e.email, '[;\n]', ',', 'g'), ',', 1)))`,
+    );
+    await pool.query(
+      `INSERT INTO config (key, value) VALUES ('job:subMail1112', $1)
+       ON CONFLICT (key) DO NOTHING`,
+      [JSON.stringify({ at: Date.now(), rows: u.rowCount })],
+    );
+    if (u.rowCount) console.log(`  Eggs     : ${u.rowCount} sub address(es) cleared (same as the main one)`);
+  }
 }
 
 /* ------------------------- row <-> client shape -------------------------- */
