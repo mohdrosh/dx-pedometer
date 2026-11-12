@@ -218,7 +218,7 @@ const bodyRow = (ws, cells, right = []) => {
  * It is the same numbers as the pages behind it, arranged the other way
  * round, so the two can never disagree.
  */
-function summary(wb, { ship, arrive, pickup, made, harvest, missed }) {
+function summary(wb, { ship, arrive, arriveBy, pickup, made, harvest, missed }) {
   const ws = sheet(wb, '発送一覧', ship);
   /* The address column is wide and wraps. At 44 it was clipping —
      「…京町栄光ビルディン」 — and a cut address on the one sheet the
@@ -228,7 +228,15 @@ function summary(wb, { ship, arrive, pickup, made, harvest, missed }) {
   const head = line(ws, 'モラエッグ　発送一覧', { size: 16, bold: true, color: { argb: NAVY } });
   head.height = 24;
   line(ws, `${jpDate(ship)}発送分`, { size: 10, bold: true });
-  line(ws, `到着予定：${jpDate(arrive)}　受け取り期限：${jpDate(pickup)}`, { size: 9, color: { argb: SUB } });
+  /* 2026/11/12:「東京はさらに1日後」. Rather than a column on a table
+     whose widths are shared with every other sheet, the offices that do
+     not arrive with the rest are named on the line, and on an ordinary
+     week where they all land together there is nothing extra to read. */
+  const late = made
+    .filter((p) => arriveBy?.[p.office] && arriveBy[p.office] !== arrive)
+    .map((p) => `${p.office}は${jpDate(arriveBy[p.office])}`);
+  line(ws, `到着予定：${jpDate(arrive)}${late.length ? `（${late.join('、')}）` : ''}`
+    + `　受け取り期限：${jpDate(pickup)}`, { size: 9, color: { argb: SUB } });
   gap(ws, 12);
 
   headRow(ws, ['事業所', '所在地', 'パック数', '人数'], [3, 4]);
@@ -279,14 +287,14 @@ function summary(wb, { ship, arrive, pickup, made, harvest, missed }) {
  * one page per office.
  */
 export async function buildSheet({
-  ship = '', arrive = '', pickup = '', lines = [], list = [], offices = [],
-  harvest = null, missed = 0,
+  ship = '', arrive = '', arriveBy = null, pickup = '', lines = [], list = [],
+  offices = [], harvest = null, missed = 0,
 } = {}) {
   const wb = new ExcelJS.Workbook();
   wb.creator = 'モラエッグ';
   const taken = new Set();
   const made = pages({ lines, list, offices });
-  if (made.length) summary(wb, { ship, arrive, pickup, made, harvest, missed });
+  if (made.length) summary(wb, { ship, arrive, arriveBy, pickup, made, harvest, missed });
 
   for (const p of made) {
     const ws = sheet(wb, sheetName(p.office, taken), ship);
@@ -303,7 +311,8 @@ export async function buildSheet({
     if (p.extra > 0) {
       line(ws, `（リクエスト${p.requested}パック＋余り${p.extra}パック）`, { size: 9, color: { argb: SUB } });
     }
-    line(ws, `到着予定：${jpDate(arrive)}　受け取り期限：${jpDate(pickup)}`, { size: 9, color: { argb: SUB } });
+    line(ws, `到着予定：${jpDate(arriveBy?.[p.office] || arrive)}`
+      + `　受け取り期限：${jpDate(pickup)}`, { size: 9, color: { argb: SUB } });
     gap(ws, 12);
 
     headRow(ws, ['名前', 'パック数', '用途'], [2]);

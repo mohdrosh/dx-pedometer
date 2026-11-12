@@ -226,6 +226,12 @@ export async function initSchema() {
        for, a run to that office is not worth making; 0 means no minimum,
        which is what every office starts with. */
     ALTER TABLE egg_offices ADD COLUMN IF NOT EXISTS min_packs INTEGER NOT NULL DEFAULT 0;
+    /* 2026/11/12, 佐野:「到着は発送の翌日、東京はさらに1日後」. How many
+       nights the courier needs beyond the ordinary one to reach this
+       office. 0 for all but 東京, which is 1 — and a number rather than
+       a list of office names in the code, so the next distant office is
+       a field somebody fills in. */
+    ALTER TABLE egg_offices ADD COLUMN IF NOT EXISTS arrive_days INTEGER NOT NULL DEFAULT 0;
 
     /* 5.1 収穫登録.「10個入り1パックごとにボタンを押す」「同日中であれば取り消
        し・修正ができる」.
@@ -654,6 +660,26 @@ export async function initSchema() {
       [JSON.stringify({ at: Date.now(), rows: u.rowCount })],
     );
     if (u.rowCount) console.log(`  Eggs     : ${u.rowCount} sub address(es) cleared (same as the main one)`);
+  }
+
+  /* 2026/11/12, 佐野:「到着は発送の翌日、東京はさらに1日後」. The column
+     defaults to 0, which is right for six of the seven offices and wrong
+     for 東京, so 東京 is given its night once.
+
+     Once, like the minimums above: from here the number belongs to
+     whoever opens 事業所の設定, and a migration that reasserted itself
+     every restart would undo a correction typed in after this shipped. */
+  const lateFix = await pool.query("SELECT 1 FROM config WHERE key = 'job:arriveDays1112'");
+  if (!lateFix.rowCount) {
+    const u = await pool.query(
+      "UPDATE egg_offices SET arrive_days = 1 WHERE name = '東京' AND arrive_days = 0",
+    );
+    await pool.query(
+      `INSERT INTO config (key, value) VALUES ('job:arriveDays1112', $1)
+       ON CONFLICT (key) DO NOTHING`,
+      [JSON.stringify({ at: Date.now(), rows: u.rowCount })],
+    );
+    if (u.rowCount) console.log('  Eggs     : 東京 arrives a day after the other offices');
   }
 }
 
@@ -1143,7 +1169,8 @@ export async function eggOfficeRows(activeOnly = false) {
        contact existed, and is a person's details travelling for no
        reason now that one does not. The columns stay in the table; they
        just stop leaving it. */
-    `SELECT o.name, o.address, o.note, o.active, o.min_packs AS "minPacks"
+    `SELECT o.name, o.address, o.note, o.active, o.min_packs AS "minPacks",
+            o.arrive_days AS "arriveDays"
        FROM egg_offices o
       ${activeOnly ? 'WHERE o.active' : ''}
       ORDER BY o.name`,
@@ -1185,6 +1212,11 @@ export async function eggOfficeSave(patch = {}) {
   if ('note' in patch) put('note', patch.note || null);
   if ('active' in patch) put('active', patch.active !== false);
   if ('minPacks' in patch) put('min_packs', Math.max(0, Math.floor(Number(patch.minPacks) || 0)));
+  /* Capped at 7. A courier that needs more than a week is not a courier,
+     and a typo of 70 would put every arrival past its own pickup date. */
+  if ('arriveDays' in patch) {
+    put('arrive_days', Math.min(7, Math.max(0, Math.floor(Number(patch.arriveDays) || 0))));
+  }
   if (sets.length) {
     await pool.query(`UPDATE egg_offices SET ${sets.join(', ')} WHERE name = $1`, vals);
   }

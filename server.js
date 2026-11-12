@@ -521,9 +521,10 @@ const weekResult = (ship) => runAllot(ship, { dry: true });
 async function eggMail(ship, cfg, holidays) {
   const week = await weekResult(ship);
   if (week?.error) return { sent: 0, failed: 0, error: week.error };
-  const info = weekInfo(ship, cfg, holidays);
   const rows = await eggWeekRequests(ship);
   const offices = await eggOfficeRows(false);
+  /* With the offices, so 東京's letter carries 東京's arrival. */
+  const info = weekInfo(ship, cfg, holidays, offices);
 
   let sent = 0;
   let failed = 0;
@@ -551,7 +552,7 @@ async function eggMail(ship, cfg, holidays) {
       missed: !(r.got > 0),
       office: at,
       address: offices.find((x) => x.name === at)?.address || '',
-      arrive: info.arrive,
+      arrive: info.arriveBy?.[at] || info.arrive,
       pickup: info.pickup,
     });
     await post(companyEmail(person?.email), m);
@@ -997,7 +998,9 @@ const server = http.createServer(async (req, res) => {
 
       return sendJson(res, 200, {
         today: now.stamp,
-        week: weekInfo(ship, cfg, holidays),
+        /* With the offices, so the week card can print the date the
+           reader's own office sees — 東京's is a day behind the rest. */
+        week: weekInfo(ship, cfg, holidays, offices),
         /* 仕様書 4.6:「今週はお休みです」 is about the week people are
            living in, not the week they can request for — those are the
            same Monday most of the time and deliberately are not during a
@@ -1428,6 +1431,9 @@ const server = http.createServer(async (req, res) => {
       if ('note' in (b || {})) patch.note = String(b.note || '').slice(0, 200);
       if ('active' in (b || {})) patch.active = b.active !== false;
       if ('minPacks' in (b || {})) patch.minPacks = b.minPacks;
+      /* 到着 +N日 — how many nights past the ordinary one the courier
+         needs for this office. Clamped again in eggOfficeSave. */
+      if ('arriveDays' in (b || {})) patch.arriveDays = b.arriveDays;
       /* contactId and contactMail are no longer taken. 佐野, 2026/11/06:
          the parcel goes to the office and there is no 連絡担当者 to name,
          so the fields are off the screen — and off the route too, since
@@ -1483,7 +1489,7 @@ const server = http.createServer(async (req, res) => {
         ? String(q) : openShipMonday(now.stamp, now.h, cfg, holidays);
       const week = await weekResult(ship);
       if (week?.error) return sendJson(res, 409, { error: week.error });
-      const info = weekInfo(ship, cfg, holidays);
+      const info = weekInfo(ship, cfg, holidays, await eggOfficeRows(false));
 
       /* An office contact may print, but only their own office's page:
          the whole company's list is not theirs to hold. */
@@ -1493,8 +1499,12 @@ const server = http.createServer(async (req, res) => {
 
       const esc = (v) => String(v ?? '').replace(/[&<>"]/g, (c) => (
         { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+      /* 東京 is a night further out, so the arrival is a column on the
+         office rather than one date in the line above the table. */
+      const arriveAt = (office) => info.arriveBy?.[office] || info.arrive;
       const rows = lines.filter((l) => l.packs > 0).map((l) => `
         <tr><td>${esc(l.office)}</td><td class="n">${l.packs}</td>
+            <td>${esc(arriveAt(l.office))}</td>
             <td>${l.extra > 0 ? `リクエスト${l.requested}＋余り${l.extra}`
     : l.status === 'work' ? '仕事用のため発送' : ''}</td></tr>`).join('');
       const people = list.map((r) => `
@@ -1516,10 +1526,10 @@ const server = http.createServer(async (req, res) => {
   @media print{ body{margin:0} .noprint{display:none} }
 </style></head><body>
 <h1>モラエッグ 発送一覧</h1>
-<p class="sub">発送日 ${esc(info.shipDay)}／到着 ${esc(info.arrive)}／受け取り期限 ${esc(info.pickup)}
+<p class="sub">締切 ${esc(info.deadline.date)}／発送日 ${esc(info.shipDay)}／受け取り期限 ${esc(info.pickup)}
  ${week.final ? '' : '（確認中）'}</p>
 <h2>事業所ごとの発送数</h2>
-<table><tr><th>事業所</th><th>発送するパック数</th><th>内訳</th></tr>${rows}</table>
+<table><tr><th>事業所</th><th>発送するパック数</th><th>到着予定</th><th>内訳</th></tr>${rows}</table>
 <h2>受け取る人の一覧</h2>
 <table><tr><th>名前</th><th>事業所</th><th>用途</th><th>パック数</th></tr>${people}</table>
 <p class="noprint" style="margin-top:18px">
@@ -1559,14 +1569,20 @@ const server = http.createServer(async (req, res) => {
       if (week?.error) return sendJson(res, 409, { error: week.error });
       if (!week.final) return sendJson(res, 409, { error: 'not_final' });
 
-      const info = weekInfo(ship, cfg, holidays);
+      const offs = await eggOfficeRows(false);
+      const info = weekInfo(ship, cfg, holidays, offs);
       const book = await buildSheet({
-        ship,
+        /* The day the van actually goes, not the Monday that names the
+           week. They were the same date until 2026/11/12, which is why
+           the sheet used to be handed the week's own name and still
+           printed 「◯月◯日発送分」 correctly. */
+        ship: info.shipDay,
         arrive: info.arrive,
+        arriveBy: info.arriveBy,
         pickup: info.pickup,
         lines: week.lines || [],
         list: week.list || [],
-        offices: await eggOfficeRows(false),
+        offices: offs,
         /* For the 発送一覧 page at the front: the week's own figures, so
            the committee can see what was laid against what went out. */
         harvest: week.packs ?? null,
@@ -1606,17 +1622,17 @@ const server = http.createServer(async (req, res) => {
         ? String(q) : openShipMonday(now.stamp, now.h, cfg, holidays);
       const week = await weekResult(ship);
       if (week?.error) return sendJson(res, 409, { error: week.error });
-      const info = weekInfo(ship, cfg, holidays);
+      const info = weekInfo(ship, cfg, holidays, await eggOfficeRows(false));
       const mine = whoNow.admin || whoNow.farm ? null : whoNow.contactFor;
 
       /* A field is quoted and its own quotes doubled — a name with a
          comma in it would otherwise shift every column after it. */
       const cell = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
-      const rows = [['事業所', '名前', '用途', 'パック数', '到着日', '受け取り期限']];
+      const rows = [['事業所', '名前', '用途', 'パック数', '発送日', '到着日', '受け取り期限']];
       for (const r of (week.list || [])) {
         if (mine && !mine.includes(r.office)) continue;
         rows.push([r.office, r.name, r.purpose === 'work' ? '仕事用' : '私用',
-          r.got, info.arrive, info.pickup]);
+          r.got, info.shipDay, info.arriveBy?.[r.office] || info.arrive, info.pickup]);
       }
       /* CRLF and a byte-order mark, because this is opened in Excel on a
          Japanese Windows machine and without them every name is mojibake

@@ -23,7 +23,9 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { S, apiRoot } from './storage';
 import { EGG_TERMS_JA, HQ_OFFICE, TOKYO_OFFICE } from './egg.js';
 import { mg, packs, art, ART_V } from './moraegg-text.js';
-import { mondayOf, shiftDay, shipDay, weekPlan } from './egg-week.js';
+import {
+  mondayOf, shiftDay, shipDay, deadlineDay, arrivalDay, weekPlan,
+} from './egg-week.js';
 import { PUBLIC_HOLIDAYS } from './holidays.js';
 
 /* ---------------------------------------------------------------------------
@@ -100,8 +102,13 @@ const L = {
   thisWeek: ['今週', 'This week'],
   nextWeek: ['来週', 'Next week'],
   closed: ['申請の受付は終了しました', 'Requests for this week have closed'],
-  closedNote: ['次回の受付は発送日の翌日から始まります。',
-    'The next round opens the day after this shipment.'],
+  /* It used to read 「発送日の翌日から」, which was true while the van
+     went on the deadline day: the next round opened the morning after
+     it. Since 2026/11/12 the van goes a day later than the deadline, so
+     「発送日の翌日」 is two days late — the next week opens the moment
+     this one's deadline passes. */
+  closedNote: ['次回の受付は、締切が過ぎるとすぐに始まります。',
+    'The next round opens as soon as this deadline passes.'],
 
   /* 同意 */
   terms: ['受け取りの条件', 'Pickup terms'],
@@ -619,9 +626,14 @@ function WeekCard({ d, lang, t, img, first }) {
   const mgs = (k, vars) => mg(k, lang, vars);
   const w = d.week;
   if (!w?.deadline?.date) return null;
+  /* 「東京はさらに1日後」: the reader is shown the day their own office
+     sees, not the day the run reaches the nearer ones. Somebody who has
+     not registered yet has no office, and gets the ordinary date. */
+  const myOffice = d.signup?.office || null;
+  const arrive = (myOffice && w.arriveBy?.[myOffice]) || w.arrive;
   const rows = [
     ['ship', w.shipDay, mgs('wkShip')],
-    ['arrive', w.arrive, mgs('wkArrive')],
+    ['arrive', arrive, mgs('wkArrive')],
     ['pick', w.pickup, mgs('wkPick')],
   ];
   return (
@@ -1766,9 +1778,12 @@ export function EggFarm({ lang, toast }) {
               {/* Which shipment these seven days are for. The week here
                   and the week on the employees' page are the same week;
                   saying which one it is turns a figure that looked wrong
-                  on 2026/11/09 into one that explains itself. */}
-              {d.week?.ship && (
-                <i className="eg-hv-for">{mg('tShipFor', lang, { d: md(d.week.ship, lang) })}</i>
+                  on 2026/11/09 into one that explains itself.
+
+                  shipDay, not ship: the day the van goes and the Monday
+                  that names the week came apart on 2026/11/12. */}
+              {d.week?.shipDay && (
+                <i className="eg-hv-for">{mg('tShipFor', lang, { d: md(d.week.shipDay, lang) })}</i>
               )}
             </div>
             <div className="eg-hv-ask">
@@ -2073,8 +2088,8 @@ function EggSchedule({ cfg, save, lang, today }) {
                          nudge rather than four dates typed from nothing. */
                       ...(k === 'changed' ? {
                         ship: plan.ship || shipDay(w, PUBLIC_HOLIDAYS),
-                        deadline: plan.deadline || shipDay(w, PUBLIC_HOLIDAYS),
-                        arrive: plan.arrive || shiftDay(shipDay(w, PUBLIC_HOLIDAYS), 1),
+                        deadline: plan.deadline || deadlineDay(w, PUBLIC_HOLIDAYS),
+                        arrive: plan.arrive || arrivalDay(w, PUBLIC_HOLIDAYS),
                         pickup: plan.pickup || shiftDay(w, 4),
                       } : {}),
                       note: plan.note,
@@ -2257,6 +2272,18 @@ export function EggAdmin({ lang, toast, cfg = {}, setCfg, onDone, today = null }
                   type="number" min={0} max={99} defaultValue={o.minPacks ?? 0}
                   onBlur={(e) => Number(e.target.value) !== (o.minPacks ?? 0)
                     && put({ name: o.name, minPacks: Number(e.target.value) })}
+                />
+              </label>
+              {/* 到着 +N日. 2026/11/12, 佐野:「到着は発送の翌日、東京は
+                  さらに1日後」 — the extra night the courier needs for
+                  this office, 0 for one that arrives with the rest. A
+                  number here rather than 東京 written into the code, so
+                  the next distant office is a field somebody fills in. */}
+              <label className="fld eg-offc-m"><span>{mg('offLate', lang)}</span>
+                <input
+                  type="number" min={0} max={7} defaultValue={o.arriveDays ?? 0}
+                  onBlur={(e) => Number(e.target.value) !== (o.arriveDays ?? 0)
+                    && put({ name: o.name, arriveDays: Number(e.target.value) })}
                 />
               </label>
               {/* 連絡担当者（名前・メールアドレス）was here. 佐野,

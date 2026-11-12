@@ -1,19 +1,25 @@
 /* ============================================================================
    モラエッグ Phase 1 — 発送週と割当
 
-   佐野:「締切は毎週月曜の朝9時（月曜が祝日の場合は火曜の9時）」「締切日に丹波
-   から発送し、翌日事務所に到着」「受け取りは基本その週の金曜まで」
+   佐野:「締切は毎週月曜の朝9時（月曜が祝日の場合は火曜の9時）」「締切の翌日に
+   丹波から発送し、その翌日に事業所へ届きます（東京はさらに1日後）」「受け取り
+   は基本その週の金曜まで」
 
-   A week is named after the Monday the eggs ship. Everything else hangs off
-   that one date: requests close at 9am on it, the eggs go out the same day,
-   they arrive the next, and the Friday of that week is when uncollected
-   packs expire.
+   A week is named after the Monday it belongs to. Everything else hangs off
+   that one date: requests close at 9am on it, the eggs go out the next
+   morning, they arrive the morning after that — a day later again in 東京 —
+   and the Friday of that week is when uncollected packs expire.
+
+   The van used to go on the deadline day itself. 2026/11/12, 佐野:「宅配便
+   の集荷が11時ごろなので、月曜9時の締切では当日に出せません」 — two hours
+   between the deadline and the collection is not enough to count, pack and
+   label a shipment, so everything after the deadline moved one day down.
 
    This replaced an earlier rule — deadline the Friday BEFORE, at 17:00 —
    and the change is sharper than it sounds. Under the old one the week
    being requested for was always next week's; under this one, between
    midnight and 9am on a Monday, it is today's, and the eggs somebody asks
-   for at 08:55 are on a van by lunchtime.
+   for at 08:55 are on a van the next morning.
 
    Dates are plain YYYY-MM-DD strings, as they are in submission-window.js
    and for the same reason — the browser reads the laptop's clock and the
@@ -39,6 +45,29 @@ const shift = (s, days) => iso(new Date(at(s).getTime() + days * DAY));
 
 /** A day some number of days from another, as YYYY-MM-DD. */
 export const shiftDay = shift;
+
+/**
+ * `s`, or the next day that is neither a weekend nor a public holiday.
+ *
+ * 2026/11/12, 佐野:「宅配便の集荷が11時ごろなので、月曜9時の締切では当日に
+ * 出せません」. The van now goes the day AFTER the deadline, which puts
+ * both the shipping day and the arrival on days the old rule never had to
+ * think about — a Tuesday that is itself a holiday, or a week pushed far
+ * enough that the next day is a Saturday. Neither can take a parcel, so
+ * both step forward to a day that can.
+ *
+ * Bounded at ten, which no run of holidays in the Japanese calendar
+ * reaches, so a malformed holiday map cannot spin here.
+ */
+function workday(s, holidays = {}) {
+  let d = s;
+  for (let i = 0; i < 10; i += 1) {
+    const w = dowOf(d);
+    if (w !== 0 && w !== 6 && !holidays[d]) return d;
+    d = shift(d, 1);
+  }
+  return d;
+}
 
 /** 0 Sunday … 6 Saturday, read in UTC so it never drifts with the host. */
 export const dowOf = (s) => at(s).getUTCDay();
@@ -75,24 +104,47 @@ function hourOf(cfg) {
  *
  * 佐野:「締切は毎週月曜の朝9時（月曜が祝日の場合は火曜の9時）」, and
  * 「祝日の月曜は、締切・発送・到着が1日後ろへ」 — so one shift moves all
- * three, which is why they are all worked out from this one day rather
- * than each from the Monday.
+ * three, which is why they are all worked out from this one day.
  *
- * Only the Monday is checked. A run of holidays from Monday would push
- * further, but 振替休日 lands on a Monday after a Sunday holiday and the
- * Tuesday is then a working day; a Monday AND Tuesday both closed is the
- * new year shutdown, when nothing is being harvested anyway. An office
- * that does shut can be given a 休業日 in 設定, which is merged in here.
+ * This is now the fixed point of the week. It used to be shipDay, back
+ * when the van went on the deadline day itself and the deadline was
+ * read off it; 2026/11/12 turned that round (see shipDay), and the day
+ * the company commits to is the one everything else is measured from.
+ *
+ * Only the Monday is checked for a holiday. A run of holidays from
+ * Monday would push further, but 振替休日 lands on a Monday after a
+ * Sunday holiday and the Tuesday is then a working day; a Monday AND
+ * Tuesday both closed is the new year shutdown, when nothing is being
+ * harvested anyway.
  */
-export function shipDay(shipMonday, holidays = {}, cfg = null) {
+export function deadlineDay(shipMonday, holidays = {}, cfg = null) {
   /* 「日付を変更」: an administrator's date for this one week beats both
      the Monday and the holiday rule. It is stored against the Monday that
      names the week, so the week keeps its name however far the day moves
-     — otherwise a shipment pushed to the Wednesday would look like a
+     — otherwise a deadline pushed to the Wednesday would look like a
      different week to every row already filed under the Monday. */
+  const own = weekPlan(shipMonday, cfg).deadline;
+  if (own) return own;
+  return holidays[shipMonday] ? shift(shipMonday, 1) : shipMonday;
+}
+
+/**
+ * 発送日 — the day after the deadline.
+ *
+ * 2026/11/12, 佐野:「宅配便の集荷が11時ごろなので、月曜9時の締切では当日に
+ * 出せません。発送は締切の翌日、到着はその翌日にします」. Until then the
+ * deadline day and the shipping day were one date and this function was
+ * where it lived; the collection time made that impossible, so the van
+ * goes the next morning and everything downstream moves with it.
+ *
+ * Stepped past a weekend or a holiday, because the collection that could
+ * not happen at 11:00 on the deadline day cannot happen on a day nobody
+ * is there either.
+ */
+export function shipDay(shipMonday, holidays = {}, cfg = null) {
   const set = weekPlan(shipMonday, cfg).ship;
   if (set) return set;
-  return holidays[shipMonday] ? shift(shipMonday, 1) : shipMonday;
+  return workday(shift(deadlineDay(shipMonday, holidays, cfg), 1), holidays);
 }
 
 /**
@@ -133,13 +185,11 @@ export function weekOff(shipMonday, cfg) {
   return weekPlan(shipMonday, cfg).type === 'off';
 }
 
-/** 申請締切 — the shipping day, at the configured hour. */
+/** 申請締切 — the deadline day, at the configured hour. */
 export function requestDeadline(shipMonday, cfg, holidays = {}) {
-  /* A deadline of its own beats the shipping day, which is otherwise
-     also the deadline. The hour is the schedule's either way — 「月曜9時」
-     is the rule, and what a changed week moves is the day. */
-  const own = weekPlan(shipMonday, cfg).deadline;
-  return { date: own || shipDay(shipMonday, holidays, cfg), hour: hourOf(cfg) };
+  /* The hour is the schedule's — 「月曜9時」 is the rule, and what a
+     changed week moves is the day. */
+  return { date: deadlineDay(shipMonday, holidays, cfg), hour: hourOf(cfg) };
 }
 
 /**
@@ -194,9 +244,26 @@ export function dueShip(todayIso, nowHour, cfg, holidays = {}, firstShip = null)
   return null;
 }
 
-/** 到着日 — 「丹波から発送、翌日事務所に到着」. */
-export function arrivalDay(shipMonday, holidays = {}, cfg = null) {
-  return weekPlan(shipMonday, cfg).arrive || shift(shipDay(shipMonday, holidays, cfg), 1);
+/**
+ * 到着日 — the day after the van goes, and a day later again for an
+ * office the courier needs an extra night to reach.
+ *
+ * 2026/11/12, 佐野:「到着は発送の翌日、東京はさらに1日後」. The extra
+ * night is 東京's today, but it is not 東京's by name: it is a number on
+ * the office, 到着 +N日 in 事業所の設定, so a second distant office is a
+ * field somebody fills in rather than a line somebody has to come back
+ * here and write.
+ *
+ * `lateDays` is that number. The offset applies on top of an
+ * administrator's 「日付を変更」 arrival too — what they typed is when
+ * the run reaches the offices, and the far one is still a night behind
+ * the rest of it.
+ */
+export function arrivalDay(shipMonday, holidays = {}, cfg = null, lateDays = 0) {
+  const own = weekPlan(shipMonday, cfg).arrive;
+  const base = own || workday(shift(shipDay(shipMonday, holidays, cfg), 1), holidays);
+  const n = Math.max(0, Math.floor(Number(lateDays) || 0));
+  return n ? workday(shift(base, n), holidays) : base;
 }
 
 /**
@@ -271,15 +338,30 @@ export function pickupDeadline(shipMonday, holidays = {}, cfg = null) {
 }
 
 /** Everything about one shipping week, for a screen to print. */
-export function weekInfo(shipMonday, cfg, holidays) {
+export function weekInfo(shipMonday, cfg, holidays, offices = null) {
   const plan = weekPlan(shipMonday, cfg);
   return {
     ship: shipMonday,
     shipDay: shipDay(shipMonday, holidays, cfg),
+    /* The ordinary arrival, for a screen that is talking about the week
+       rather than about one office. */
     arrive: arrivalDay(shipMonday, holidays, cfg),
+    /* And the date each office actually sees, which for 東京 is a day
+       later. Only built when the caller hands over the offices — most
+       do not need it, and the ones that do (the letters, the 発送一覧,
+       the CSV) have the rows in hand already. */
+    arriveBy: offices
+      ? Object.fromEntries((offices || []).map((o) => [
+        o.name, arrivalDay(shipMonday, holidays, cfg, o.arriveDays),
+      ]))
+      : null,
     deadline: requestDeadline(shipMonday, cfg, holidays),
     pickup: pickupDeadline(shipMonday, holidays, cfg),
-    shifted: shipDay(shipMonday, holidays, cfg) !== shipMonday,
+    /* Whether the 祝日 note is drawn. It asks about the DEADLINE, not
+       the shipping day: since 2026/11/12 the van always goes a day
+       after the Monday, so a shipDay check would read 「1日後ろにずれて
+       います」 on every ordinary week. */
+    shifted: deadlineDay(shipMonday, holidays, cfg) !== shipMonday,
     /* What an administrator said about this week, so a screen can print
        「今週はお休みです」 and her notice without asking a second time. */
     plan: plan.type,

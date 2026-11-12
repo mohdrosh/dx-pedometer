@@ -6,7 +6,7 @@
    exceed the packs that were laid. */
 
 import {
-  dowOf, mondayOf, openShipMonday, shipDay, arrivalDay,
+  dowOf, mondayOf, openShipMonday, shipDay, deadlineDay, arrivalDay,
   requestDeadline, requestsOpen,
   pickupDeadline, weekInfo, missedFrom, statusOf, dueShip, weekPlan, weekOff,
   harvestWindow,
@@ -82,10 +82,33 @@ is('the setting is read from cfg when not passed',
 
 /* ------------------------- the day it all moves ------------------------- */
 
-is('eggs ship on the Monday', shipDay('2026-11-30', {}), '2026-11-30');
-is('or the Tuesday when the Monday is a holiday', shipDay('2026-11-23', HOL), '2026-11-24');
-is('and arrive the day after they ship', arrivalDay('2026-11-30', {}), '2026-12-01');
-is('which a holiday moves too', arrivalDay('2026-11-23', HOL), '2026-11-25');
+/* 2026/11/12: the courier collects around 11:00, so a 9am deadline
+   cannot be shipped the same day. The deadline is the fixed point now
+   and the van goes the morning after it. */
+is('the deadline is the Monday', deadlineDay('2026-11-30', {}), '2026-11-30');
+is('or the Tuesday when the Monday is a holiday', deadlineDay('2026-11-23', HOL), '2026-11-24');
+is('eggs ship the day after the deadline', shipDay('2026-11-30', {}), '2026-12-01');
+is('which the holiday moves too', shipDay('2026-11-23', HOL), '2026-11-25');
+is('and arrive the day after they ship', arrivalDay('2026-11-30', {}), '2026-12-02');
+is('holiday and all', arrivalDay('2026-11-23', HOL), '2026-11-26');
+
+/* 「東京はさらに1日後」 — an office's own number of extra nights. */
+is('東京 is a night behind the rest', arrivalDay('2026-11-23', HOL, null, 1), '2026-11-27');
+is('and on an ordinary week too', arrivalDay('2026-11-30', {}, null, 1), '2026-12-03');
+is('0 is the same date as everybody else', arrivalDay('2026-11-30', {}, null, 0), '2026-12-02');
+is('a nonsense offset is read as none', arrivalDay('2026-11-30', {}, null, 'soon'), '2026-12-02');
+
+/* Shipping lands on a Tuesday now, and a Tuesday can itself be a
+   holiday — nobody collects a parcel then, so it steps forward. */
+{
+  const TUE = { '2026-12-08': '祝' };
+  is('a holiday on the shipping day pushes it', shipDay('2026-12-07', TUE), '2026-12-09');
+  is('and the arrival with it', arrivalDay('2026-12-07', TUE), '2026-12-10');
+  is('but not the deadline', deadlineDay('2026-12-07', TUE), '2026-12-07');
+}
+/* Nor over a weekend: a Friday deadline would otherwise ship on the
+   Saturday to an office nobody is in. */
+is('a weekend is stepped over', shipDay('2026-12-04', {}), '2026-12-07');
 
 /* ---------------------------- the deadlines ------------------------------ */
 
@@ -142,17 +165,22 @@ is('a shifted shipping day does not shift the pickup',
 
 is('a normal week reads out whole',
   weekInfo('2026-11-30', null, {}),
-  { ship: '2026-11-30', shipDay: '2026-11-30', arrive: '2026-12-01',
+  { ship: '2026-11-30', shipDay: '2026-12-01', arrive: '2026-12-02', arriveBy: null,
     deadline: { date: '2026-11-30', hour: 9 }, pickup: '2026-12-04', shifted: false,
     plan: 'normal', note: '' });
 
-/* The first delivery, exactly as her 初回の受付スタート！ card prints it:
-   締切 11/24（火）朝9:00, 発送 11/24, 到着 11/25, 受け取り期限 11/27. */
+/* The first delivery, exactly as 佐野 wrote it on 2026/11/12:
+   締切 11/24（火）朝9:00, 発送 11/25, 到着 11/26（東京は 11/27）,
+   受け取り期限 11/27. */
 is('and the first week matches the card she is handing out',
   weekInfo('2026-11-23', null, HOL),
-  { ship: '2026-11-23', shipDay: '2026-11-24', arrive: '2026-11-25',
+  { ship: '2026-11-23', shipDay: '2026-11-25', arrive: '2026-11-26', arriveBy: null,
     deadline: { date: '2026-11-24', hour: 9 }, pickup: '2026-11-27', shifted: true,
     plan: 'normal', note: '' });
+is('and 東京 reads a day later on it',
+  weekInfo('2026-11-23', null, HOL, [{ name: '東京', arriveDays: 1 }, { name: '本社（神戸）' }])
+    .arriveBy,
+  { '東京': '2026-11-27', '本社（神戸）': '2026-11-26' });
 
 /* ------------------- 通常 / 日付を変更 / お休み --------------------------- */
 /* 仕様書 4.6. Three kinds of week, set by an administrator against the
@@ -184,7 +212,7 @@ is('a moved week names its day', weekPlan('2026-12-07', MOVED),
   is('and its pickup deadline', pickupDeadline('2026-12-07', {}, ALL), '2026-12-12');
   is('and the week reads out as all four',
     weekInfo('2026-12-07', ALL, {}),
-    { ship: '2026-12-07', shipDay: '2026-12-09', arrive: '2026-12-10',
+    { ship: '2026-12-07', shipDay: '2026-12-09', arrive: '2026-12-10', arriveBy: null,
       deadline: { date: '2026-12-08', hour: 9 }, pickup: '2026-12-12', shifted: true,
       plan: 'changed', note: '' });
 }
@@ -192,7 +220,7 @@ is('a moved week names its day', weekPlan('2026-12-07', MOVED),
   /* Only one of the four moved: the other three are still worked out the
      ordinary way, so nobody has to retype dates that have not changed. */
   const ONE = { egg: { deadlineHour: 9, weeks: { '2026-12-07': { arrive: '2026-12-11' } } } };
-  is('moving the arrival alone leaves the shipping day', shipDay('2026-12-07', {}, ONE), '2026-12-07');
+  is('moving the arrival alone leaves the shipping day', shipDay('2026-12-07', {}, ONE), '2026-12-08');
   is('and moves only the arrival', arrivalDay('2026-12-07', {}, ONE), '2026-12-11');
   is('with the pickup deadline still the Friday', pickupDeadline('2026-12-07', {}, ONE), '2026-12-11');
   is('and the week counts as changed', weekPlan('2026-12-07', ONE).type, 'changed');
@@ -201,9 +229,11 @@ is('a moved week names its day', weekPlan('2026-12-07', MOVED),
 is('the administrator’s date beats the Monday', shipDay('2026-12-07', {}, MOVED), '2026-12-09');
 is('and beats the holiday rule too',
   shipDay('2026-12-07', { '2026-12-07': 'x' }, MOVED), '2026-12-09');
-is('the deadline follows the day it was moved to',
-  requestDeadline('2026-12-07', MOVED, {}), { date: '2026-12-09', hour: 9 });
-is('as does the arrival', arrivalDay('2026-12-07', {}, MOVED), '2026-12-10');
+/* Moving the shipping day no longer moves the deadline with it: they
+   came apart on 2026/11/12 and 日付を変更 has a field for each. */
+is('a moved shipping day leaves the deadline where it was',
+  requestDeadline('2026-12-07', MOVED, {}), { date: '2026-12-07', hour: 9 });
+is('the arrival still follows the van', arrivalDay('2026-12-07', {}, MOVED), '2026-12-10');
 /* 受け取りは「その週の金曜まで」, which a moved shipping day does not change:
    the week still ends on the Friday. */
 is('but the pickup deadline is still the Friday', pickupDeadline('2026-12-07', {}), '2026-12-11');

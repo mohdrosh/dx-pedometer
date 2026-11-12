@@ -47,6 +47,10 @@
     "ja": "最低パック数",
     "en": "Minimum packs"
   },
+  "offLate": {
+    "ja": "到着 +日数",
+    "en": "Arrives +days"
+  },
   "offContact": {
     "ja": "連絡担当者",
     "en": "Contact person"
@@ -716,8 +720,8 @@
     "en": "The deadline is every Monday at 9:00 AM (Tuesday at 9:00 AM if Monday is a holiday)."
   },
   "r2": {
-    "ja": "締切日に丹波から発送し、翌日に事業所へ届きます。",
-    "en": "Eggs ship from Tamba on the deadline day and arrive at the office the next day."
+    "ja": "締切の翌日に丹波から発送し、その翌日に事業所へ届きます（東京はさらに1日後）。",
+    "en": "Eggs ship from Tamba the day after the deadline and reach the office the day after that (Tokyo one day later again)."
   },
   "r3": {
     "ja": "受け取りは、その週の金曜日までにお願いします。",
