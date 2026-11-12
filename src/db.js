@@ -602,6 +602,29 @@ export async function initSchema() {
     );
     if (r.rowCount) console.log(`  Consent  : ${r.rowCount} to be asked again`);
   }
+
+  /* 佐野 moved the first request day to 11/19 on the 11th and back to
+     11/21 on the 12th. The date lives in the settings, so changing the
+     default only reaches a database that starts empty — every running
+     deployment kept the 19th and went on printing
+     「リクエストは11月19日（木）から受け付けます」.
+
+     Only the 19th is rewritten, and only once. Any other date is a date
+     somebody chose in 管理, and this has no business touching it. */
+  const reqFix = await pool.query("SELECT 1 FROM config WHERE key = 'job:reqFrom1112'");
+  if (!reqFix.rowCount) {
+    const u = await pool.query(
+      `UPDATE config
+          SET value = jsonb_set(value, '{egg,requestsFrom}', '"2026-11-21"')
+        WHERE key = 'cfg' AND value->'egg'->>'requestsFrom' = '2026-11-19'`,
+    );
+    await pool.query(
+      `INSERT INTO config (key, value) VALUES ('job:reqFrom1112', $1)
+       ON CONFLICT (key) DO NOTHING`,
+      [JSON.stringify({ at: Date.now(), rows: u.rowCount })],
+    );
+    if (u.rowCount) console.log('  Eggs     : requests open 2026-11-21 (was the 19th)');
+  }
 }
 
 /* ------------------------- row <-> client shape -------------------------- */
