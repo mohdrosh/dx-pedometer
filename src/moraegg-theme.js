@@ -136,6 +136,22 @@ export const MG_CSS = `
 .login.mg-door .fld input:focus{background:#fff;box-shadow:0 0 0 3px rgba(255,198,47,.55)}
 .login.mg-door .fld input::placeholder{color:#9AA7BC;font-weight:600}
 
+/* While the name is on screen, the greeting is not. The card has one
+   question on it at that point — is this you — and the mascot with its
+   こんにちは costs 150px, which is what made the door scroll on a laptop
+   and on a small phone. It comes back with 社員番号を入力し直す. */
+.login.mg-door.mg-door-who .login-hello{display:none}
+.login.mg-door.mg-door-who .login-title{margin-bottom:18px}
+/* A short screen — an older phone, or a laptop with its browser chrome —
+   gets the same card with less air around it, so the door never scrolls
+   for the sake of 30px. */
+@media(max-height:700px){
+  .login.mg-door .login-inner{padding-top:16px;padding-bottom:18px}
+  .login.mg-door .login-top{margin-bottom:18px}
+  .login.mg-door .login-hello{margin:4px 0 6px}
+  .login.mg-door .login-title{margin-bottom:16px}
+}
+
 /* 社員番号の確認 — the name the number belongs to, between the box and
    the way in. Plain and large: on this screen it is the one thing the
    person is being asked to read. */

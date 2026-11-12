@@ -1120,7 +1120,7 @@ function Login({ onLogin, onEnter, onTrial, lang, setLang, notice, cfg }) {
      `mg` carries the colour variables and the rounded typeface, `mg-page`
      the cream ground and her dots. */
   return (
-    <div className={`login${AT_EGG_DOOR ? ' mg mg-page mg-door' : ''}`}>
+    <div className={`login${AT_EGG_DOOR ? ' mg mg-page mg-door' : ''}${AT_EGG_DOOR && who ? ' mg-door-who' : ''}`}>
       <div className="login-inner">
         <div className="login-top">
           <img className="logo" src={`${import.meta.env.BASE_URL}morabu-logo.png`} alt={t('company')} />
