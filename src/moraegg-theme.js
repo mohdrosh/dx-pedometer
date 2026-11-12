@@ -136,12 +136,44 @@ export const MG_CSS = `
 .login.mg-door .fld input:focus{background:#fff;box-shadow:0 0 0 3px rgba(255,198,47,.55)}
 .login.mg-door .fld input::placeholder{color:#9AA7BC;font-weight:600}
 
-/* While the name is on screen, the greeting is not. The card has one
-   question on it at that point — is this you — and the mascot with its
-   こんにちは costs 150px, which is what made the door scroll on a laptop
-   and on a small phone. It comes back with 社員番号を入力し直す. */
-.login.mg-door.mg-door-who .login-hello{display:none}
-.login.mg-door.mg-door-who .login-title{margin-bottom:18px}
+/* The greeting stays while the name is checked — it was hidden for a
+   day to win back 150px and the page was worse for it. The card gets
+   smaller instead: the robot shrinks, the air above and below it goes,
+   and everything else stays where it is. */
+.login.mg-door.mg-door-who .login-hello{margin:2px 0 4px}
+.login.mg-door.mg-door-who .login-hello .mg-door-bot{height:84px}
+.login.mg-door.mg-door-who .login-hello .bubble{font-size:13px;padding:8px 12px}
+.login.mg-door.mg-door-who .login-title{margin-bottom:16px}
+.login.mg-door.mg-door-who .login-title h1{font-size:26px}
+.login.mg-door.mg-door-who .login-inner{padding-top:20px;padding-bottom:22px}
+.login.mg-door.mg-door-who .login-top{margin-bottom:20px}
+@media(min-width:600px){
+  .login.mg-door.mg-door-who .login-hello .mg-door-bot{height:96px}
+}
+/* A short window — a laptop with its browser chrome, an older phone —
+   takes another notch off while the name is up, which is the only state
+   the card does not fit in. */
+@media(max-height:680px){
+  /* Smallest phones still in use: one more notch, and the bubble gives
+     up a line rather than the card giving up the page. */
+  .login.mg-door.mg-door-who .login-hello .mg-door-bot{height:60px}
+  .login.mg-door.mg-door-who .login-hello .bubble{font-size:12px;padding:6px 10px}
+  .login.mg-door.mg-door-who .login-foot{display:none}
+}
+@media(max-height:820px){
+  .login.mg-door.mg-door-who .login-inner{padding-top:14px;padding-bottom:16px}
+  .login.mg-door.mg-door-who .login-top{margin-bottom:12px}
+  .login.mg-door.mg-door-who .login-hello{margin:0 0 2px}
+  .login.mg-door.mg-door-who .login-hello .mg-door-bot{height:72px}
+  .login.mg-door.mg-door-who .login-title{margin-bottom:12px}
+  .login.mg-door.mg-door-who .login-title h1{font-size:24px}
+  .login.mg-door.mg-door-who .login-title h1::after{height:5px;margin-top:5px}
+  .login.mg-door.mg-door-who .fld{margin-bottom:8px}
+  .login.mg-door.mg-door-who .login-who{margin-bottom:8px;padding:6px 11px 7px}
+  .login.mg-door.mg-door-who .login-who b{font-size:17px}
+  .login.mg-door.mg-door-who .login-redo{margin-top:9px}
+  .login.mg-door.mg-door-who .login-foot{margin-top:14px}
+}
 /* A short screen — an older phone, or a laptop with its browser chrome —
    gets the same card with less air around it, so the door never scrolls
    for the sake of 30px. */
