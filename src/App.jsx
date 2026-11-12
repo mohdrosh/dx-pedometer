@@ -463,6 +463,12 @@ const STR = {
   promoted: ['本登録に変更しました', 'Now a full participant'],
   trialCount: ['お試し登録', 'Trial users'],
   feedback: ['ご意見・不具合の報告', 'Feedback'],
+  /* モラエッグ's button, 2026/11/11. Only the site's faults: questions and
+     wishes belong with 健康対策委員会, who are people and can answer. */
+  eggFb: ['不具合の報告', 'Report a problem'],
+  eggFbLead: ['モラエッグの画面で、うまく動かないところをお知らせください。担当者にだけ届きます（ほかの方には表示されません）。',
+    'Tell us about anything on Moraegg that is not working. It reaches the team only — nobody else sees it.'],
+  eggFbWhat: ['どこで、何が起きましたか', 'Where, and what happened'],
   fbSend: ['送信する', 'Send'],
   fbThanks: ['ありがとうございました。受け付けました。', 'Thank you — your feedback has been received.'],
   fbCategory: ['種類', 'Category'],
@@ -799,7 +805,21 @@ const EMAILJS = {
   to: import.meta.env.VITE_EMAILJS_TO || '',
 };
 
-function FeedbackButton({ user, toast }) {
+/**
+ * 不具合の報告 / ご意見.
+ *
+ * One widget on both sites. モラエッグ passes `system` and `bugOnly`:
+ * 佐野, 2026/11/11, asked for the pedometer's button in the same corner
+ * of the egg site, taking reports about the site and nothing else, going
+ * to the two of us and to nobody else's screen. So the 区分 picker is
+ * hidden there — every report from that site is 不具合 — and the subject
+ * line names the system, because both arrive in the same mailbox.
+ *
+ * Nothing about where they go changed: the same EmailJS template, the
+ * same recipients, the same feedback table behind it, and the list stays
+ * where it was, on 管理 → ご意見, which only an administrator can open.
+ */
+function FeedbackButton({ user, toast, system = '万歩計実績表', bugOnly = false }) {
   const t = useT();
   const [open, setOpen] = useState(false);
   const [f, setF] = useState({ category: '不具合', message: '' });
@@ -812,7 +832,8 @@ function FeedbackButton({ user, toast }) {
       name: user?.name || '',
       email: user?.email || '',
       employeeId: user ? String(user.id) : '',
-      category: f.category,
+      /* Which site it came from, in the one column the list shows. */
+      category: bugOnly ? `${system}：不具合` : f.category,
       message: f.message.trim(),
     };
     let sent = false;
@@ -827,11 +848,13 @@ function FeedbackButton({ user, toast }) {
       ].join('\n');
       try {
         await emailjs.send(EMAILJS.service, EMAILJS.template, {
-          subject: `【万歩計実績表】ご意見（${payload.category}）`,
+          subject: bugOnly
+            ? `【${system}】不具合の報告`
+            : `【${system}】ご意見（${payload.category}）`,
           /* The shared template puts this in the From Name, so the system
              comes first — otherwise the mail reads as if another system
              sent it. */
-          from_name: `万歩計実績表（${payload.name || '管理者'}）`,
+          from_name: `${system}（${payload.name || '管理者'}）`,
           /* An administrator has no address of their own, so replies go back
              to the committee rather than nowhere. */
           from_email: payload.email || EMAILJS.to.split(',')[0].trim(),
@@ -853,18 +876,22 @@ function FeedbackButton({ user, toast }) {
     toast(t('fbThanks'));
   };
 
+  const title = bugOnly ? t('eggFb') : t('feedback');
   return (
     <>
-      <button className="fab" onClick={() => setOpen(true)}>{t('feedback')}</button>
-      <Modal open={open} onClose={() => setOpen(false)} title={t('feedback')}>
-        <label className="fld"><span>{t('fbCategory')}</span>
-          <select value={f.category} onChange={(e) => setF({ ...f, category: e.target.value })}>
-            <option value="不具合">{t('fbBug')}</option>
-            <option value="要望・提案">{t('fbRequest')}</option>
-            <option value="その他">{t('fbOther')}</option>
-          </select>
-        </label>
-        <label className="fld"><span>{t('fbMessage')}</span>
+      <button className="fab" onClick={() => setOpen(true)}>{title}</button>
+      <Modal open={open} onClose={() => setOpen(false)} title={title}>
+        {bugOnly && <p className="muted sm">{t('eggFbLead')}</p>}
+        {!bugOnly && (
+          <label className="fld"><span>{t('fbCategory')}</span>
+            <select value={f.category} onChange={(e) => setF({ ...f, category: e.target.value })}>
+              <option value="不具合">{t('fbBug')}</option>
+              <option value="要望・提案">{t('fbRequest')}</option>
+              <option value="その他">{t('fbOther')}</option>
+            </select>
+          </label>
+        )}
+        <label className="fld"><span>{bugOnly ? t('eggFbWhat') : t('fbMessage')}</span>
           <textarea rows={6} value={f.message} onChange={(e) => setF({ ...f, message: e.target.value })} />
         </label>
         <button className="btn primary big" disabled={busy || !f.message.trim()} onClick={send}>
@@ -3324,6 +3351,11 @@ export default function App() {
             toast={toast}
             onBack={() => { showUrl(false); setMod('steps'); setTab(landingTab(user)); }}
             onSignOut={signOut}
+          />
+          {/* Same corner as the pedometer's. */}
+          <FeedbackButton
+            user={user.admin ? null : me} toast={toast}
+            system="モラエッグ" bugOnly
           />
           <Toast msg={toastMsg} />
         </div>

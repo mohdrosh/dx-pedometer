@@ -638,6 +638,29 @@ export const MG_CSS = `
   font-size:13px;font-weight:900;line-height:1.5;
 }
 
+/* 不具合の報告 — the same corner as the pedometer's button, in her
+   colours. Sun on navy text so it reads as part of this site rather than
+   the dark capsule the other one wears. */
+.mg .fab{
+  right:14px;bottom:16px;
+  background:var(--mg-sun);color:var(--mg-navy);border-radius:999px;
+  padding:9px 17px 10px;font-size:13px;font-weight:900;
+  box-shadow:0 2px 3px rgba(11,41,106,.08), 0 10px 22px -10px rgba(11,41,106,.45);
+}
+.mg .fab:hover{background:#FFD45E;color:var(--mg-navy)}
+/* The sheet it opens: the app's modal, wearing the egg card. Its header
+   is the pedometer's brand blue by default, which is the one colour on
+   this site that belongs to the other one. */
+.mg .sheet{border-radius:16px;overflow:hidden}
+.mg .sheet-h{background:var(--mg-navy);color:#fff}
+.mg .sheet-h strong{font-weight:900}
+.mg .sheet .x{color:rgba(255,255,255,.75)}
+.mg .sheet .x:hover{color:var(--mg-sun)}
+.mg .sheet .fld textarea{border-radius:11px;background:#FFFDF6;
+  border-color:var(--mg-line-s);color:var(--mg-navy)}
+.mg .sheet .fld textarea:focus{background:#fff;
+  box-shadow:0 0 0 3px rgba(255,198,47,.5)}
+
 /* ---------------------------- あなたの今週 ------------------------------
    One card for the reader's own week: the verdict across the top in its
    own tint, the facts under it as a row of labelled values, the buttons
