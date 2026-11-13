@@ -170,10 +170,12 @@ const L = {
   gotPacks: ['{n}パック確定', '{n} packs confirmed'],
   missedNote: ['今回は行き渡りませんでした。来週の抽選では優先されます。',
     'Not enough to go round this week. You get priority next week.'],
-  /* 「Received」 and not 「I collected it」: 佐野's English slides for the
-     11/14 meeting name the buttons, and 171 people will read the slide
-     before they ever see the screen. The deck is the thing that cannot
-     be edited after it is printed, so the screen matches the deck. */
+  /* 「Received」 and not 「I collected it」. 佐野, 2026/11/13, having
+     compared her English slides against the screen: she kept 「Send
+     request」 and 「Business (for customers)」 as the site had them and
+     changed the deck instead, and asked for this one to move the other
+     way. Shorter is better on a button somebody taps standing at a box
+     of eggs. */
   collect: ['受け取りました', 'Received'],
   history: ['これまでの申請', 'Your past requests'],
   whereTo: ['受け取り場所', 'Where to collect'],
