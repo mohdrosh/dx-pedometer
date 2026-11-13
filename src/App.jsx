@@ -235,6 +235,28 @@ const STR = {
   submitBotOk: ['全日 {n}歩を達成しています。完歩賞の対象です。', 'Every single day cleared {n} steps — you qualify for the bonus.'],
   submitBotNo: ['完歩賞の対象にはなりませんが、実績表の提出は必要です。', 'Not qualified for the bonus, but your record still needs submitting.'],
   cancel: ['キャンセル', 'Cancel'],
+
+  /* 社員リストの取り込み */
+  imp_title: ['社員リストから取り込む', 'Import from 社員リスト'],
+  imp_pick: ['Excelを選ぶ', 'Choose Excel file'],
+  imp_note: ['社員リスト（.xlsx）を読み込み、氏名・メールアドレス・性別を名簿に反映します。事業所・万歩計番号・同意はそのまま残ります。リストにない人は名簿から消えます。',
+    'Reads the 社員リスト (.xlsx) and updates name, email and gender. Office, pedometer number and consent are left alone. Anyone not in the list is removed.'],
+  imp_rows: ['リストの人数：{n}名', '{n} people in the list'],
+  imp_add: ['追加：{n}名', 'Added: {n}'],
+  imp_change: ['変更：{n}名', 'Changed: {n}'],
+  imp_drop: ['名簿から消える：{n}名', 'Removed: {n}'],
+  imp_apply: ['この内容で反映する', 'Apply'],
+  imp_confirm: ['追加{add}名・変更{change}名・削除{drop}名を反映します。\n\n削除する方の万歩計の記録・卵のリクエスト・料理の投稿も一緒に消え、元には戻せません。よろしいですか？',
+    'Add {add}, change {change}, remove {drop}.\n\nRemoving someone also deletes their pedometer records, egg requests and recipe posts. This cannot be undone. Continue?'],
+  imp_noSheet: ['このファイルは読めませんでした。社員リストの .xlsx を選んでください。',
+    'Could not read that file. Choose the 社員リスト .xlsx.'],
+  imp_noHeader: ['「社員番号」「氏名」の見出しが見つかりません。',
+    'No 社員番号 / 氏名 header row found.'],
+  imp_noColumn: ['「社員番号」「氏名」「メールアドレス」の列が必要です。',
+    'Needs the 社員番号, 氏名 and メールアドレス columns.'],
+  imp_dupId: ['社員番号 {id} が2回出てきます。リストを直してください。',
+    'Employee number {id} appears twice. Please fix the list.'],
+  imp_empty: ['人が1人も入っていません。', 'No people in that file.'],
   confirm: ['実績表を提出', 'Submit Record'],
   lockedNote: ['提出済みのため編集できません。修正が必要な場合は健康対策委員会へ連絡してください。', 'Locked after submission. Contact the Health Promotion Committee if you need a correction.'],
   missingNote: ['未入力の日があります。歩かなかった日は 0 を入力してください。', 'Some days are blank. Enter 0 for days you did not walk.'],
@@ -2477,6 +2499,114 @@ function RemindersAdmin({ cfg, roster, entries, y, m, onReload, toast, setBusy }
   );
 }
 
+/* ------------------------- 社員リストの取り込み --------------------------- */
+/* 佐野さん・吉成さんが管理している「社員リスト」の .xlsx を、そのまま名簿に
+   反映する。2026/11/13、605名ぶんの差し替えを頼まれて書いた。
+
+   なぜブラウザで読むのか。名簿は氏名とメールアドレスの固まりなので、サーバへ
+   送る前に中身を見られる方がよく、ファイルを AWS まで運ぶ手段（S3）はこの
+   インスタンスの権限では使えなかった。xlsx を読む道具は画面にもともと積んで
+   あるので、ここで読んでしまうのがいちばん短い。 */
+
+/* 「―」「ー」「－」「-」 はどれも「メールアドレスなし」として入っている。
+   見た目が似ているだけの別の文字なので、ひととおり拾う。 */
+const MAIL_DASH = /^[-\u2010-\u2015\uFF0D\u30FC\u2212]+$/;
+
+function sheetMail(raw) {
+  const v = String(raw || '').trim();
+  if (!v || MAIL_DASH.test(v)) return '';
+  const parts = v.split(/[;,\n]/).map((x) => x.trim()).filter((x) => x && x.includes('@'));
+  return [...new Set(parts)].join('; ');
+}
+
+const sheetName = (raw) => String(raw || '').replace(/[\s\u3000]+/g, ' ').trim();
+
+/** The sheet's rows, or an error code. 社員番号・氏名・メールアドレス・性別 only. */
+export function readRosterSheet(buf) {
+  const wb = XLSX.read(buf, { type: 'array' });
+  const ws = wb.Sheets['データベース'] || wb.Sheets[wb.SheetNames[0]];
+  if (!ws) return { error: 'noSheet' };
+  const grid = XLSX.utils.sheet_to_json(ws, { header: 1, raw: false, defval: '' });
+  /* 見出しの行を探す。いまの版は3行目だが、上に行が足されることがある。 */
+  const head = grid.findIndex((r) => r.includes('社員番号') && r.includes('氏名'));
+  if (head < 0) return { error: 'noHeader' };
+  const hdr = grid[head].map((v) => String(v).trim());
+  const at = (name) => hdr.indexOf(name);
+  const C = { id: at('社員番号'), name: at('氏名'), mail: at('メールアドレス'), sex: at('性別') };
+  if (C.id < 0 || C.name < 0 || C.mail < 0) return { error: 'noColumn' };
+
+  const rows = [];
+  const seen = new Set();
+  for (let i = head + 1; i < grid.length; i += 1) {
+    const r = grid[i];
+    const id = String(r[C.id] ?? '').trim();
+    if (!id) continue;
+    /* 同じ社員番号が二度出てきたら、どちらが正しいかはこちらでは決められない。 */
+    if (seen.has(id)) return { error: 'dupId', id };
+    seen.add(id);
+    const sex = String(r[C.sex] ?? '').trim();
+    rows.push({
+      id,
+      name: sheetName(r[C.name]),
+      email: sheetMail(r[C.mail]),
+      gender: sex === '男' || sex === '女' ? sex : '',
+    });
+  }
+  return rows.length ? { rows } : { error: 'empty' };
+}
+
+/* 名簿から落ちても消さない人。二人とも今の名簿に載っているので、いまは何も
+   しない——次の版で取り違えがあっても、運営している本人が締め出されることは
+   ないように置いてある。kenkou@morabu.com は名簿の行ではなく設定の
+   adminIds なので、そもそもここには現れない。 */
+const ROSTER_KEEP = new Set(['0208', '2407036']);
+
+/**
+ * What the sheet would do to the roster: the new list, and what changed.
+ *
+ * A merge and not a replacement. The sheet knows 氏名・メールアドレス・性別
+ * and nothing else; 事業所, 万歩計番号, 同意 and the モラエッグ の設定 were
+ * decided on this screen, and a monthly import must not quietly undo them.
+ */
+export function mergeRosterSheet(roster, rows) {
+  const byId = new Map(rows.map((r) => [r.id, r]));
+  const have = new Map(roster.map((p) => [String(p.id), p]));
+  const add = [];
+  const change = [];
+
+  const next = roster
+    .filter((p) => byId.has(String(p.id)) || ROSTER_KEEP.has(String(p.id)))
+    .map((p) => {
+      const r = byId.get(String(p.id));
+      if (!r) return p;
+      const bits = [];
+      if (p.name !== r.name) bits.push('氏名');
+      if ((p.email || '') !== r.email) bits.push('メール');
+      if (r.gender && (p.gender || '') !== r.gender) bits.push('性別');
+      if (p.active === false) bits.push('在籍');
+      if (!p.egg) bits.push('モラエッグ');
+      if (!bits.length) return p;
+      change.push({ id: p.id, name: r.name, bits });
+      return {
+        ...p, name: r.name, email: r.email, gender: r.gender || p.gender, active: true, egg: true,
+      };
+    });
+
+  for (const r of rows) {
+    if (have.has(r.id)) continue;
+    add.push(r);
+    next.push({
+      id: r.id, name: r.name, email: r.email, gender: r.gender || '男',
+      region: '', pedometer: '', active: true, egg: true, consent: false,
+    });
+  }
+
+  const drop = roster.filter(
+    (p) => !byId.has(String(p.id)) && !ROSTER_KEEP.has(String(p.id)),
+  );
+  return { next, add, change, drop };
+}
+
 /* ======================= Admin: participants & regions ==================== */
 function PeopleAdmin({ cfg, setCfg, roster, setRoster, toast }) {
   const t = useT();
@@ -2488,6 +2618,10 @@ function PeopleAdmin({ cfg, setCfg, roster, setRoster, toast }) {
   const [sortD, setSortD] = useState(1);
   const [edit, setEdit] = useState(null);
   const [newRegion, setNewRegion] = useState('');
+  /* 社員リストの取り込み。読んだ結果を持っておいて、件数を見せてから書く。 */
+  const [sheet, setSheet] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const pickRef = React.useRef(null);
 
   const save = async (next, quiet) => {
     setRoster(next); await S.set('roster', next);
@@ -2554,6 +2688,44 @@ function PeopleAdmin({ cfg, setCfg, roster, setRoster, toast }) {
       return rest;
     }), true);
     toast(t('promoted'));
+  };
+
+  /* 読むだけ。ここでは何も保存しない——605名の差し替えは、件数を見てから
+     決めるものなので、ファイルを選んだ瞬間に走ってよい処理ではない。 */
+  const readSheet = async (file) => {
+    if (!file) return;
+    setBusy(true);
+    try {
+      const buf = await file.arrayBuffer();
+      const got = readRosterSheet(new Uint8Array(buf));
+      if (got.error) {
+        toast(t(`imp_${got.error}`).replace('{id}', got.id || ''));
+        setSheet(null);
+        return;
+      }
+      setSheet({ file: file.name, ...mergeRosterSheet(roster, got.rows), rows: got.rows });
+    } catch {
+      toast(t('imp_noSheet'));
+      setSheet(null);
+    } finally {
+      setBusy(false);
+      if (pickRef.current) pickRef.current.value = '';
+    }
+  };
+
+  const applySheet = async () => {
+    if (!sheet) return;
+    /* 消える人のぶんは元に戻せない——万歩計の記録も一緒に消える。数を出した
+       うえで、もう一度だけ訊く。 */
+    const ask = t('imp_confirm')
+      .replace('{add}', String(sheet.add.length))
+      .replace('{change}', String(sheet.change.length))
+      .replace('{drop}', String(sheet.drop.length));
+    if (!window.confirm(ask)) return;
+    setBusy(true);
+    await save(sheet.next);
+    setBusy(false);
+    setSheet(null);
   };
 
   const deletedCount = roster.filter((p) => p.active === false).length;
@@ -2625,6 +2797,54 @@ function PeopleAdmin({ cfg, setCfg, roster, setRoster, toast }) {
           <span>{t('showDeleted')}{deletedCount ? `（${deletedCount}）` : ''}</span>
         </label>
         <p className="muted sm">{t('deletedNote')}</p>
+
+        {/* 社員リストの取り込み。佐野さん・吉成さんの .xlsx をそのまま
+            読み込んで、氏名・メールアドレス・性別を名簿に反映する。
+            事業所や万歩計番号はこの画面で決めたものなので触らない。 */}
+        <div className="pa-imp">
+          <div className="navrow wrap">
+            <b>{t('imp_title')}</b>
+            <button
+              className="btn" disabled={busy}
+              onClick={() => pickRef.current?.click()}
+            >{t('imp_pick')}</button>
+            <input
+              ref={pickRef} type="file" accept=".xlsx,.xls" style={{ display: 'none' }}
+              onChange={(e) => readSheet(e.target.files?.[0])}
+            />
+          </div>
+          <p className="muted sm">{t('imp_note')}</p>
+          {sheet && (
+            <div className="pa-imp-sum">
+              <b>{sheet.file}</b>
+              <ul>
+                <li>{t('imp_rows').replace('{n}', String(sheet.rows.length))}</li>
+                <li>{t('imp_add').replace('{n}', String(sheet.add.length))}</li>
+                <li>{t('imp_change').replace('{n}', String(sheet.change.length))}</li>
+                <li className={sheet.drop.length ? 'warn' : ''}>
+                  {t('imp_drop').replace('{n}', String(sheet.drop.length))}
+                </li>
+              </ul>
+              {/* 消える人は名前で出す。数だけ見て押せてしまうのがいちばん
+                  危ないので、誰が消えるのかを読めるようにしておく。 */}
+              {!!sheet.drop.length && (
+                <p className="sm pa-imp-drop">
+                  {sheet.drop.slice(0, 40).map((p) => p.name).join('、')}
+                  {sheet.drop.length > 40 ? ` …ほか${sheet.drop.length - 40}名` : ''}
+                </p>
+              )}
+              <div className="navrow wrap">
+                <button className="btn primary" disabled={busy} onClick={applySheet}>
+                  {t('imp_apply')}
+                </button>
+                <button className="btn ghost" disabled={busy} onClick={() => setSheet(null)}>
+                  {t('cancel')}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
         <div className="tablewrap">
           <table className="tbl">
             <thead>
@@ -4356,6 +4576,17 @@ a.btn{text-decoration:none;text-align:center;display:inline-block}
    1280 the panel sits under the list instead, full width, still not a
    dialog. */
 @media(min-width:1280px){
+  /* 社員リストの取り込み。名簿の表の上に置いてある——605名を差し替える
+     ボタンなので、押す前に件数と、消える人の名前が読めるようにしてある。 */
+  .pa-imp{margin:14px 0;padding:12px 13px;border:1px solid var(--line);
+    border-radius:10px;background:#F7F9FD}
+  .pa-imp > .navrow{align-items:center;gap:10px}
+  .pa-imp-sum{margin-top:10px;padding-top:10px;border-top:1px solid var(--line)}
+  .pa-imp-sum ul{margin:6px 0 8px;padding-left:18px}
+  .pa-imp-sum li{margin:2px 0;font-size:13px}
+  .pa-imp-sum li.warn{color:#B3261E;font-weight:600}
+  .pa-imp-drop{margin:0 0 10px;max-height:88px;overflow:auto;color:#5B6B86;
+    line-height:1.7}
   .pa-cols{display:grid;grid-template-columns:minmax(0,1fr) 400px;align-items:start}
   .pa-list{grid-column:1;min-width:0}
   .pa-edit{grid-column:2;min-width:0;position:sticky;top:64px;background:#fff;
