@@ -5,6 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#0C68B3" />
     <title>健康対策推進活動・万歩計実績表</title>
+    <!-- Without these the browser asks for /favicon.ico, does not find one,
+         and puts a grey globe next to 「健康対策推進活動」 in the tab. The
+         mark is the company's ＰＯ monogram on white; モラエッグ swaps in
+         佐野's 丹波のたまご seal at runtime, because the two are different
+         sites to the person looking at the tab strip. -->
+    <link rel="icon" type="image/png" sizes="32x32" href="%BASE_URL%icon-32.png" />
+    <link rel="icon" type="image/png" sizes="512x512" href="%BASE_URL%icon-512.png" />
+    <link rel="apple-touch-icon" href="%BASE_URL%icon-180.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link

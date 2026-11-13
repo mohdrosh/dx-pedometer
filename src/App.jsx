@@ -3519,6 +3519,26 @@ export default function App() {
       .catch(() => {});
   }, []);
 
+  /* The tab says which site this is. One page serves both, so the title
+     and the icon have to follow the screen rather than the file: somebody
+     with マイページ and モラエッグ open at once was looking at two tabs
+     reading 「健康対策推進活動・万歩計実績表」 beside the same mark.
+
+     2026/11/13, ロシャン: 「why this a broken globe lol」 — there was no
+     icon declared at all, so the browser asked for /favicon.ico, found
+     nothing, and drew its grey globe next to the company's name. */
+  useEffect(() => {
+    const egg = mod === 'egg';
+    document.title = egg ? 'モラエッグ｜丹波の朝採れ卵' : '健康対策推進活動・万歩計実績表';
+    const dir = `${import.meta.env.BASE_URL}${egg ? 'moraegg/' : ''}`;
+    document.querySelectorAll('link[rel="icon"], link[rel="apple-touch-icon"]')
+      .forEach((el) => {
+        const n = el.rel === 'apple-touch-icon' ? 180
+          : el.getAttribute('sizes') === '512x512' ? 512 : 32;
+        el.setAttribute('href', `${dir}icon-${n}.png`);
+      });
+  }, [mod]);
+
   const T = STR;
   const tt = (k) => (T[k] ? T[k][lang === 'ja' ? 0 : 1] || T[k][0] : k);
 
