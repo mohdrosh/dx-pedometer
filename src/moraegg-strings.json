@@ -588,8 +588,8 @@
     "en": "You’re signed up!"
   },
   "doneText": {
-    "ja": "初回のリクエストは11月21日（土）から受け付けます。締切は11月24日（火）朝9時です。",
-    "en": "Requests for the first delivery open on Sat, Nov 21. The deadline is Tue, Nov 24, 9:00 AM."
+    "ja": "初回のリクエストは11月21日（土）から受け付けます。\n締切は11月24日（火）朝9時です。",
+    "en": "Requests for the first delivery open on Sat, Nov 21.\nThe deadline is Tue, Nov 24, 9:00 AM."
   },
   "toHome": {
     "ja": "トップページへ",

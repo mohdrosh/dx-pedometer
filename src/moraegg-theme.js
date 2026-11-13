@@ -1131,6 +1131,7 @@ export const MG_CSS = `
    has to say. Amber rather than the blue of an ordinary card, because it
    is the one thing on the page nobody chose to read and everybody has to
    — and not red, which on this site means something went wrong. */
+.mg .mg-reg-done-t{white-space:pre-line}
 .mg .eg-notice{display:flex;align-items:flex-start;gap:11px;
   background:#FFF6DC;border-color:#F0C33C}
 .mg .eg-notice i{flex:none;width:22px;height:22px;border-radius:50%;

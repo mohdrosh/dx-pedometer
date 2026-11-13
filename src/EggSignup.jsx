@@ -69,7 +69,11 @@ export default function EggSignup({
       <div className="mg-reg mg-reg-done">
         <img src={img('hug')} alt="" />
         <h2>{t('doneTitle')}</h2>
-        <p>{t('doneText')}</p>
+        {/* 2026/11/13 佐野:「insert line break」. Two sentences, and on a
+            narrow card the second wrapped into the first at whatever
+            point the width happened to fall. The break is in the string
+            and pre-line keeps it. */}
+        <p className="mg-reg-done-t">{t('doneText')}</p>
         <button className="btn primary" onClick={() => onDone?.(null, true)}>{t('toHome')}</button>
       </div>
     );
@@ -96,7 +100,13 @@ export default function EggSignup({
       <header className="mg-reg-top">
         <h2>{t('regTitle')}</h2>
         <p>{t('regLead')}</p>
-        {dates?.locDeadline && <p className="mg-reg-by">{t('regDeadline')}</p>}
+        {/* 「受取場所の登録締切：11月17日（火）」 sat here until 2026/11/13,
+            when 佐野 walked through the sign-up and asked for it to go.
+            It is a deadline for changing an office, and this is the screen
+            where somebody is choosing one for the first time — the only
+            thing it can do here is make a first-time reader think they
+            have already missed something. マイ設定, where an office is
+            actually changed, still says it. */}
       </header>
 
       {/* Which of the three you are on. Numbered, because she numbered

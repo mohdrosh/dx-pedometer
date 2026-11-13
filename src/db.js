@@ -681,6 +681,30 @@ export async function initSchema() {
     );
     if (u.rowCount) console.log('  Eggs     : 東京 arrives a day after the other offices');
   }
+
+  /* 2026/11/13 佐野, twice:「最低発送パック数（姫路、京都は2パック、それ
+     以外は4パック）」. 本社（神戸）was on 1 and 東京 on 2 — the 東京 figure
+     is the one she gave on 11/06 and has now changed, and the 本社 figure
+     has been 1 since the table was first filled.
+
+     Only those two values, and only once. A minimum somebody has since
+     typed in 事業所の設定 is theirs, and 4 is not more correct than
+     whatever they chose — the point of this is the two she named, not a
+     number this file prefers. */
+  const minFix = await pool.query("SELECT 1 FROM config WHERE key = 'job:officeMin1113'");
+  if (!minFix.rowCount) {
+    const u = await pool.query(
+      `UPDATE egg_offices SET min_packs = 4
+        WHERE (name = '本社（神戸）' AND min_packs = 1)
+           OR (name = '東京' AND min_packs = 2)`,
+    );
+    await pool.query(
+      `INSERT INTO config (key, value) VALUES ('job:officeMin1113', $1)
+       ON CONFLICT (key) DO NOTHING`,
+      [JSON.stringify({ at: Date.now(), rows: u.rowCount })],
+    );
+    if (u.rowCount) console.log(`  Eggs     : ${u.rowCount} office minimum(s) raised to 4`);
+  }
 }
 
 /* ------------------------- row <-> client shape -------------------------- */

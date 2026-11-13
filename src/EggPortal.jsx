@@ -512,10 +512,14 @@ function minGroups(rows, lang) {
   /* The biggest group is the one not worth naming. */
   const groups = [...by.entries()].sort((a, b) => b[1].length - a[1].length);
   const rest = groups.shift();
+  /* 「姫路、京都は2パック」 — 佐野's own wording, 2026/11/13, down to the
+     は. She has written this sentence out twice now; matching it exactly
+     is cheaper than a third round. */
+  const is = lang === 'ja' ? 'は' : ' ';
   const out = groups
     .sort((a, b) => a[0] - b[0])
-    .map(([n, names]) => `${names.join(join)}${packs(n, lang)}`);
-  if (rest) out.push(`${mg('minRest', lang)}${packs(rest[0], lang)}`);
+    .map(([n, names]) => `${names.join(sep)}${is}${packs(n, lang)}`);
+  if (rest) out.push(`${mg('minRest', lang)}${is}${packs(rest[0], lang)}`);
   if (every?.length) out.push(`${every.join(join)}${mg('minEvery', lang)}`);
   return out.join(sep);
 }
@@ -717,8 +721,19 @@ function MyWeek({
      there is no verdict to give — the card is then the facts alone. */
   /* No verdict before the window opens: 「今週お休みです」 on a week
      nobody could ask for is the card answering its own question. */
+  /* And none before the week is decided. 佐野, 2026/11/13:「受付が始まって
+     いないのに結果が出ているのは少し違和感があります」 — she opened a week
+     on its first morning, nobody had asked yet, and the card read 「本社
+     （神戸）は今週お休みです・申請がパックに届きませんでした」. Nothing
+     had fallen short; nothing had happened at all.
+
+     Zero requests before the draw is 'wait', which says 「あと4パックで
+     本社（神戸）に届きます」 — the same sentence the office gets at one
+     pack or at three, and true at nought. 'miss' is a result, and a
+     result has to wait for the thing that produces it. */
+  const over = !!d.decided;
   const state = notYet || !office || !min ? null
-    : (min - asked <= 0 ? 'go' : (asked > 0 ? 'wait' : 'miss'));
+    : (min - asked <= 0 ? 'go' : (asked > 0 || !over ? 'wait' : 'miss'));
   const line = state && {
     go: [t('comingTo'), t('comingSub')],
     wait: [t('almost'), t('almostSub')],

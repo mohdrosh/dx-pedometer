@@ -57,7 +57,10 @@ export const SURVEY_OFFICES = [...EGG_OFFICES.slice(0, 6), '新長田', ...EGG_O
    尼崎技術研修所 4」. A starting point only — every one of them is editable
    per office in 事業所の設定, which is where the live number comes from. */
 export const OFFICE_MIN_DEFAULT = {
-  [HQ_OFFICE]: 1,
+  /* 2026/11/13 佐野:「最低発送パック数（姫路、京都は2パック、それ以外は
+     4パック）」. 本社 was 1 and 東京 was 2 — both are 4 now, and the two
+     that stay at 2 are the two she names. */
+  [HQ_OFFICE]: 4,
   姫路: 2,
   京都: 2,
   [TOKYO_OFFICE]: 4,
