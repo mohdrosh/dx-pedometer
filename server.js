@@ -183,10 +183,38 @@ function readCookie(req, name) {
   return null;
 }
 
-const cookieHeader = (sid, maxAgeSec) => [
-  `${COOKIE}=${sid}`, 'Path=/', 'HttpOnly', 'SameSite=Lax',
+const cookieAt = (sid, maxAgeSec, path) => [
+  `${COOKIE}=${sid}`, `Path=${path}`, 'HttpOnly', 'SameSite=Lax',
   `Max-Age=${maxAgeSec}`, ...(process.env.COOKIE_INSECURE === '1' ? [] : ['Secure']),
 ].join('; ');
+
+/* The session cookie is set at the root and nowhere else, so one header
+   signs somebody in.
+
+   Signing out takes more than one. A cookie whose Set-Cookie carried no
+   Path at all — which is what an earlier build sent — is stored by the
+   browser against the directory of the request that set it, so a sign-in
+   through /pedometer/api/login left one at /pedometer. The browser then
+   sends BOTH on every call, more specific path first, and the server
+   reads the first it is given. Clearing Path=/ leaves the other one
+   standing: the screen signs out, the next load finds the stale cookie
+   and signs straight back in, and the only way out is clearing the site
+   data by hand. 2026/11/13, ロシャン.
+
+   A delete has to match the path it was stored under, and the server
+   cannot see /pedometer — nginx strips it before the request arrives.
+   So the sign-out clears every path the app has ever been served from.
+   COOKIE_PATHS overrides the list where the prefix is something else;
+   clearing a path that holds nothing is a header the browser ignores. */
+const SIGNOUT_PATHS = [...new Set([
+  '/',
+  ...String(process.env.COOKIE_PATHS || '/pedometer,/pedometer/api,/egg')
+    .split(',').map((x) => x.trim()).filter(Boolean),
+])];
+
+const cookieHeader = (sid, maxAgeSec) => (maxAgeSec > 0
+  ? cookieAt(sid, maxAgeSec, '/')
+  : SIGNOUT_PATHS.map((path) => cookieAt('', 0, path)));
 
 /* Fixed-window counters, held in memory. Enough to stop an employee number
    being guessed by brute force; a restart clears them. */

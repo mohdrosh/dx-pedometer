@@ -235,6 +235,8 @@ const STR = {
   submitBotOk: ['全日 {n}歩を達成しています。完歩賞の対象です。', 'Every single day cleared {n} steps — you qualify for the bonus.'],
   submitBotNo: ['完歩賞の対象にはなりませんが、実績表の提出は必要です。', 'Not qualified for the bonus, but your record still needs submitting.'],
   cancel: ['キャンセル', 'Cancel'],
+  signOutFailed: ['ログアウトできませんでした。通信を確認して、もう一度お試しください。',
+    'Could not sign out. Check your connection and try again.'],
 
   /* 社員リストの取り込み */
   imp_title: ['社員リストから取り込む', 'Import from 社員リスト'],
@@ -3452,10 +3454,21 @@ export default function App() {
     return true;
   }, [user, lang, toast]);
 
+  /* Signing out leaves nothing behind. Clearing React state is not that:
+     the page keeps whatever the browser has cached of it, and a back
+     button or a restore from bfcache hands the old screen straight back.
+     So the session is ended on the server and then the browser is sent to
+     the door for real — one navigation, no state to go stale.
+
+     Only after the server has confirmed. A failed sign-out that clears
+     the screen anyway is how somebody walks away from a shared machine
+     believing they are out. */
   const signOut = useCallback(async () => {
-    if (!IS_LOCAL) await apiLogout();
+    const ok = IS_LOCAL || await apiLogout();
+    if (!ok) { toast(STR.signOutFailed[lang === 'ja' ? 0 : 1]); return; }
     setUser(null); setRoster([]); setTab('entry'); setExpired(false);
-  }, []);
+    if (!IS_LOCAL) window.location.assign(AT_EGG_DOOR ? EGG_URL : import.meta.env.BASE_URL);
+  }, [lang, toast]);
 
   /* A session lasts a week and a tab left open outlives it. Every call then
      comes back refused while the screen still looks signed in, so steps and
@@ -3545,9 +3558,27 @@ export default function App() {
     );
   }
 
+  const me = user.admin || !IS_LOCAL
+    ? user
+    : roster.find((p) => String(p.id) === String(user.id)) || user;
+
+  /* Is モラエッグ the screen this person is on? Asked once, because the
+     consent gate below and the render further down have to agree: a gate
+     that steps aside for an egg screen that then does not appear would
+     let somebody onto 万歩計 without ever being asked. */
+  const onEgg = mod === 'egg' && (user.admin || moduleOpen(cfg, me, 'egg'));
+
   /* Put before every other screen, so nobody reaches their steps without
-     having answered. Administrators are not participants and are not asked. */
-  if (!user.admin && !user.consentAsked) {
+     having answered. Administrators are not participants and are not asked.
+
+     Except on モラエッグ. 2026/11/13, ロシャン: signing in at the egg door
+     for the first time put 「自動提出への同意」 in front of the person —
+     a 万歩計 question, asked by a site about eggs, before they had seen
+     anything they came for. The two have their own consent, and モラエッグ
+     asks for its own at 参加登録; this one belongs to the pedometer and
+     waits until they are on it. Keyed on where they are now rather than
+     where they came in, so 「マイページに戻る」 still asks.  */
+  if (!user.admin && !user.consentAsked && !onEgg) {
     return (
       <LangCtx.Provider value={lang}>
         <div className="app theme-seiji">
@@ -3559,10 +3590,6 @@ export default function App() {
     );
   }
 
-  const me = user.admin || !IS_LOCAL
-    ? user
-    : roster.find((p) => String(p.id) === String(user.id)) || user;
-
   /* 佐野:「マイページの中ではなく、マイページからリンクで開く別ページにして
      ください。ただしデモのように『マイページに戻る』ボタンは残してください。」
 
@@ -3570,7 +3597,7 @@ export default function App() {
      it, with its own header and its own colours. Nothing of マイページ comes
      with it — no rail, no bottom nav, no period bar — and the way back is
      the one button she asked for. */
-  if (mod === 'egg' && (user.admin || moduleOpen(cfg, me, 'egg'))) {
+  if (onEgg) {
     return (
       <LangCtx.Provider value={lang}>
         <div className="app theme-seiji mg">

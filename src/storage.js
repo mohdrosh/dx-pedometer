@@ -260,8 +260,19 @@ export async function apiConsent(agree) {
   } catch { return null; }
 }
 
+/**
+ * End the session on the server. True when it actually ended.
+ *
+ * It used to swallow everything — "signing out locally is enough" — which
+ * is the one thing it is not: clearing the screen while the cookie lives
+ * on is a sign-out that lasts until the next reload, and looks to the
+ * person like the site ignored them. The caller is told, so it can say so.
+ */
 export async function apiLogout() {
-  try { await post('/api/logout'); } catch { /* signing out locally is enough */ }
+  try {
+    const r = await post('/api/logout');
+    return r.status === 200;
+  } catch { return false; }
 }
 
 /** Restores a session on reload. Returns null when not signed in. */
