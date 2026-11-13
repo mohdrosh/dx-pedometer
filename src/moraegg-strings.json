@@ -757,7 +757,7 @@
   },
   "pWork": {
     "ja": "仕事用（お客様用）",
-    "en": "Business (for customers)"
+    "en": "Business"
   },
   "reason": {
     "ja": "理由",
@@ -781,7 +781,7 @@
   },
   "send": {
     "ja": "リクエストする",
-    "en": "Send request"
+    "en": "Request"
   },
   "sentTitle": {
     "ja": "リクエストを受け付けました",

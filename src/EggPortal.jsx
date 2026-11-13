@@ -145,12 +145,21 @@ const L = {
 
   /* 状況 */
   mine: ['あなたの申請', 'Your request'],
-  st_received: ['受付済', 'Received'],
+  /* 受付済 read 'Received' in English until 2026/11/13, when the button
+     for 受け取りました became 'Received' to match 佐野's slides. Two
+     different things called the same word, one of them a status saying
+     「we have your request」 and the other a button saying 「I have the
+     eggs」, is worse than either wording on its own. 'Submitted' is what
+     this one actually means. */
+  st_received: ['受付済', 'Submitted'],
   /* 仕様書 4.7: between the allocation and 最終確定. Her word for it. */
   st_checking: ['確認中', 'Being checked'],
   st_confirmed: ['確定', 'Confirmed'],
   st_missed: ['落選', 'Not this week'],
-  st_picked: ['受け取り済み', 'Collected'],
+  /* And the state the button leaves behind takes the button's word:
+     pressing 'Received' and being told 'Collected' reads like two
+     different systems answering. */
+  st_picked: ['受け取り済み', 'Received'],
   /* 5.5:「期限までに受け取られなかったパックは、その事務所の判断で扱う。
      システムでは『期限切れ』として記録するのみ」 */
   st_expired: ['期限切れ', 'Expired'],
@@ -161,7 +170,11 @@ const L = {
   gotPacks: ['{n}パック確定', '{n} packs confirmed'],
   missedNote: ['今回は行き渡りませんでした。来週の抽選では優先されます。',
     'Not enough to go round this week. You get priority next week.'],
-  collect: ['受け取りました', 'I collected it'],
+  /* 「Received」 and not 「I collected it」: 佐野's English slides for the
+     11/14 meeting name the buttons, and 171 people will read the slide
+     before they ever see the screen. The deck is the thing that cannot
+     be edited after it is printed, so the screen matches the deck. */
+  collect: ['受け取りました', 'Received'],
   history: ['これまでの申請', 'Your past requests'],
   whereTo: ['受け取り場所', 'Where to collect'],
 
