@@ -63,6 +63,13 @@ export const DEFAULT_CFG = {
        prints whichever date is in the settings, so this is only what a
        database with nothing in it starts from. */
     requestsFrom: '2026-11-21',
+    /* 佐野, 2026/11/13:「11/18（水）〜11/20（金）はシステムの最終確認を行う
+       ため、一時的にアクセスできないことがあります」. Seeded here so a new
+       database starts with it; on a database that already exists it is
+       the 管理 field that carries it, and clearing that field — or
+       letting noticeUntil pass — takes it down without a deploy. */
+    notice: '11/18（水）〜11/20（金）はシステムの最終確認を行うため、一時的にアクセスできないことがあります。',
+    noticeUntil: '2026-11-20',
     firstShip: '2026-11-23',
     /* 2026/11/05: both of the provisional settings here were answered by
        the company. The minimum is per office now (事業所の設定), and this

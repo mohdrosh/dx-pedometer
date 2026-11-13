@@ -1010,6 +1010,20 @@ const server = http.createServer(async (req, res) => {
           const plan = weekPlan(m, cfg);
           return { ship: m, off: plan.type === 'off', note: plan.note };
         })(),
+        /* 佐野's own announcement, typed in 管理 and shown at the top of
+           everybody's 配布状況. Filtered here rather than on the screen:
+           an expired notice should not travel at all, and the date it
+           expires is the committee's business, not the browser's.
+
+           Compared on the Tokyo date, like every other date in this app
+           — the notice is written for a Japanese office and must not go
+           dark a day early because a laptop is set to London. */
+        notice: (() => {
+          const text = String(cfg.egg?.notice || '').trim();
+          const until = cfg.egg?.noticeUntil || null;
+          if (!text) return null;
+          return !until || String(until) >= tokyoNow().stamp ? text : null;
+        })(),
         /* Whether this is the very first shipment, so the screen can show
            her 初回の受付スタート card instead of the ordinary weekly one. */
         firstRound: !!cfg.egg?.firstShip && ship === String(cfg.egg.firstShip),

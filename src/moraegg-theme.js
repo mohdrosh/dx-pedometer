@@ -1127,6 +1127,17 @@ export const MG_CSS = `
 .mg .eg-where{display:grid;gap:0;line-height:1.5}
 .mg .eg-where b{font-size:14px}
 .mg .eg-where span,.mg .eg-where em{font-size:12.5px}
+/* お知らせ: the committee's own announcement, above everything the week
+   has to say. Amber rather than the blue of an ordinary card, because it
+   is the one thing on the page nobody chose to read and everybody has to
+   — and not red, which on this site means something went wrong. */
+.mg .eg-notice{display:flex;align-items:flex-start;gap:11px;
+  background:#FFF6DC;border-color:#F0C33C}
+.mg .eg-notice i{flex:none;width:22px;height:22px;border-radius:50%;
+  background:#F0C33C;color:#0B296A;font-style:normal;font-weight:700;
+  font-size:14px;line-height:22px;text-align:center}
+.mg .eg-notice p{margin:0;font-size:14px;line-height:1.65;font-weight:600}
+
 .mg .eg-shut{display:flex;align-items:center;gap:13px}
 .mg .eg-shut img{width:66px;height:66px;flex:none}
 .mg .eg-shut p{margin:0}

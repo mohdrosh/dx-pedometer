@@ -278,6 +278,12 @@ const L = {
   contact: ['担当者', 'Contact'],
   activeQ: ['受付中', 'Open'],
   minPacks: ['最低パック数（0なら毎週発送）', 'Minimum packs (0 ships every week)'],
+  notice: ['お知らせ', 'Announcement'],
+  noticePh: ['例：11/18（水）〜11/20（金）はシステムの最終確認を行うため、一時的にアクセスできないことがあります。',
+    'e.g. the site may be briefly unavailable while we finish checking it.'],
+  noticeNote: ['配布状況のいちばん上に表示されます。空欄にすると消えます。',
+    'Shown at the top of 配布状況. Clear the box to take it down.'],
+  noticeUntil: ['表示する最終日', 'Show until'],
   add: ['追加', 'Add'],
   save: ['保存', 'Save'],
   saved: ['保存しました', 'Saved'],
@@ -1032,6 +1038,18 @@ export default function EggPortal({ d, reload: load, lang, toast, screen = 'all'
             <div>
               <strong>{mgs('preOpen', { d: md(d.dates.requestsFrom, lang) })}</strong>
             </div>
+          </div>
+        )}
+
+        {/* 佐野's announcement. Not tied to a week and not tied to a
+            state — a planned outage is news whether or not requests
+            happen to be open — so it sits on its own above everything
+            the week has to say, and the committee takes it down by
+            clearing the field or letting its date pass. */}
+        {onRequest && d.notice && (
+          <div className="card eg-notice">
+            <i aria-hidden="true">！</i>
+            <p>{d.notice}</p>
           </div>
         )}
 
@@ -2393,6 +2411,27 @@ export function EggAdmin({ lang, toast, cfg = {}, setCfg, onDone, today = null }
           <input
             type="number" min={1} max={99} value={setVal('maxPacks', 10)}
             onChange={(e) => setEdit('maxPacks', e.target.value)}
+          />
+        </label>
+        {/* お知らせ. 佐野, 2026/11/13:「11/18〜11/20はシステムの最終確認を
+            行うため、一時的にアクセスできないことがあります」 — the first
+            of these, and the reason it is a field rather than a line of
+            markup: the next one will be written by her, on the day, with
+            nobody waiting on a deploy. 仕様書 4.6 already does this for
+            one week; this is the same thing for an announcement that is
+            not about a week at all. */}
+        <label className="fld wide"><span>{t('notice')}</span>
+          <textarea
+            rows={2} maxLength={200} value={setVal('notice', '')}
+            placeholder={t('noticePh')}
+            onChange={(e) => setEdit('notice', e.target.value)}
+          />
+          <small className="muted sm">{t('noticeNote')}</small>
+        </label>
+        <label className="fld"><span>{t('noticeUntil')}</span>
+          <input
+            type="date" value={setVal('noticeUntil', '')}
+            onChange={(e) => setEdit('noticeUntil', e.target.value)}
           />
         </label>
         <div className="eg-acts ad-set-save">
