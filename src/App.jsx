@@ -106,6 +106,12 @@ const AT_MYPAGE_DOOR = typeof window !== 'undefined'
 const AT_EGG_DOOR = typeof window !== 'undefined'
   && /(^|\/)egg\/?$/.test(window.location.pathname);
 
+/* 「マイページに戻る」 on モラエッグ, off while マイページ is being rebuilt.
+   2026/11/15, 佐野: the new three-group マイページトップ is not finished and
+   a half-built entrance is worse than none. Set back to true on the day it
+   goes live — nothing else has to change. */
+const MYPAGE_LINK = false;
+
 /* Whichever address this page was actually opened at is the one it keeps.
 
    Somebody who followed the QR to /egg must not have the bar rewritten to
@@ -3625,7 +3631,18 @@ export default function App() {
           <EggTab
             user={user} cfg={cfg} setCfg={setCfg} lang={lang} setLang={setLang}
             toast={toast}
-            onBack={() => { showUrl(false); setMod('steps'); setTab(landingTab(user)); }}
+            /* 佐野, 2026/11/15:「マイページの開発中は、モラエッグの『マイ
+               ページに戻る』リンクを一旦外す。作りかけのマイページを利用者に
+               見せないため」. Restored when the three-group マイページトップ
+               is ready — it is one condition, and MYPAGE_LINK is the switch.
+
+               Only for somebody who came in at /egg, which is everybody who
+               scanned the QR. マイページ still carries a 卵 tab, so a reader
+               who arrived from there has already seen マイページ and taking
+               their way back would shut them inside モラエッグ. */
+            onBack={MYPAGE_LINK || !AT_EGG_DOOR
+              ? () => { showUrl(false); setMod('steps'); setTab(landingTab(user)); }
+              : null}
             onSignOut={signOut}
           />
           {/* Same corner as the pedometer's. */}
