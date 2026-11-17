@@ -129,6 +129,19 @@ const MYPAGE_URL = (() => {
 const NEXT_MYPAGE = typeof window !== 'undefined'
   && new URLSearchParams(window.location.search).get('next') === 'mypage';
 
+/* 「?from=mypage」. モラエッグ is a page of its own, so arriving from マイ
+   ページ is a whole page load and the egg screen has no memory of where the
+   reader came from. Without that it hides its way back — 佐野's 11/15
+   request — and shuts them in: マイページ links to モラエッグ, モラエッグ
+   offers nothing, and the only way out is the address bar.
+
+   Her reason for hiding it was 「作りかけのマイページを利用者に見せない」.
+   Somebody arriving from マイページ has already seen it, so the reason does
+   not apply to them, exactly as it does not apply to somebody who got there
+   through the 万歩計's own 卵 tab. */
+const FROM_MYPAGE = typeof window !== 'undefined'
+  && new URLSearchParams(window.location.search).get('from') === 'mypage';
+
 /* 「マイページに戻る」 on モラエッグ, off while マイページ is being rebuilt.
    2026/11/15, 佐野: the new three-group マイページトップ is not finished and
    a half-built entrance is worse than none. Set back to true on the day it
@@ -3521,7 +3534,15 @@ export default function App() {
     const ok = IS_LOCAL || await apiLogout();
     if (!ok) { toast(STR.signOutFailed[lang === 'ja' ? 0 : 1]); return; }
     setUser(null); setRoster([]); setTab('entry'); setExpired(false);
-    if (!IS_LOCAL) window.location.assign(AT_EGG_DOOR ? EGG_URL : import.meta.env.BASE_URL);
+    /* Out by the door you came in by. Signing out of マイページ and landing
+       on the 万歩計's sign-in — a different site, with a different name on
+       it — reads as having been moved rather than having left. */
+    if (!IS_LOCAL) {
+      window.location.assign(
+        AT_MYPAGE || FROM_MYPAGE ? MYPAGE_URL
+          : AT_EGG_DOOR ? EGG_URL : import.meta.env.BASE_URL,
+      );
+    }
   }, [lang, toast]);
 
   /* A session lasts a week and a tab left open outlives it. Every call then
@@ -3717,9 +3738,11 @@ export default function App() {
                scanned the QR. マイページ still carries a 卵 tab, so a reader
                who arrived from there has already seen マイページ and taking
                their way back would shut them inside モラエッグ. */
-            onBack={MYPAGE_LINK || !AT_EGG_DOOR
-              ? () => { showUrl(false); setMod('steps'); setTab(landingTab(user)); }
-              : null}
+            onBack={FROM_MYPAGE
+              ? () => window.location.assign(MYPAGE_URL)
+              : (MYPAGE_LINK || !AT_EGG_DOOR
+                ? () => { showUrl(false); setMod('steps'); setTab(landingTab(user)); }
+                : null)}
             onSignOut={signOut}
           />
           {/* Same corner as the pedometer's. */}

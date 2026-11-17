@@ -108,9 +108,16 @@ function Menu({ m, lang, base }) {
   if (soon) return <div className="mp-m soon">{inner}</div>;
 
   /* 社内ページは同じタブ、外部サイトは別タブ。戻るボタンで戻れるものと、
-     戻ってこられないものを同じ扱いにしない。 */
+     戻ってこられないものを同じ扱いにしない。
+
+     モラエッグには「?from=mypage」を付ける。別のページなので、付けないと
+     向こうはここから来たことを知らず、「マイページに戻る」を隠したまま
+     ——リンクで送り出しておいて帰り道がない、ということになる。万歩計には
+     付けない：仕様書 3「万歩計のサイト自体は、既存の URL・画面・ログイン・
+     マニュアルを変更しない」. */
+  const to = m.id === 'egg' ? `${m.link}?from=mypage` : m.link;
   const href = m.linkType === 'internal' && m.link.startsWith('/')
-    ? `${base.replace(/\/$/, '')}${m.link}`.replace(/^\/\//, '/')
+    ? `${base.replace(/\/$/, '')}${to}`.replace(/^\/\//, '/')
     : m.link;
   return (
     <a
