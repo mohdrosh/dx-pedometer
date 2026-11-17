@@ -254,8 +254,8 @@ const STR = {
   /* 社員リストの取り込み */
   imp_title: ['社員リストから取り込む', 'Import from 社員リスト'],
   imp_pick: ['Excelを選ぶ', 'Choose Excel file'],
-  imp_note: ['社員リスト（.xlsx）を読み込み、氏名・メールアドレス・性別を名簿に反映します。事業所・万歩計番号・同意はそのまま残ります。リストにない人は名簿から消えます。',
-    'Reads the 社員リスト (.xlsx) and updates name, email and gender. Office, pedometer number and consent are left alone. Anyone not in the list is removed.'],
+  imp_note: ['社員リスト（.xlsx）を読み込み、氏名・メールアドレス・性別・区分（外勤／内勤）・国籍を名簿に反映します。事業所・万歩計番号・同意はそのまま残ります。リストにない人は名簿から消えます。',
+    'Reads the 社員リスト (.xlsx) and updates name, email, gender, group (field/office) and nationality. Office, pedometer number and consent are left alone. Anyone not in the list is removed.'],
   imp_rows: ['リストの人数：{n}名', '{n} people in the list'],
   imp_add: ['追加：{n}名', 'Added: {n}'],
   imp_change: ['変更：{n}名', 'Changed: {n}'],
