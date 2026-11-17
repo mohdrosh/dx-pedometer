@@ -113,6 +113,22 @@ const AT_EGG_DOOR = typeof window !== 'undefined'
 const AT_MYPAGE = typeof window !== 'undefined'
   && /(^|\/)mypage\/?$/.test(window.location.pathname);
 
+/* Where /mypage lives, kept the way EGG_URL is: whichever spelling the
+   reader opened is the one they keep. */
+const MYPAGE_URL = (() => {
+  if (typeof window === 'undefined') return `${import.meta.env.BASE_URL}mypage`;
+  if (AT_MYPAGE) return window.location.pathname;
+  return `${import.meta.env.BASE_URL}mypage`;
+})();
+
+/* 「?next=mypage」. Somebody who typed /mypage while signed out is sent to
+   the モラエッグ door (仕様書 3), and without this the door is where they
+   stay — signed in, on a page about eggs, having asked for something else
+   and been given no way back to it. The door carries where they were
+   going, and the sign-in finishes the journey. */
+const NEXT_MYPAGE = typeof window !== 'undefined'
+  && new URLSearchParams(window.location.search).get('next') === 'mypage';
+
 /* 「マイページに戻る」 on モラエッグ, off while マイページ is being rebuilt.
    2026/11/15, 佐野: the new three-group マイページトップ is not finished and
    a half-built entrance is worse than none. Set back to true on the day it
@@ -3439,6 +3455,10 @@ export default function App() {
      egg door can show whose name the number belongs to and let them look
      at it before the screen changes under them. */
   const enter = useCallback(async (r) => {
+    /* They asked for マイページ and were sent here to sign in. Now that
+       they have, take them the rest of the way rather than leaving them
+       on モラエッグ wondering where the thing they typed went. */
+    if (NEXT_MYPAGE && !IS_LOCAL) { window.location.replace(MYPAGE_URL); return r; }
     setUser(r.user);
     setTab(landingTab(r.user));
     if (r.user.admin && !IS_LOCAL) {
@@ -3589,7 +3609,7 @@ export default function App() {
        is one screen with one set of strings, and a second copy of it living
        here is a second one to keep in step. */
     if (AT_MYPAGE && !IS_LOCAL) {
-      window.location.replace(EGG_URL);
+      window.location.replace(`${EGG_URL}?next=mypage`);
       return null;
     }
     if (showTrial) {
