@@ -46,6 +46,7 @@ import {
   cleanRequest, eggMaxPacks, eggTerms, consentOk, requestTotals,
   EGG_PURPOSES, EGG_OFFICES, HQ_OFFICE, TOKYO_OFFICE,
 } from './src/egg.js';
+import { CATEGORIES, boxesFor, groupOf } from './src/mypage.js';
 import {
   mondayOf, openShipMonday, requestDeadline, requestsOpen, pickupDeadline,
   weekInfo, shiftDay, statusOf, dueShip, weekPlan, harvestWindow,
@@ -70,7 +71,7 @@ const {
   getEmployee, updateEmployeeSelf, setConsent,
   addUpload, listUploads, getUpload, deleteUpload, uploadBytes,
   eggVote, eggMyVote, eggRows, eggAudience,
-  eggOfficeRows, eggOfficeSave, eggOfficeDelete, eggContactFor,
+  eggOfficeRows, eggOfficeSave, eggOfficeDelete, eggContactFor, menuRows,
   eggHarvest, eggHarvestBump, eggHarvestSet,
   eggRequestSave, eggRequestDrop, eggMyRequest, eggMyRequests,
   eggWeekRequests, eggMissed, eggWeek, eggDrawSave, eggWeekOffices, eggWeekFinalise,
@@ -986,6 +987,57 @@ const server = http.createServer(async (req, res) => {
        deadline the screens show has to be the deadline the automatic run
        obeys, and two copies of this merge would eventually disagree. */
     const eggCfgNow = eggCfg;
+
+    /* --------------------------- マイページ ------------------------------ */
+    /* 仕様書 3:「トップは『カテゴリの箱』を並べ、その中に使えるメニューを表示
+       する。使えないメニューは表示しない」. 何を出すかはメニュー一覧表が決める
+       ので、ここはその表とその人を突き合わせるだけ。
+
+       区分と外国籍はサーバが持っているものだけから決める。ブラウザが「自分は
+       内勤です」と言ってきて信じる作りにはしない——出し分けは権限ではないが、
+       権限になる日に作り直さずに済む。 */
+    if (url.pathname === '/api/mypage' && req.method === 'GET') {
+      if (!sess) return deny(res);
+      if (rateLimited(`mypage:${sess.sid}`, 120, 60_000)) {
+        return sendJson(res, 429, { error: 'too_many' });
+      }
+      const cfgNow = (await getKey('cfg')) || {};
+      const rows = await menuRows();
+      /* 管理者は社員の行を持たない。出し分ける区分がないので、live のものが
+         すべて見える——誰に何が出ているのかを確かめるための画面でもある。 */
+      const person = sess.isAdmin
+        ? { staffKind: 'office', iit: true, foreign: true }
+        : await getEmployee(sess.employeeId);
+      if (!person) return deny(res, 403);
+
+      const all = url.searchParams.get('all') === '1';
+      const boxes = sess.isAdmin
+        ? CATEGORIES.filter((c) => c.id !== 'news').map((c) => {
+          const mine = rows.filter((m) => m.category === c.id && m.status !== 'hidden');
+          return { ...c, menus: mine, total: mine.length, more: false };
+        }).filter((c) => c.menus.length)
+        : boxesFor(rows, person, { all });
+
+      return sendJson(res, 200, {
+        user: {
+          name: sess.isAdmin ? '健康対策委員会' : person.name,
+          /* 画面の見出しの下に出る一行。所属は社員リストのもの。 */
+          where: sess.isAdmin ? '' : [person.region, person.affiliation]
+            .filter(Boolean).join('／'),
+          group: sess.isAdmin ? 'admin' : groupOf(person),
+        },
+        boxes,
+        /* 仕様書 3:「一番上に『お知らせ（モラブ情報）』欄を置く。お知らせが
+           ないときは欄ごと非表示」. モラエッグのお知らせと同じ作りで、
+           表示する最終日を過ぎたものはここで落とす。 */
+        notice: (() => {
+          const text = String(cfgNow.mypage?.notice || '').trim();
+          const until = cfgNow.mypage?.noticeUntil || null;
+          if (!text) return null;
+          return !until || String(until) >= tokyoNow().stamp ? text : null;
+        })(),
+      });
+    }
 
     if (url.pathname === '/api/egg/portal' && req.method === 'GET') {
       if (!sess) return deny(res);

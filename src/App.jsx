@@ -4,6 +4,7 @@ import MoraBot, { MORABOT_CSS } from './MoraBot';
 import KintaiTab, { KINTAI_CSS } from './Kintai';
 import KoutsuuhiTab, { KOUTSUUHI_CSS } from './Koutsuuhi';
 import EggTab, { EGG_CSS } from './Egg';
+import MyPage, { MYPAGE_CSS } from './MyPage';
 import { ART_V } from './moraegg-text.js';
 import { inSubmissionWindow } from './submission-window.js';
 import { matches as fareMatches, parsePaste, mergeRows, cleanRow } from './fare-table';
@@ -14,7 +15,7 @@ import { maintenanceState, windowText } from './maintenance.js';
 import {
   S, registerTrial, saveFeedback, fetchFeedback,
   IS_LOCAL, fetchBootstrap, apiLogin, apiLogout, apiMe, apiSaveMe, apiConsent, setLeaving,
-  onSessionLost,
+  onSessionLost, apiRoot,
 } from './storage';
 import { DEFAULT_REGIONS, DEFAULT_CFG, ROSTER_SEED, orderRegions } from './defaults';
 import emailjs from '@emailjs/browser';
@@ -105,6 +106,12 @@ const AT_MYPAGE_DOOR = typeof window !== 'undefined'
    that is proxied today; see docs/nginx-egg.conf. */
 const AT_EGG_DOOR = typeof window !== 'undefined'
   && /(^|\/)egg\/?$/.test(window.location.pathname);
+
+/* マイページトップ. 佐野, 2026/11/15:「マイページトップ専用の URL を新しく
+   作る（例：https://dx.morabu.com/mypage/）。ただし、今はまだ大々的に公表し
+   ない」 — so it answers today and is announced later. */
+const AT_MYPAGE = typeof window !== 'undefined'
+  && /(^|\/)mypage\/?$/.test(window.location.pathname);
 
 /* 「マイページに戻る」 on モラエッグ, off while マイページ is being rebuilt.
    2026/11/15, 佐野: the new three-group マイページトップ is not finished and
@@ -2540,7 +2547,16 @@ export function readRosterSheet(buf) {
   if (head < 0) return { error: 'noHeader' };
   const hdr = grid[head].map((v) => String(v).trim());
   const at = (name) => hdr.indexOf(name);
-  const C = { id: at('社員番号'), name: at('氏名'), mail: at('メールアドレス'), sex: at('性別') };
+  const C = {
+    id: at('社員番号'), name: at('氏名'), mail: at('メールアドレス'), sex: at('性別'),
+    /* 区分 is 外勤（正社員）／内勤（正社員）／役員. 仕様書 2 splits マイページ
+       by 外勤／内勤, and this column is where the company already keeps that
+       answer — so the import carries it rather than anybody retyping 605
+       rows. 役員 sit with 内勤: they are not on the 万歩計 list either. */
+    kind: at('区分'),
+    /* 帰国申請 is shown by a foreign-national flag, not by group (仕様書 4 ※). */
+    nat: at('国籍'),
+  };
   if (C.id < 0 || C.name < 0 || C.mail < 0) return { error: 'noColumn' };
 
   const rows = [];
@@ -2553,11 +2569,18 @@ export function readRosterSheet(buf) {
     if (seen.has(id)) return { error: 'dupId', id };
     seen.add(id);
     const sex = String(r[C.sex] ?? '').trim();
+    const kind = C.kind >= 0 ? String(r[C.kind] ?? '') : '';
+    const nat = C.nat >= 0 ? String(r[C.nat] ?? '').trim() : '';
     rows.push({
       id,
       name: sheetName(r[C.name]),
       email: sheetMail(r[C.mail]),
       gender: sex === '男' || sex === '女' ? sex : '',
+      /* 外勤 unless the column says otherwise, because the 万歩計 list — the
+         one this all started from — was entirely 外勤. */
+      staffKind: kind.includes('内勤') || kind.includes('役員') ? 'office'
+        : kind.includes('外勤') ? 'field' : '',
+      foreign: !!nat,
     });
   }
   return rows.length ? { rows } : { error: 'empty' };
@@ -2591,12 +2614,16 @@ export function mergeRosterSheet(roster, rows) {
       if (p.name !== r.name) bits.push('氏名');
       if ((p.email || '') !== r.email) bits.push('メール');
       if (r.gender && (p.gender || '') !== r.gender) bits.push('性別');
+      if (r.staffKind && (p.staffKind || '') !== r.staffKind) bits.push('区分');
+      if ((p.foreign === true) !== r.foreign) bits.push('国籍');
       if (p.active === false) bits.push('在籍');
       if (!p.egg) bits.push('モラエッグ');
       if (!bits.length) return p;
       change.push({ id: p.id, name: r.name, bits });
       return {
-        ...p, name: r.name, email: r.email, gender: r.gender || p.gender, active: true, egg: true,
+        ...p, name: r.name, email: r.email, gender: r.gender || p.gender,
+        staffKind: r.staffKind || p.staffKind || '', foreign: r.foreign,
+        active: true, egg: true,
       };
     });
 
@@ -2605,6 +2632,7 @@ export function mergeRosterSheet(roster, rows) {
     add.push(r);
     next.push({
       id: r.id, name: r.name, email: r.email, gender: r.gender || '男',
+      staffKind: r.staffKind || '', foreign: r.foreign,
       region: '', pedometer: '', active: true, egg: true, consent: false,
     });
   }
@@ -3553,6 +3581,17 @@ export default function App() {
   }
 
   if (!user) {
+    /* 仕様書 3:「マイページトップ専用のログイン画面は作らない。トップは『誰が
+       ログインしているか』でメニューを出し分けるため、未ログインで直接開かれた
+       場合は、モラエッグのログイン画面へ移動させる」.
+
+       A real navigation and not a rendered copy of that screen: the egg door
+       is one screen with one set of strings, and a second copy of it living
+       here is a second one to keep in step. */
+    if (AT_MYPAGE && !IS_LOCAL) {
+      window.location.replace(EGG_URL);
+      return null;
+    }
     if (showTrial) {
       return (
         <LangCtx.Provider value={lang}>
@@ -3587,6 +3626,24 @@ export default function App() {
   const me = user.admin || !IS_LOCAL
     ? user
     : roster.find((p) => String(p.id) === String(user.id)) || user;
+
+  /* マイページトップ. Before everything else, because it is the entrance:
+     somebody who opened /mypage asked for the entrance and not for the
+     screen they happened to be on last. */
+  if (AT_MYPAGE) {
+    return (
+      <LangCtx.Provider value={lang}>
+        <div className="app theme-seiji">
+          <Styles />
+          <MyPage
+            lang={lang} setLang={setLang} onSignOut={signOut}
+            apiRoot={apiRoot()} base={import.meta.env.BASE_URL}
+          />
+          <Toast msg={toastMsg} />
+        </div>
+      </LangCtx.Provider>
+    );
+  }
 
   /* Is モラエッグ the screen this person is on? Asked once, because the
      consent gate below and the render further down have to agree: a gate
@@ -3781,7 +3838,7 @@ export default function App() {
 /* ================================ Styles ================================== */
 function Styles() {
   return (
-    <style>{MORABOT_CSS + KINTAI_CSS + KOUTSUUHI_CSS + EGG_CSS + `
+    <style>{MORABOT_CSS + KINTAI_CSS + KOUTSUUHI_CSS + EGG_CSS + MYPAGE_CSS + `
 .ft-new{display:grid;grid-template-columns:1fr 1fr 1fr 90px auto;gap:8px;margin-top:10px}
 .ft-new input{min-width:0}
 .ft-q{max-width:180px}

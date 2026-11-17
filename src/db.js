@@ -24,6 +24,7 @@
 
 import pg from 'pg';
 import { OFFICE_MIN_DEFAULT, OFFICE_ADDRESS, EGG_OFFICES } from './egg.js';
+import { MENU_SEED } from './mypage.js';
 
 const { Pool } = pg;
 
@@ -232,6 +233,36 @@ export async function initSchema() {
        a list of office names in the code, so the next distant office is
        a field somebody fills in. */
     ALTER TABLE egg_offices ADD COLUMN IF NOT EXISTS arrive_days INTEGER NOT NULL DEFAULT 0;
+
+    /* マイページの区分（佐野「マイページ構成・メニュー設計」2026/11/15）.
+       社員リストの「区分」欄がそのまま外勤／内勤を分けるので、名簿を取り込む
+       ときにここへ入れる。空は未取り込みの意味で、そのときは外勤として扱う
+       ——万歩計のリストは全員外勤だった、というのが仕様書 2 の前提。 */
+    ALTER TABLE employees ADD COLUMN IF NOT EXISTS staff_kind TEXT;
+    /* 外勤（IIT 請負・待機）の13名。名簿がまだ届いていないので誰にも立って
+       いない。立つまでこの区分は外勤（一般）と同じものを見る。 */
+    ALTER TABLE employees ADD COLUMN IF NOT EXISTS iit BOOLEAN NOT NULL DEFAULT FALSE;
+    /* 帰国申請は区分ではなく外国籍のフラグで出す（仕様書 4 ※）。 */
+    ALTER TABLE employees ADD COLUMN IF NOT EXISTS foreign_national BOOLEAN NOT NULL DEFAULT FALSE;
+
+    /* メニュー一覧表。仕様書 5:「新しい機能は表に1行足すだけで、該当する人の
+       トップに出るようにしたい」——だから画面はこの表を読むだけで、どの区分に
+       何を出すかはどこにも書かれていない。 */
+    CREATE TABLE IF NOT EXISTS menu_items (
+      id         TEXT PRIMARY KEY,
+      name_ja    TEXT NOT NULL,
+      name_en    TEXT NOT NULL,
+      note_ja    TEXT NOT NULL DEFAULT '',
+      note_en    TEXT NOT NULL DEFAULT '',
+      category   TEXT NOT NULL,
+      targets    TEXT[] NOT NULL DEFAULT '{}',
+      status     TEXT NOT NULL DEFAULT 'hidden',
+      auth       TEXT NOT NULL DEFAULT 'id',
+      link_type  TEXT NOT NULL DEFAULT 'internal',
+      link       TEXT NOT NULL DEFAULT '',
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      foreign_only BOOLEAN NOT NULL DEFAULT FALSE
+    );
 
     /* 5.1 収穫登録.「10個入り1パックごとにボタンを押す」「同日中であれば取り消
        し・修正ができる」.
@@ -705,6 +736,24 @@ export async function initSchema() {
     );
     if (u.rowCount) console.log(`  Eggs     : ${u.rowCount} office minimum(s) raised to 4`);
   }
+
+  /* メニュー一覧表の初期値。入っていない id だけを足す——表はこれから
+     管理画面で触るものなので、起動のたびに書き戻すと人の直した行を毎回
+     消すことになる（事業所の最低パック数と同じ理由）。 */
+  for (const m of MENU_SEED) {
+    await pool.query(
+      `INSERT INTO menu_items
+         (id, name_ja, name_en, note_ja, note_en, category, targets,
+          status, auth, link_type, link, sort_order, foreign_only)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+       ON CONFLICT (id) DO NOTHING`,
+      [m.id, m.nameJa, m.nameEn, m.noteJa || '', m.noteEn || '', m.category,
+        m.targets, m.status, m.auth, m.linkType, m.link || '', m.order || 0,
+        m.foreignOnly === true],
+    );
+  }
+  const menus = await pool.query('SELECT COUNT(*)::int AS n FROM menu_items');
+  console.log(`  My Page  : ${menus.rows[0].n} menus`);
 }
 
 /* ------------------------- row <-> client shape -------------------------- */
@@ -767,6 +816,10 @@ const toEmployee = (r) => ({
   email: r.email || '',
   email2: r.email2 || '',
   email2On: !!r.email2_on,
+  /* マイページの区分。空は未取り込み——外勤として扱う（src/mypage.js）。 */
+  ...(r.staff_kind ? { staffKind: r.staff_kind } : {}),
+  ...(r.iit ? { iit: true } : {}),
+  ...(r.foreign_national ? { foreign: true } : {}),
   pedometer: r.pedometer || '',
   active: r.active,
   consent: r.consent,
@@ -775,6 +828,19 @@ const toEmployee = (r) => ({
   ...(r.consent_asked ? { consentAsked: true } : {}),
   ...(r.consent_at ? { consentAt: new Date(r.consent_at).getTime() } : {}),
 });
+
+/* メニュー一覧表を、そのまま。誰に出すかの判断は src/mypage.js がする——
+   ここはテーブルを JavaScript の形にするだけ。 */
+export async function menuRows() {
+  const { rows } = await pool.query(
+    `SELECT id, name_ja AS "nameJa", name_en AS "nameEn",
+            note_ja AS "noteJa", note_en AS "noteEn", category, targets,
+            status, auth, link_type AS "linkType", link,
+            sort_order AS "order", foreign_only AS "foreignOnly"
+       FROM menu_items ORDER BY category, sort_order, id`,
+  );
+  return rows;
+}
 
 async function getRoster() {
   const { rows } = await pool.query('SELECT * FROM employees ORDER BY sort_order, id');
@@ -793,9 +859,10 @@ async function setRoster(list) {
                                 consent, consent_asked, consent_at, sort_order, trial, dob,
                                 email2, email2_on, dept, section, client,
                                 affiliation, work_start, work_end, address, home_station,
-                                workplace, work_station, commute, mypage, egg, egg_farm)
+                                workplace, work_station, commute, mypage, egg, egg_farm,
+                                staff_kind, foreign_national)
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,
-                 $19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29)
+                 $19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31)
          ON CONFLICT (id) DO UPDATE SET
            name = EXCLUDED.name, region = EXCLUDED.region, gender = EXCLUDED.gender,
            email = EXCLUDED.email, pedometer = EXCLUDED.pedometer, active = EXCLUDED.active,
@@ -809,7 +876,9 @@ async function setRoster(list) {
            address = EXCLUDED.address, home_station = EXCLUDED.home_station,
            workplace = EXCLUDED.workplace, work_station = EXCLUDED.work_station,
            commute = EXCLUDED.commute, mypage = EXCLUDED.mypage, egg = EXCLUDED.egg,
-           egg_farm = EXCLUDED.egg_farm`,
+           egg_farm = EXCLUDED.egg_farm,
+           staff_kind = EXCLUDED.staff_kind,
+           foreign_national = EXCLUDED.foreign_national`,
         [
           String(p.id), p.name, p.region || null, p.gender || null, p.email || null,
           p.pedometer || null, p.active !== false, !!p.consent, !!p.consentAsked,
@@ -820,6 +889,9 @@ async function setRoster(list) {
           p.address || null, p.homeStation || null,
           p.workplace || null, p.workStation || null,
           JSON.stringify(cleanCommute(p.commute)), !!p.mypage, !!p.egg, !!p.eggFarm,
+          /* 空は「まだ名簿を取り込んでいない」で、外勤として扱われる。
+             iit はここでは触らない——13名の名簿は別に届く。 */
+          p.staffKind || null, p.foreign === true,
         ],
       );
     }
