@@ -743,6 +743,74 @@ function readBytes(req, cap) {
   });
 }
 
+/* 共有されたときに出る名前。
+   佐野, 2026/11/19:「名前変えて欲しい、表示される」——モラエッグのリンクを
+   チャットに貼ると「健康対策推進活動・万歩計実績表」と出る。
+
+   一枚の index.html をどの住所にも返しているので、そこに書いてある <title>
+   は万歩計のものひとつきりである。画面のほうは開いたあとに JavaScript で
+   書き換えているが、リンクの見出しを作る相手は JavaScript を動かさない
+   ——生の HTML しか読まないので、いつまでも万歩計の名前が出る。
+
+   なので住所ごとに差し替える。ファイルは一枚のままで、送り出すときに
+   その住所の名前と絵を入れる。 */
+const PAGE_META = {
+  '/egg': {
+    title: 'DX推進部・モラエッグ',
+    desc: '丹波の鶏舎から、朝採れ卵。',
+    icon: 'moraegg/icon',
+  },
+  '/mypage': {
+    title: 'DX推進部・マイページ',
+    desc: 'モラブ阪神工業の社内ポータル。',
+    icon: 'icon',
+  },
+};
+
+/* dist/index.html が持っている BASE_URL。ビルドのときに決まるので、
+   ここでは出来上がったファイルから読む——サーバが二度目の答えを持つと、
+   どちらかが古くなる。 */
+const BASE_HREF = (() => {
+  try {
+    const html = fs.readFileSync(path.join(DIST, 'index.html'), 'utf8');
+    const m = html.match(/href="([^"]*?)icon-32\.png"/);
+    return m ? m[1] : '/';
+  } catch { return '/'; }
+})();
+
+const metaFor = (pathname) => {
+  const m = pathname.match(/(^|\/)(egg|mypage)\/?$/);
+  return m ? PAGE_META[`/${m[2]}`] : null;
+};
+
+const esc = (v) => String(v).replace(/[&<>"]/g, (c) => (
+  { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+/** index.html, wearing the name of the address it was asked for. */
+function dressHtml(html, meta, req) {
+  /* 絶対 URL でないと、チャットの相手は絵を取りに来られない。 */
+  const proto = String(req.headers['x-forwarded-proto'] || 'https').split(',')[0].trim();
+  const host = String(req.headers.host || '');
+  const img = `${proto}://${host}${BASE_HREF}${meta.icon}-512.png`;
+  const url = `${proto}://${host}${req.url.split('?')[0]}`;
+  const tags = [
+    `<meta property="og:type" content="website" />`,
+    `<meta property="og:site_name" content="モラブ阪神工業株式会社" />`,
+    `<meta property="og:title" content="${esc(meta.title)}" />`,
+    `<meta property="og:description" content="${esc(meta.desc)}" />`,
+    `<meta property="og:image" content="${esc(img)}" />`,
+    `<meta property="og:url" content="${esc(url)}" />`,
+    `<meta name="twitter:card" content="summary" />`,
+    `<meta name="description" content="${esc(meta.desc)}" />`,
+  ].join('\n    ');
+  return html
+    .replace(/<title>[^<]*<\/title>/, `<title>${esc(meta.title)}</title>\n    ${tags}`)
+    /* そして tab の小さな絵も。開いたあとに JavaScript が同じものを入れる
+       ので、これは最初の一瞬と、JavaScript を動かさない相手のためである。 */
+    .replace(/href="([^"]*?)icon-(32|512|180)\.png"/g,
+      (_, pre, n) => `href="${pre}${meta.icon.replace(/icon$/, '')}icon-${n}.png"`);
+}
+
 function serveStatic(req, res, pathname) {
   let file = path.join(DIST, pathname === '/' ? 'index.html' : decodeURIComponent(pathname));
   if (!file.startsWith(DIST)) { res.writeHead(403); return res.end(); }
@@ -768,6 +836,18 @@ function serveStatic(req, res, pathname) {
     'Last-Modified': stamp,
   };
   if (req.headers['if-modified-since'] === stamp) { res.writeHead(304, head); return res.end(); }
+
+  /* 住所ごとの名前。index.html のときだけで、しかも小さいので読んでから
+     送る——ストリームのまま書き換えるほどの大きさではない。 */
+  const meta = ext === '.html' ? metaFor(pathname) : null;
+  if (meta) {
+    const html = dressHtml(fs.readFileSync(file, 'utf8'), meta, req);
+    const body = Buffer.from(html, 'utf8');
+    /* 中身を変えたので、Last-Modified は約束できない。 */
+    delete head['Last-Modified'];
+    res.writeHead(200, { ...head, 'Content-Length': body.length });
+    return res.end(body);
+  }
   res.writeHead(200, head);
   fs.createReadStream(file).pipe(res);
 }

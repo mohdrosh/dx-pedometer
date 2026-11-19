@@ -3604,7 +3604,10 @@ export default function App() {
      nothing, and drew its grey globe next to the company's name. */
   useEffect(() => {
     const egg = mod === 'egg';
-    document.title = egg ? 'モラエッグ｜丹波の朝採れ卵' : '健康対策推進活動・万歩計実績表';
+    /* サーバが住所ごとに入れている <title> と同じ言葉。違う言葉にすると、
+       共有されたリンクと、それを開いたタブとで名前が変わる。 */
+    document.title = AT_MYPAGE ? 'DX推進部・マイページ'
+      : egg ? 'DX推進部・モラエッグ' : '健康対策推進活動・万歩計実績表';
     const dir = `${import.meta.env.BASE_URL}${egg ? 'moraegg/' : ''}`;
     document.querySelectorAll('link[rel="icon"], link[rel="apple-touch-icon"]')
       .forEach((el) => {
