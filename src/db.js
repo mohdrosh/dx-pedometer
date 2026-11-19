@@ -355,6 +355,12 @@ export async function initSchema() {
       hidden_at   TIMESTAMPTZ,
       hidden_by   TEXT REFERENCES employees(id) ON DELETE SET NULL
     );
+    /* 表示する名前。佐野, 2026/11/19:「料理の写真を投稿するとき、投稿者の
+       名前を変更できるようにしてください」. 空なら名簿の氏名を出す。
+
+       employee_id はそのまま残る——これは名札であって、誰が書いたかの記録
+       ではない。編集・削除の権限も、管理者から見える本人も変わらない。 */
+    ALTER TABLE egg_posts ADD COLUMN IF NOT EXISTS author TEXT;
     CREATE INDEX IF NOT EXISTS egg_posts_new_idx ON egg_posts(created_at DESC);
 
     /* The bytes live here rather than in a bucket. About 450MB a year at
@@ -1868,7 +1874,9 @@ const nid = () => `${Date.now().toString(36)}${Math.random().toString(36).slice(
  */
 export async function dishFeed(viewerId, { limit = 30, before = null, admin = false } = {}) {
   const { rows } = await pool.query(
-    `SELECT p.id, p.employee_id AS "employeeId", e.name AS "authorName",
+    `SELECT p.id, p.employee_id AS "employeeId",
+            COALESCE(NULLIF(p.author, ''), e.name) AS "authorName",
+            p.author AS "author",
             p.dish, p.body, p.recipe,
             p.created_at AS "createdAt", p.updated_at AS "updatedAt",
             p.hidden_at AS "hiddenAt",
@@ -1897,7 +1905,7 @@ export async function dishFeed(viewerId, { limit = 30, before = null, admin = fa
 
 export async function dishPost(id) {
   const { rows } = await pool.query(
-    `SELECT id, employee_id AS "employeeId", dish, body, recipe,
+    `SELECT id, employee_id AS "employeeId", author, dish, body, recipe,
             hidden_at AS "hiddenAt"
        FROM egg_posts WHERE id = $1`,
     [String(id)],
@@ -1905,23 +1913,24 @@ export async function dishPost(id) {
   return rows[0] || null;
 }
 
-export async function dishCreate(employeeId, { dish, body, recipe }) {
+export async function dishCreate(employeeId, { dish, body, recipe, author }) {
   const id = nid();
   await pool.query(
-    `INSERT INTO egg_posts (id, employee_id, dish, body, recipe)
-     VALUES ($1, $2, $3, $4, $5)`,
-    [id, String(employeeId), dish, body || null, recipe || null],
+    `INSERT INTO egg_posts (id, employee_id, dish, body, recipe, author)
+     VALUES ($1, $2, $3, $4, $5, $6)`,
+    [id, String(employeeId), dish, body || null, recipe || null, author || null],
   );
   return id;
 }
 
 /** 7.1.5「投稿者本人は編集・削除ができる」 — the id in the WHERE clause is
     the caller's, so there is no argument that would widen it. */
-export async function dishEdit(id, employeeId, { dish, body, recipe }) {
+export async function dishEdit(id, employeeId, { dish, body, recipe, author }) {
   const { rowCount } = await pool.query(
-    `UPDATE egg_posts SET dish = $3, body = $4, recipe = $5, updated_at = NOW()
+    `UPDATE egg_posts SET dish = $3, body = $4, recipe = $5, author = $6,
+            updated_at = NOW()
       WHERE id = $1 AND employee_id = $2`,
-    [String(id), String(employeeId), dish, body || null, recipe || null],
+    [String(id), String(employeeId), dish, body || null, recipe || null, author || null],
   );
   return rowCount > 0;
 }

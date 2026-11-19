@@ -18,8 +18,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { apiRoot } from './storage';
 import {
   PHOTO_EDGE, THUMB_EDGE, PHOTOS_MAX,
-  DISH_MAX, BODY_MAX, RECIPE_MAX, COMMENT_MAX, BADGES,
-} from './dish.js';
+  DISH_MAX, BODY_MAX, RECIPE_MAX, COMMENT_MAX, BADGES, AUTHOR_MAX } from './dish.js';
 import { mg, art } from './moraegg-text.js';
 
 /* 仕様書 6. The keys 佐野 has written are answered from her dictionary;
@@ -56,6 +55,11 @@ const L = {
   body: ['ひとこと', 'A few words'],
   bodyPh: ['どんなふうに作りましたか？', 'How did you make it?'],
   recipe: ['レシピ（任意）', 'Recipe (optional)'],
+  /* 佐野, 2026/11/19:「料理の写真を投稿するとき、投稿者の名前を変更できる
+     ようにしてください」. */
+  author: ['表示する名前', 'Name shown'],
+  authorNote: ['この投稿に表示される名前です。変えなければ名簿のお名前のままです。',
+    'The name shown on this post. Leave it as it is to use your own.'],
   recipePh: ['材料と手順。あとから書き足せます。', 'Ingredients and steps. You can add this later.'],
   photos: ['写真', 'Photos'],
   addPhoto: ['写真を選ぶ', 'Choose photos'],
@@ -154,7 +158,7 @@ export default function EggDish({ lang, toast }) {
   const [busy, setBusy] = useState(false);
   const [open, setOpen] = useState(false);          /* the composer */
   const [editing, setEditing] = useState(null);     /* a post id */
-  const [form, setForm] = useState({ dish: '', body: '', recipe: '' });
+  const [form, setForm] = useState({ dish: '', body: '', recipe: '', author: '' });
   const [files, setFiles] = useState([]);
   const [showing, setShowing] = useState(null);     /* a post id, opened */
   const [full, setFull] = useState(null);           /* a photo id, full size */
@@ -203,7 +207,7 @@ export default function EggDish({ lang, toast }) {
 
   const reset = () => {
     setOpen(false); setEditing(null);
-    setForm({ dish: '', body: '', recipe: '' }); setFiles([]);
+    setForm({ dish: '', body: '', recipe: '', author: '' }); setFiles([]);
   };
 
   const pickFiles = (list) => {
@@ -272,7 +276,12 @@ export default function EggDish({ lang, toast }) {
 
   const startEdit = (p) => {
     setEditing(p.id);
-    setForm({ dish: p.dish || '', body: p.body || '', recipe: p.recipe || '' });
+    setForm({
+      dish: p.dish || '', body: p.body || '', recipe: p.recipe || '',
+      /* その投稿に入っている名前。空なら空のまま——編集で氏名が勝手に
+         入ってしまうと、名簿の名前に戻したつもりのない人の名前が出る。 */
+      author: p.author || '',
+    });
     setOpen(true);
   };
 
@@ -360,6 +369,17 @@ export default function EggDish({ lang, toast }) {
               rows={2} maxLength={BODY_MAX} value={form.body} placeholder={t('bodyPh')}
               onChange={(e) => setForm({ ...form, body: e.target.value })}
             />
+          </label>
+          {/* 表示する名前。空欄のときは名簿の氏名が出るので、placeholder に
+              それを出しておく——空の欄を見て「名前なしで出るのか」と思わせ
+              ないため。 */}
+          <label className="fld"><span>{t('author')}</span>
+            <input
+              value={form.author} maxLength={AUTHOR_MAX} placeholder={d.myName || ''}
+              autoComplete="off" name="egg-dish-author"
+              onChange={(e) => setForm({ ...form, author: e.target.value })}
+            />
+            <small className="muted sm">{t('authorNote')}</small>
           </label>
           <label className="fld"><span>{t('recipe')}</span>
             <textarea

@@ -1915,6 +1915,9 @@ const server = http.createServer(async (req, res) => {
       const month = tokyoNow().stamp.slice(0, 7);
       return sendJson(res, 200, {
         me: who.admin ? null : sess.employeeId,
+        /* 名簿の氏名。投稿の「表示する名前」の最初の中身になる——変えたい人
+           のための欄であって、毎回入力してもらうための欄ではない。 */
+        myName: who.person?.name || '',
         admin: who.admin,
         reactions: REACTIONS,
         maxPhotos: PHOTOS_MAX,

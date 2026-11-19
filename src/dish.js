@@ -68,6 +68,10 @@ export const ASKS_FOR_RECIPE = 'recipePlease';
 export const DISH_MAX = 40;        /* 料理名 */
 export const BODY_MAX = 600;       /* コメント */
 export const RECIPE_MAX = 2000;    /* レシピ（任意） */
+/* 表示する名前. 佐野, 2026/11/19:「料理の写真を投稿するとき、投稿者の名前を
+   変更できるようにしてください」. 氏名と同じ長さで足りる——これは別名であって
+   自己紹介ではない。 */
+export const AUTHOR_MAX = 24;
 export const COMMENT_MAX = 400;
 export const PHOTOS_MAX = 4;       /* 「写真（1〜数枚）」 */
 export const PHOTO_BYTES = 1_500_000;
@@ -109,6 +113,13 @@ export function cleanPost(v) {
       /* 「任意でレシピ」, and 「投稿者は写真の下にレシピを追記できる」 — so it
          is equally fine to post without one and to add one later. */
       recipe: tidy(v?.recipe, RECIPE_MAX),
+      /* 表示する名前。空なら名簿の氏名が使われる——消したい人のための空欄で
+         あって、名前のない投稿を作るための空欄ではない。
+
+         これは表示名であって、誰が書いたかではない。employee_id は変わらず
+         行に入っているので、管理者には本人が見えるし、編集・削除の権限も
+         そのままである（7.1.5）。 */
+      author: tidy(v?.author, AUTHOR_MAX),
     },
   };
 }
