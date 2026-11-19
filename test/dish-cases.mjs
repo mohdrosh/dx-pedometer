@@ -6,7 +6,7 @@ import {
   REACTIONS, REACTION_IDS, BADGES, ASKS_FOR_RECIPE,
   DISH_MAX, BODY_MAX, RECIPE_MAX, COMMENT_MAX, PHOTOS_MAX, PHOTO_BYTES,
   cleanPost, cleanComment, cleanReaction, photoOk,
-  badgeFor, topDish, postCounts,
+  badgeFor, topDish, postCounts, AUTHOR_MAX,
 } from '../src/dish.js';
 
 let n = 0;
@@ -23,7 +23,16 @@ const p = (over = {}) => cleanPost({ dish: 'だし巻き玉子', photos: ['a'], 
 /* ------------------------------- 投稿 ----------------------------------- */
 
 is('a dish and a photo is a post',
-  p(), { ok: true, value: { dish: 'だし巻き玉子', body: '', recipe: '' } });
+  p(), { ok: true, value: { dish: 'だし巻き玉子', body: '', recipe: '', author: '' } });
+
+/* 表示する名前（佐野, 2026/11/19）. 空は「名簿の氏名のまま」で、名前のない
+   投稿ではない——どちらに読むかは画面の仕事で、ここは空を空のまま通す。 */
+is('a name of your own is kept',
+  p({ author: 'みっちゃん' }).value.author, 'みっちゃん');
+is('left blank it stays blank', p().value.author, '');
+is('spaces are blank', p({ author: '  ' }).value.author, '');
+is('a long one is trimmed rather than refused',
+  p({ author: 'あ'.repeat(80) }).value.author.length, AUTHOR_MAX);
 
 is('a post needs a name for the dish', p({ dish: '' }), { ok: false, error: 'dish' });
 is('spaces are not a name', p({ dish: '   ' }), { ok: false, error: 'dish' });
