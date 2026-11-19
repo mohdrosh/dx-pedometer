@@ -846,9 +846,10 @@ function serveStatic(req, res, pathname) {
     /* 中身を変えたので、Last-Modified は約束できない。 */
     delete head['Last-Modified'];
     res.writeHead(200, { ...head, 'Content-Length': body.length });
-    return res.end(body);
+    return res.end(req.method === 'HEAD' ? undefined : body);
   }
   res.writeHead(200, head);
+  if (req.method === 'HEAD') return res.end();
   fs.createReadStream(file).pipe(res);
 }
 
@@ -2564,7 +2565,15 @@ const server = http.createServer(async (req, res) => {
       return sendJson(res, 405, { error: 'method' });
     }
 
-    if (SERVE_STATIC && req.method === 'GET' && !url.pathname.startsWith('/api/')) {
+    /* HEAD と GET。HEAD を 404 で返していたので、ページがあるかどうかを
+       先に HEAD で確かめる相手には、どの住所も存在しないことになっていた
+       ——リンクを貼っても見出しも絵も出ず、ドメイン名だけが出る。
+       2026/11/19、佐野さんに送ったモラエッグのリンクがそれだった。
+
+       curl -I でも同じことが起きていて、こちらは二度、動いている住所を
+       壊れていると読み違えた。HEAD は本文のない GET である。 */
+    if (SERVE_STATIC && (req.method === 'GET' || req.method === 'HEAD')
+        && !url.pathname.startsWith('/api/')) {
       return serveStatic(req, res, url.pathname);
     }
 
