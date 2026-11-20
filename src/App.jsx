@@ -277,6 +277,11 @@ const STR = {
   submitBotOk: ['全日 {n}歩を達成しています。完歩賞の対象です。', 'Every single day cleared {n} steps — you qualify for the bonus.'],
   submitBotNo: ['完歩賞の対象にはなりませんが、実績表の提出は必要です。', 'Not qualified for the bonus, but your record still needs submitting.'],
   cancel: ['キャンセル', 'Cancel'],
+  /* 丹波の3名のためのパスワード（佐野, 2026/11/20）。ほかの人には出ない。 */
+  password: ['パスワード', 'Password'],
+  passwordPh: ['担当者のパスワード', 'Your team password'],
+  pwWrong: ['パスワードが違います。', 'That password is not right.'],
+  idOrMail: ['社員番号 または メールアドレス', 'Employee number or email'],
   signOutFailed: ['ログアウトできませんでした。通信を確認して、もう一度お試しください。',
     'Could not sign out. Check your connection and try again.'],
 
@@ -1146,14 +1151,33 @@ function Login({ onLogin, onEnter, onTrial, lang, setLang, notice, cfg }) {
      one request at a time. This asks the same question the sign-in asks
      and shows the answer to whoever already passed it. */
   const [who, setWho] = useState(null);
+  /* パスワードの欄は、サーバが要ると言ってから出す。
+     2026/11/20 佐野:「丹波は3名います。…3名のメールアドレスを丹波担当として
+     登録してください」——そのうち2名は社員番号を持たないので、アドレスで入る。
+     鶏舎の取れ高を書き換えられる入口なので、そこにだけ鍵をかける。
+
+     打った文字で決めないのは、それだと「この人は鍵つき」を打った人に教えて
+     しまうから。サーバに訊いて、要ると返ってきたときにだけ出す。 */
+  const [pw, setPw] = useState('');
+  const [needPw, setNeedPw] = useState(false);
+
+  const say = (code) => t(code === 'too_many' ? 'tooMany'
+    : code === 'password_wrong' ? 'pwWrong' : 'notFound');
 
   const check = async () => {
     const v = id.trim();
     if (!v || busy) return;
     setBusy(true);
-    const r = await onLogin(v, { apply: false });
+    const r = await onLogin(v, { apply: false, password: pw });
     setBusy(false);
-    if (r?.error) { setErr(t(r.error === 'too_many' ? 'tooMany' : 'notFound')); return; }
+    if (r?.error === 'password_required') { setNeedPw(true); setErr(''); return; }
+    if (r?.error) {
+      /* 鍵つきだと分かったあとは、欄を出したままにする——間違えた人に
+         もう一度打たせるのであって、最初からやり直させるのではない。 */
+      setErr(say(r.error));
+      if (r.error === 'password_wrong') setPw('');
+      return;
+    }
     setWho(r);
   };
 
@@ -1169,9 +1193,10 @@ function Login({ onLogin, onEnter, onTrial, lang, setLang, notice, cfg }) {
     const v = id.trim();
     if (!v) return;
     setBusy(true);
-    const r = await onLogin(v);
+    const r = await onLogin(v, { password: pw });
     setBusy(false);
-    if (r?.error) setErr(t(r.error === 'too_many' ? 'tooMany' : 'notFound'));
+    if (r?.error === 'password_required') { setNeedPw(true); setErr(''); return; }
+    if (r?.error) { setErr(say(r.error)); if (r.error === 'password_wrong') setPw(''); }
   };
 
   /* Not me: the session that 確認 opened is closed again before the box
@@ -1229,16 +1254,34 @@ function Login({ onLogin, onEnter, onTrial, lang, setLang, notice, cfg }) {
         </div>
 
         <label className="fld">
-          <span>{t('employeeId')}</span>
+          <span>{t(needPw || id.includes('@') ? 'idOrMail' : 'employeeId')}</span>
           <input
             /* An example, not a colleague. This used to be a real employee
                number, displayed to everyone who opened the sign-in page. */
-            value={id} inputMode="numeric" autoComplete="off" placeholder="1234567"
+            value={id} autoComplete="off" placeholder="1234567"
+            inputMode={id.includes('@') ? 'email' : 'numeric'}
             disabled={!!who}
-            onChange={(e) => { setId(e.target.value); setErr(''); }}
+            onChange={(e) => {
+              setId(e.target.value); setErr('');
+              /* 番号に打ち直したなら、鍵の欄は引っ込める。 */
+              if (needPw && !e.target.value.includes('@')) { setNeedPw(false); setPw(''); }
+            }}
             onKeyDown={(e) => e.key === 'Enter' && go()}
           />
         </label>
+        {/* 鍵。サーバが要ると言ったときにだけ出る——丹波の3名のためのもので、
+            ほかの人の画面には最後まで現れない（仕様書 7:「入口は今のまま」）。 */}
+        {needPw && !who && (
+          <label className="fld">
+            <span>{t('password')}</span>
+            <input
+              type="password" value={pw} autoComplete="current-password"
+              autoFocus placeholder={t('passwordPh')}
+              onChange={(e) => { setPw(e.target.value); setErr(''); }}
+              onKeyDown={(e) => e.key === 'Enter' && go()}
+            />
+          </label>
+        )}
         {notice === 'expired' && !err && <div className="notice">{t('sessionGone')}</div>}
         {err && <div className="err">{err}</div>}
 
@@ -3504,7 +3547,7 @@ export default function App() {
      does not move, and what comes back is the name to show. Nothing is
      read with it until the person says it is them, and 入力し直す throws
      the session away. */
-  const signIn = useCallback(async (id, { apply = true } = {}) => {
+  const signIn = useCallback(async (id, { apply = true, password = '' } = {}) => {
     if (IS_LOCAL) {
       const rr = (await S.get('roster')) || [];
       const c = (await S.get('cfg')) || DEFAULT_CFG;
@@ -3514,7 +3557,7 @@ export default function App() {
       const u = admin ? { admin: true, id, name: '健康対策委員会' } : { admin: false, ...p };
       return apply ? enter({ user: u }) : { user: u };
     }
-    const r = await apiLogin(id);
+    const r = await apiLogin(id, password);
     if (r.error) return r;
     return apply ? enter(r) : r;
   }, [enter]);

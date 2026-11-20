@@ -239,8 +239,8 @@ export async function fetchBootstrap() {
   } catch { return null; }
 }
 
-export async function apiLogin(id) {
-  const r = await post('/api/login', { id });
+export async function apiLogin(id, password) {
+  const r = await post('/api/login', { id, ...(password ? { password } : {}) });
   if (r.status === 200) return { user: r.body.user };
   if (r.status === 429) return { error: 'too_many' };
   return { error: r.body.error || 'not_found' };

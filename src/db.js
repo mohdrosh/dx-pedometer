@@ -22,6 +22,7 @@
    connection string changes.
 ========================================================================== */
 
+import crypto from 'node:crypto';
 import pg from 'pg';
 import { OFFICE_MIN_DEFAULT, OFFICE_ADDRESS, EGG_OFFICES } from './egg.js';
 import { MENU_SEED } from './mypage.js';
@@ -238,6 +239,18 @@ export async function initSchema() {
        社員リストの「区分」欄がそのまま外勤／内勤を分けるので、名簿を取り込む
        ときにここへ入れる。空は未取り込みの意味で、そのときは外勤として扱う
        ——万歩計のリストは全員外勤だった、というのが仕様書 2 の前提。 */
+    /* パスワード。全員のものではない——いまは丹波の3名だけで、他の人は
+       これまでどおり社員番号だけで入る（仕様書 7:「入口は今のまま、個人情報
+       のメニューだけ鍵をかける」）。
+
+       2026/11/20 佐野:「丹波は3名います。休むこともあるので、3名のメール
+       アドレスを丹波担当として登録してください」. そのうち2名は社員リストに
+       載っていない——社員番号を持たない人たちなので、メールアドレスで入れる
+       ようにする。推測しやすいアドレスだけで鶏舎の取れ高が書き換えられては
+       困るので、その入口にはパスワードを置く。
+
+       中身は scrypt のハッシュであって、パスワードそのものは入らない。 */
+    ALTER TABLE employees ADD COLUMN IF NOT EXISTS pass_hash TEXT;
     ALTER TABLE employees ADD COLUMN IF NOT EXISTS staff_kind TEXT;
     /* 外勤（IIT 請負・待機）の13名。名簿がまだ届いていないので誰にも立って
        いない。立つまでこの区分は外勤（一般）と同じものを見る。 */
@@ -1030,6 +1043,84 @@ export async function registerTrial(p) {
     [id, p.name, p.region || null, p.gender || null, p.email || null, p.dob || null, rows[0].n],
   );
   return { ok: true, id };
+}
+
+/* ------------------------------ パスワード ------------------------------- */
+/* scrypt。bcrypt を足さないのは、本番の箱に native な依存を増やしたくない
+   から——node に最初から入っている scrypt は、同じ仕事をする正しい道具で
+   ある（メモリも使う鍵導出関数で、総当たりが速くならない）。
+
+   形は scrypt$N$r$p$salt$hash。パラメータを中に書いておくのは、あとで強く
+   したときに、古いハッシュがそのまま照合できるようにするため。 */
+const SCRYPT = { N: 16384, r: 8, p: 1, len: 64 };
+
+const scrypt1 = (pw, salt, o) => new Promise((ok, no) => {
+  crypto.scrypt(pw, salt, o.len, { N: o.N, r: o.r, p: o.p, maxmem: 72 * 1024 * 1024 },
+    (e, key) => (e ? no(e) : ok(key)));
+});
+
+/** パスワードを保存できる形にする。 */
+export async function hashPassword(pw) {
+  const salt = crypto.randomBytes(16);
+  const key = await scrypt1(String(pw), salt, SCRYPT);
+  const { N, r, p } = SCRYPT;
+  return `scrypt$${N}$${r}$${p}$${salt.toString('base64')}$${key.toString('base64')}`;
+}
+
+/**
+ * 合っているか。
+ *
+ * 時間で漏れないように timingSafeEqual で比べる。長さが違えば false——
+ * 長さの違いは比べるまでもなく、比べると例外になる。
+ */
+export async function checkPassword(pw, stored) {
+  const parts = String(stored || '').split('$');
+  if (parts.length !== 6 || parts[0] !== 'scrypt') return false;
+  const [, N, r, p, salt, want] = parts;
+  const a = Buffer.from(want, 'base64');
+  const o = { N: Number(N), r: Number(r), p: Number(p), len: a.length };
+  if (!o.N || !o.r || !o.p || !o.len) return false;
+  let got;
+  try { got = await scrypt1(String(pw), Buffer.from(salt, 'base64'), o); } catch { return false; }
+  return got.length === a.length && crypto.timingSafeEqual(got, a);
+}
+
+/** その社員のハッシュ。無い人は null——「パスワード不要」の意味。 */
+export async function passwordFor(employeeId) {
+  const { rows } = await pool.query(
+    'SELECT pass_hash FROM employees WHERE id = $1 AND active', [String(employeeId)],
+  );
+  return rows.length ? rows[0].pass_hash || null : null;
+}
+
+/** 設定する。null を渡すと外れる。 */
+export async function setPassword(employeeId, hash) {
+  const { rowCount } = await pool.query(
+    'UPDATE employees SET pass_hash = $2 WHERE id = $1', [String(employeeId), hash || null],
+  );
+  return rowCount > 0;
+}
+
+/**
+ * メールアドレスから社員を引く。
+ *
+ * メールの欄は「a@x; b@y」のように複数入ることがあるので、どれと一致しても
+ * その人である。二人に同じアドレスが入っていたら null を返す——どちらの人か
+ * 決められないものを、どちらかに決めてはいけない。
+ */
+export async function employeeByEmail(email) {
+  const want = String(email || '').trim().toLowerCase();
+  if (!want.includes('@')) return null;
+  const { rows } = await pool.query(
+    `SELECT * FROM employees
+      WHERE active
+        AND EXISTS (
+          SELECT 1 FROM regexp_split_to_table(
+            COALESCE(email, '') || ',' || COALESCE(email2, ''), '[;,\n]') AS a
+           WHERE lower(btrim(a)) = $1)`,
+    [want],
+  );
+  return rows.length === 1 ? toEmployee(rows[0]) : null;
 }
 
 /* ----------------------------- sessions ---------------------------------- */

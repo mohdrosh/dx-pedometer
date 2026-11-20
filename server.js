@@ -72,6 +72,7 @@ const {
   addUpload, listUploads, getUpload, deleteUpload, uploadBytes,
   eggVote, eggMyVote, eggRows, eggAudience,
   eggOfficeRows, eggOfficeSave, eggOfficeDelete, eggContactFor, menuRows,
+  employeeByEmail, passwordFor, checkPassword,
   eggHarvest, eggHarvestBump, eggHarvestSet,
   eggRequestSave, eggRequestDrop, eggMyRequest, eggMyRequests,
   eggWeekRequests, eggMissed, eggWeek, eggDrawSave, eggWeekOffices, eggWeekFinalise,
@@ -877,8 +878,45 @@ const server = http.createServer(async (req, res) => {
       const cfg = (await getKey('cfg')) || {};
       const admins = (cfg.adminIds || []).map((a) => String(a).toLowerCase());
       const isAdmin = admins.includes(id.toLowerCase());
-      const person = isAdmin ? null : await getEmployee(id);
+      /* 社員番号、またはメールアドレス。
+         2026/11/20 佐野:「丹波は3名います。休むこともあるので、3名のメール
+         アドレスを丹波担当として登録してください」——そのうち2名は社員番号を
+         持たないので、アドレスでも入れるようにする。番号は変わらず行の鍵で
+         あって（仕様書 8）、入口がひとつ増えただけである。 */
+      const byMail = !isAdmin && id.includes('@');
+      const person = isAdmin
+        ? null
+        : (byMail ? await employeeByEmail(id) : await getEmployee(id));
       if (!isAdmin && !person) return sendJson(res, 401, { error: 'not_found' });
+
+      /* パスワードを持っている人の分だけ。
+         メールで入れるのは丹波の3名のためで、ほかの社員はこれまでどおり
+         社員番号だけである（仕様書 8:「社員番号を全社共通のキーにする。
+         氏名やメールではなく社員番号で人を識別する」）。鍵を持たない人の
+         アドレスは、鍵なしの裏口にしない。
+
+         返すのは not_found——「その人は居るが、この入口は使えない」と
+         答えると、アドレスを打っただけの相手に在籍を教えることになる。 */
+      const want = isAdmin ? null : await passwordFor(person.id);
+      if (byMail && !want) return sendJson(res, 401, { error: 'not_found' });
+
+      /* パスワードを持っている人は、どの入口から来ても必ず要る。持っていない
+         人——いまのところ丹波の3名以外の全員——はこれまでどおり素通りする。
+
+         アドレスを打っただけの段階では「要る」としか返さない。名前も、
+         セッションも、その人が居るかどうかも、合ってから。 */
+      if (!isAdmin) {
+        if (want) {
+          const pw = String(b?.password || '');
+          if (!pw) return sendJson(res, 401, { error: 'password_required' });
+          if (rateLimited(`pw:${person.id}`, 5, 60_000)) {
+            return sendJson(res, 429, { error: 'too_many' });
+          }
+          if (!await checkPassword(pw, want)) {
+            return sendJson(res, 401, { error: 'password_wrong' });
+          }
+        }
+      }
 
       const sid = crypto.randomBytes(32).toString('hex');
       await createSession(sid, isAdmin ? null : person.id, isAdmin, SESSION_DAYS);
