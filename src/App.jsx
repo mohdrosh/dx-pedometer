@@ -2622,6 +2622,24 @@ export function readRosterSheet(buf) {
 const ROSTER_KEEP = new Set(['0208', '2407036']);
 
 /**
+ * Is this person safe from an import that does not mention them?
+ *
+ * By name for the two above, and by role for everybody else. 2026/11/20,
+ * 佐野 named three people for the 丹波 team and two of them are in no
+ * version of the 社員リスト — most likely 嘱託 or パート at the coop, who
+ * would be given a 社員番号 so they can sign in and would then be deleted
+ * by the next monthly import for not appearing in a list of 正社員.
+ *
+ * A role is a better guard than a list of numbers, because somebody has to
+ * remember to add a number and nobody has to remember a role: an account
+ * that runs the shed, or takes a delivery, is doing a job the company set
+ * up, and a spreadsheet that has never heard of them is not evidence that
+ * the job ended.
+ */
+const keepsRoster = (p) => ROSTER_KEEP.has(String(p.id))
+  || p.eggFarm === true || p.trial === true;
+
+/**
  * What the sheet would do to the roster: the new list, and what changed.
  *
  * A merge and not a replacement. The sheet knows 氏名・メールアドレス・性別
@@ -2635,7 +2653,7 @@ export function mergeRosterSheet(roster, rows) {
   const change = [];
 
   const next = roster
-    .filter((p) => byId.has(String(p.id)) || ROSTER_KEEP.has(String(p.id)))
+    .filter((p) => byId.has(String(p.id)) || keepsRoster(p))
     .map((p) => {
       const r = byId.get(String(p.id));
       if (!r) return p;
@@ -2667,7 +2685,7 @@ export function mergeRosterSheet(roster, rows) {
   }
 
   const drop = roster.filter(
-    (p) => !byId.has(String(p.id)) && !ROSTER_KEEP.has(String(p.id)),
+    (p) => !byId.has(String(p.id)) && !keepsRoster(p),
   );
   return { next, add, change, drop };
 }
