@@ -266,6 +266,12 @@ Add these to Render's environment variables when 情シス provides them:
 SMTP_HOST, SMTP_PORT, SMTP_SECURE, SMTP_USER, SMTP_PASS, ADMIN_EMAIL
 ```
 
+`ADMIN_EMAIL` is the 万歩計 committee's address — the Monday summary and the
+auto-submit notice go there. モラエッグ's weekly 確定 notice does **not**: it
+goes to `EGG_ADMIN_EMAIL`, which defaults to `admin_egg@morabu.com` and needs
+no entry in the env file unless the address changes. 佐野, 2026/11/20, after a
+test confirmation landed in the pedometer committee's inbox.
+
 While `SMTP_HOST` is empty the server stays in **dry run** — the jobs execute
 and log what they would send, but nothing leaves the machine. No code change is
 needed to switch over.

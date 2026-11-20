@@ -111,6 +111,18 @@ const ADMIN_EMAIL = process.env.ADMIN_EMAIL || '';
    fixes the site is not always whoever reads those. A comma-separated
    list is fine. Unset, the reports go to ADMIN_EMAIL. */
 const REPORT_EMAIL = process.env.REPORT_EMAIL || process.env.ADMIN_EMAIL || '';
+/* モラエッグの確定通知の宛先。
+
+   佐野, 2026/11/20:「先ほどモラエッグのテスト確定メールを送ったところ、
+   万歩計の担当者に届いてしまったようです。admin_egg@morabu.com に変えて
+   ください」。ADMIN_EMAIL は万歩計のもので、月曜の集計と自動提出の控えが
+   そこへ行く——卵の発送を確定するたびにその人たちの受信箱に入るのは、
+   読む人が違うというだけでなく、読まれなくなる道でもある。
+
+   既定値は EGG_MAIL_FROM と同じ admin_egg@morabu.com。設定を足さなくても
+   正しい宛先に届き、変えたくなったときは EGG_ADMIN_EMAIL を置けばよい。
+   カンマ区切りで複数指定できる。 */
+const EGG_ADMIN_EMAIL = process.env.EGG_ADMIN_EMAIL || 'admin_egg@morabu.com';
 const DRY_RUN = process.env.MAIL_DRY_RUN === '1' || !process.env.SMTP_HOST;
 const SERVE_STATIC = fs.existsSync(DIST);
 const SESSION_DAYS = Number(process.env.SESSION_DAYS || 7);
@@ -595,11 +607,10 @@ async function eggMail(ship, cfg, holidays) {
      replaced it goes in the box instead (/api/egg/list.pdf). */
 
   /* 「管理者向けのメールは会社のアドレスのみに送る。送り先は追って連絡する」
-     — so it goes to ADMIN_EMAIL for now, which is where every other
-     administrative mail in this app already goes, and the moment she
-     names the real recipients it is one environment variable. */
-  if (ADMIN_EMAIL) {
-    await post(ADMIN_EMAIL, adminMail({
+     — 2026/11/20 に連絡があった。EGG_ADMIN_EMAIL がその宛先で、万歩計の
+     ADMIN_EMAIL とは別である。 */
+  if (EGG_ADMIN_EMAIL) {
+    await post(EGG_ADMIN_EMAIL, adminMail({
       ship,
       harvest: week.packs,
       shipped: week.shipped,
