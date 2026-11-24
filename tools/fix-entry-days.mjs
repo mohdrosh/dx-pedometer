@@ -74,9 +74,17 @@ async function main() {
   for (const r of rows) {
     const want = periodOf(r.day);
     if (want === r.period) continue;
-    const there = have.get(`${want}|${r.employeeId}|${r.day}`);
-    if (there === undefined) moves.push({ ...r, want });
-    else if (Number(there) === Number(r.steps)) dups.push({ ...r, want });
+    const at = `${want}|${r.employeeId}|${r.day}`;
+    const there = have.get(at);
+    if (there === undefined) {
+      /* 行き先を埋めたことを控える。同じ日が複数の期に複写されている
+         ことがあり——松田さんの8月は7つの期に入っていた——ひとつ戻した
+         時点でその枠は塞がる。控えずに全部を「戻す」に並べると、二つ目
+         以降が主キーに当たってトランザクションごと巻き戻る。安全では
+         あるが、仕事は何も終わらない。 */
+      moves.push({ ...r, want });
+      have.set(at, r.steps);
+    } else if (Number(there) === Number(r.steps)) dups.push({ ...r, want });
     else clash.push({ ...r, want, there });
   }
 
