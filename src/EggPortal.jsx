@@ -1543,7 +1543,15 @@ function EggShip({ lang, toast, t, onDone }) {
   return (
     <div className="eg-ship">
       {/* ---- 1. 発送可能なパック数の確定 ---------------------------------- */}
-      <div className="sechead"><span>{mgs('s1Title')}</span></div>
+      {/* どの週を確定しようとしているのか。締切を過ぎると画面は前の週を
+          出したままになる——今日の取れ高は今日の週、確定は締切の過ぎた
+          週で、同じ画面に二つの週が並ぶ。日付がなければ読み分けられない。 */}
+      <div className="sechead">
+        <span>{mgs('s1Title')}</span>
+        {d.week?.shipDay && (
+          <i className="eg-hv-for">{mg('tShipFor', lang, { d: md(d.week.shipDay, lang) })}</i>
+        )}
+      </div>
       <div className="card eg-ship-1">
         {/* 部長, 2026/11/10: in red, because the one way to get this
             week wrong is to press it before the deadline. */}

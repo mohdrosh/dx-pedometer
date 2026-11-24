@@ -574,16 +574,18 @@ async function shipToConfirm(cfg, holidays, now) {
      手前へ跨ぐ。 */
   let w = shiftDay(open, -7);
   for (let i = 0; i < 12 && weekPlan(w, cfg).type === 'off'; i += 1) w = shiftDay(w, -7);
-  /* 初回より前の週は存在しない。 */
+  /* 初回より前の週は存在しない——初週は、締切が来るまで自分の週を出す。 */
   if (first && w < first) return open;
 
-  const due = requestDeadline(w, cfg, holidays);
-  const passed = now.stamp > due.date
-    || (now.stamp === due.date && Number(now.h) >= due.hour);
-  if (!passed) return open;
+  /* 締切が過ぎたかどうかは openShipMonday がすでに答えている:
+     過ぎていれば open は翌週を指しているので、その一つ手前が「締切の
+     過ぎた週」である。ここで改めて日付を見る必要はない。
 
-  const row = await eggWeek(w);
-  return row?.finalAt ? open : w;
+     最終確定したかどうかも見ない。確定した週をすぐ手放すと、確定した
+     あとに必要なこと——箱に入れる紙を印刷する、取り消してやり直す——が
+     どれも画面から消える。2026/11/24 にそれが起きた。次の締切が来れば
+     どのみち入れ替わるので、それまでは手放さない。 */
+  return w;
 }
 
 /**
