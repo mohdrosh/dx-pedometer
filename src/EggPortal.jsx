@@ -277,6 +277,14 @@ const L = {
   /* 事務所 */
   office: ['事業所', 'Office'],
   arrivals: ['到着の確認', 'Confirm arrival'],
+  /* 発送分のPDF。佐野, 2026/11/24:「配送先リストのPDFをダウンロードする
+     ボタンを管理画面にも追加してほしい」「過去の履歴をすべて残して
+     ください」。 */
+  pdfHead: ['発送分のPDF', 'Shipment PDFs'],
+  pdfLead: ['事業所ごとの発送数と宛先です。過去の分もここから取り出せます。',
+    'Packs and addresses for each office. Past shipments stay here too.'],
+  pdfNone: ['まだ発送はありません。', 'Nothing has shipped yet.'],
+  pdfWait: ['最終確定を待っています', 'Waiting on final confirmation'],
   arrived: ['到着しました', 'They have arrived'],
   arrivedOn: ['{d} 確認済み', 'Confirmed {d}'],
   toCollect: ['受け取りに来る方', 'Coming to collect'],
@@ -2200,10 +2208,14 @@ export function EggAdmin({ lang, toast, cfg = {}, setCfg, onDone, today = null }
   const [draft, setDraft] = useState({ name: '', address: '', active: true });
   const [busy, setBusy] = useState(false);
   const [last, setLast] = useState(null);
+  /* 発送した週。古い分の紙を出すためだけに持つ。 */
+  const [weeks, setWeeks] = useState([]);
 
   const load = useCallback(async () => {
     const res = await fetch(`${apiRoot()}/egg/offices`, { credentials: 'same-origin' });
     if (res.ok) setOffices((await res.json()).offices || []);
+    const w = await fetch(`${apiRoot()}/egg/weeks`, { credentials: 'same-origin' });
+    if (w.ok) setWeeks((await w.json()).weeks || []);
   }, []);
   useEffect(() => { load(); }, [load]);
 
@@ -2297,6 +2309,35 @@ export function EggAdmin({ lang, toast, cfg = {}, setCfg, onDone, today = null }
           row on any change, so saving a minimum wiped an address that
           happened not to be loaded — it cost 大阪 its address twice
           before anybody noticed. */}
+      {/* 発送分のPDF。週ごとに一行、新しい順。確定前の週は紙が組み立て
+          られない（経路が 409 を返す）ので、押せる釦は出さずに待ちと
+          書く——押すと失敗する釦は、無いより悪い。 */}
+      <div className="sechead"><span>{t('pdfHead')}</span></div>
+      <div className="card">
+        <p className="muted sm">{t('pdfLead')}</p>
+        {!weeks.length
+          ? <p className="muted sm">{t('pdfNone')}</p>
+          : (
+            <ul className="eg-pdfs">
+              {weeks.map((w) => (
+                <li key={w.ship}>
+                  <b>{md(w.shipDay || w.ship, lang)}</b>
+                  <span className="muted sm">{w.packs ?? 0} {t('pack')}</span>
+                  {w.final
+                    ? (
+                      <a
+                        className="btn sm eg-dl-box"
+                        href={`${apiRoot()}/egg/list.pdf?ship=${w.ship}`}
+                        download={`moraegg-${w.ship}.pdf`}
+                      >{mg('boxSheet', lang)}</a>
+                    )
+                    : <em className="muted sm">{t('pdfWait')}</em>}
+                </li>
+              ))}
+            </ul>
+          )}
+      </div>
+
       <div className="sechead"><span>{mg('offTitle2', lang)}</span></div>
       <div className="card">
         <p className="muted sm">{mg('offLead', lang)}</p>

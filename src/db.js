@@ -1669,6 +1669,21 @@ export async function eggWeek(ship) {
   return r ? { ...r, ship: fmtDate(r.ship) } : null;
 }
 
+/** 発送した週をすべて、新しい順に。
+
+    2026/11/24 佐野:「配送先リストのPDFは、管理画面に過去の履歴をすべて
+    残してください」。箱に入れる紙はその週の画面にしか出ていなかったので、
+    週が替われば取り出せなくなっていた。PDF は毎回その場で組み立てられる
+    ——どこかに貯めたファイルではない——ので、週の一覧さえあれば過去の分も
+    同じように出せる。 */
+export async function eggWeeksAll() {
+  const { rows } = await pool.query(
+    `SELECT ship, packs, drawn_at AS "drawnAt", final_at AS "finalAt"
+       FROM egg_weeks ORDER BY ship DESC`,
+  );
+  return rows.map((r) => ({ ...r, ship: fmtDate(r.ship) }));
+}
+
 /**
  * Write a week's allocation: every request's share and where it is
  * collected, the week's record of how it was decided, the per-office

@@ -50,6 +50,7 @@ import { CATEGORIES, boxesFor, groupOf } from './src/mypage.js';
 import {
   mondayOf, openShipMonday, requestDeadline, requestsOpen, pickupDeadline,
   weekInfo, shiftDay, statusOf, dueShip, weekPlan, harvestWindow,
+  shipDay as shipDayOf,
 } from './src/egg-week.js';
 import { allot } from './src/egg-allot.js';
 import { requesterMail, adminMail } from './src/egg-mail.js';
@@ -72,7 +73,7 @@ const {
   addUpload, listUploads, getUpload, deleteUpload, uploadBytes,
   eggVote, eggMyVote, eggRows, eggAudience,
   eggOfficeRows, eggOfficeSave, eggOfficeDelete, eggContactFor, menuRows,
-  employeeByEmail, passwordFor, checkPassword, adminPassword,
+  employeeByEmail, passwordFor, checkPassword, adminPassword, eggWeeksAll,
   eggHarvest, eggHarvestBump, eggHarvestSet,
   eggRequestSave, eggRequestDrop, eggMyRequest, eggMyRequests,
   eggWeekRequests, eggMissed, eggWeek, eggDrawSave, eggWeekOffices, eggWeekFinalise,
@@ -1680,6 +1681,24 @@ const server = http.createServer(async (req, res) => {
     }
 
     /* ------------------------- 管理者：事務所と抽選 ------------------------ */
+
+    /* 発送した週の一覧。箱に入れる紙を過去の分まで取り出せるように
+       （佐野, 2026/11/24）。読むだけなので丹波にも開けてある——紙を
+       印刷するのは彼らである。 */
+    if (url.pathname === '/api/egg/weeks' && req.method === 'GET') {
+      if (!sess) return deny(res);
+      const whoNow = await eggWho();
+      if (!whoNow.admin && !whoNow.farm) return deny(res, 403);
+      const { cfg, holidays } = await eggCfgNow();
+      const weeks = (await eggWeeksAll()).map((w) => ({
+        ship: w.ship,
+        packs: w.packs,
+        final: !!w.finalAt,
+        /* 車が出る日。週の名前ではない——紙にもメールにもこちらが出る。 */
+        shipDay: shipDayOf(w.ship, holidays, cfg),
+      }));
+      return sendJson(res, 200, { weeks });
+    }
 
     if (url.pathname === '/api/egg/offices' && req.method === 'GET') {
       if (!sess?.isAdmin) return deny(res, 403);

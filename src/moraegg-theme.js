@@ -1431,6 +1431,15 @@ export const MG_CSS = `
 /* 事業所の設定: a card per office, two fields across on a desk and one on
    a phone, so nothing has to be scrolled sideways to be set. */
 .mg .eg-offc{list-style:none;margin:10px 0 0;padding:0;display:grid;gap:10px}
+/* 発送分のPDF。日付・パック数・釦の三つを一行に。日付は幅を決めておく
+   ——行ごとに釦の左端がずれると、並びが読めなくなる。 */
+.mg .eg-pdfs{list-style:none;margin:10px 0 0;padding:0;display:grid;gap:8px}
+.mg .eg-pdfs li{display:flex;align-items:center;gap:12px;padding:8px 0;
+  border-bottom:1px solid var(--mg-line)}
+.mg .eg-pdfs li:last-child{border-bottom:0}
+.mg .eg-pdfs b{min-width:7.5em;white-space:nowrap}
+.mg .eg-pdfs li > span{white-space:nowrap}
+.mg .eg-pdfs li > .btn,.mg .eg-pdfs li > em{margin-left:auto}
 .mg .eg-offc li{display:grid;grid-template-columns:minmax(0,1fr) 8.5em auto;gap:8px 12px;
   padding:11px 13px;border-radius:12px;background:var(--mg-sky)}
 .mg .eg-offc li.off{opacity:.6}
