@@ -547,12 +547,31 @@ export async function initSchema() {
     `ALTER TABLE egg_weeks ADD COLUMN IF NOT EXISTS final_by TEXT
        REFERENCES employees(id) ON DELETE SET NULL`,
   );
-  /* Weeks decided before this existed were final the moment they were
+  /* Weeks decided before final_at existed were final the moment they were
      drawn, because there was nothing else to wait for. Without this they
-     would all read 確認中 for ever. */
-  await pool.query(
-    'UPDATE egg_weeks SET final_at = drawn_at WHERE final_at IS NULL AND drawn_at IS NOT NULL',
-  );
+     would all read 確認中 for ever.
+
+     Once only. 2026/11/24 it ran on every start, and that is not a
+     backfill — it is a second way to confirm a week, one that nobody
+     presses. 内田さんが 8:13 に「確定」だけを押し、9時の締切を待っていた
+     その週を、9:32 の再起動が最終確定にしてしまった。メールは出ていない
+     のに確定済みになり、丹波の画面はその週を済んだものとして手放した。
+
+     drawn と final を分けたのは「配分したこと」と「人が引き受けたこと」
+     を別に記録するためで（配布ルール 10）、再起動が後者を代わりに
+     press してよい理由はどこにもない。 */
+  const finalFix = await pool.query("SELECT 1 FROM config WHERE key = 'job:finalAt1105'");
+  if (!finalFix.rowCount) {
+    const u = await pool.query(
+      'UPDATE egg_weeks SET final_at = drawn_at WHERE final_at IS NULL AND drawn_at IS NOT NULL',
+    );
+    await pool.query(
+      `INSERT INTO config (key, value) VALUES ('job:finalAt1105', $1)
+       ON CONFLICT (key) DO NOTHING`,
+      [JSON.stringify({ at: Date.now(), rows: u.rowCount })],
+    );
+    if (u.rowCount) console.log(`  Eggs     : ${u.rowCount} week(s) back-filled as final`);
+  }
 
   /* The seven offices and their minimums (仕様書 4.10), written once so a
      fresh database and the live one agree. Only inserted, never updated:
