@@ -563,9 +563,13 @@ const weekResult = (ship) => runAllot(ship, { dry: true });
    と言っているのに、その9時にその週が見えなくなる。
 
    dueShip は締切当日しか当たらないので、翌日になればまた同じことが
-   起きる。だから日付ではなく状態で選ぶ:直前の週の締切が過ぎていて、
-   まだ最終確定されていなければ、その週を出す。確定が済んでいれば申請
-   を受け付けている週に戻る。遅れて確定する週も、これで画面に残る。 */
+   起きる。最終確定を見るのも駄目だった——確定した瞬間に手放すので、
+   そのあとにする印刷も取り消しも画面から消える。
+
+   ロシャンさん:「今週の確定は今週の締切のあと。それまでは先週の分」。
+   締切が過ぎたかどうかは openShipMonday がすでに答えている——過ぎて
+   いれば open は翌週を指すので、その一つ手前が「締切の過ぎた週」で
+   ある。次の締切が来ればどのみち入れ替わるので、それまで手放さない。 */
 async function shipToConfirm(cfg, holidays, now) {
   const open = openShipMonday(now.stamp, now.h, cfg, holidays);
   const first = cfg.egg?.firstShip ? String(cfg.egg.firstShip) : null;
@@ -648,7 +652,12 @@ async function eggMail(ship, cfg, holidays) {
      ADMIN_EMAIL とは別である。 */
   if (EGG_ADMIN_EMAIL) {
     await post(EGG_ADMIN_EMAIL, adminMail({
-      ship,
+      /* 車が出る日。週の名前ではない——2026/11/12 に発送が締切の翌日に
+         なってから、この二つは別の日付である。リクエストした人への手紙は
+         info から到着日と期限を取っているので正しく、この一通だけが週の
+         名前を「発送日」として出していた。11/23 の週で 11月23日（月）と
+         書いて送っている。 */
+      ship: info.shipDay,
       harvest: week.packs,
       shipped: week.shipped,
       extra: week.extra,
