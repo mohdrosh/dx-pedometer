@@ -1113,6 +1113,24 @@ export async function passwordFor(employeeId) {
 }
 
 /** 設定する。null を渡すと外れる。 */
+/* 管理者の鍵。
+
+   2026/11/24 佐野:「モラエッグ管理者。これにもパスワードがあったほうが
+   よいと思います」。管理者は employees の行を持たない——adminIds に並んだ
+   アドレスであって、社員の一人ではない——ので、鍵は config に置く。
+
+   置かれていなければ、これまでどおり素通りする。そうしておかないと、
+   配った瞬間に本人が入れなくなる。鍵は配ったあとに設定する。 */
+export async function adminPassword() {
+  const row = await getKey('adminPass');
+  return row && typeof row.hash === 'string' ? row.hash : null;
+}
+
+export async function setAdminPassword(hash) {
+  await setKey('adminPass', { hash, at: Date.now() });
+  return true;
+}
+
 export async function setPassword(employeeId, hash) {
   const { rowCount } = await pool.query(
     'UPDATE employees SET pass_hash = $2 WHERE id = $1', [String(employeeId), hash || null],

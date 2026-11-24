@@ -72,7 +72,7 @@ const {
   addUpload, listUploads, getUpload, deleteUpload, uploadBytes,
   eggVote, eggMyVote, eggRows, eggAudience,
   eggOfficeRows, eggOfficeSave, eggOfficeDelete, eggContactFor, menuRows,
-  employeeByEmail, passwordFor, checkPassword,
+  employeeByEmail, passwordFor, checkPassword, adminPassword,
   eggHarvest, eggHarvestBump, eggHarvestSet,
   eggRequestSave, eggRequestDrop, eggMyRequest, eggMyRequests,
   eggWeekRequests, eggMissed, eggWeek, eggDrawSave, eggWeekOffices, eggWeekFinalise,
@@ -954,7 +954,7 @@ const server = http.createServer(async (req, res) => {
 
          返すのは not_found——「その人は居るが、この入口は使えない」と
          答えると、アドレスを打っただけの相手に在籍を教えることになる。 */
-      const want = isAdmin ? null : await passwordFor(person.id);
+      const want = isAdmin ? await adminPassword() : await passwordFor(person.id);
       if (byMail && !want) return sendJson(res, 401, { error: 'not_found' });
 
       /* パスワードを持っている人は、どの入口から来ても必ず要る。持っていない
@@ -962,16 +962,15 @@ const server = http.createServer(async (req, res) => {
 
          アドレスを打っただけの段階では「要る」としか返さない。名前も、
          セッションも、その人が居るかどうかも、合ってから。 */
-      if (!isAdmin) {
-        if (want) {
-          const pw = String(b?.password || '');
-          if (!pw) return sendJson(res, 401, { error: 'password_required' });
-          if (rateLimited(`pw:${person.id}`, 5, 60_000)) {
-            return sendJson(res, 429, { error: 'too_many' });
-          }
-          if (!await checkPassword(pw, want)) {
-            return sendJson(res, 401, { error: 'password_wrong' });
-          }
+      if (want) {
+        const pw = String(b?.password || '');
+        if (!pw) return sendJson(res, 401, { error: 'password_required' });
+        /* 回数は人ごとに数える。管理者は行を持たないので、その鍵の名前で。 */
+        if (rateLimited(`pw:${isAdmin ? 'admin' : person.id}`, 5, 60_000)) {
+          return sendJson(res, 429, { error: 'too_many' });
+        }
+        if (!await checkPassword(pw, want)) {
+          return sendJson(res, 401, { error: 'password_wrong' });
         }
       }
 

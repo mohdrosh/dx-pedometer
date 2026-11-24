@@ -525,7 +525,12 @@ const STR = {
   whoName: ['お名前', 'Name'],
   whoLead: ['お名前に間違いがなければ、ログインを押してください。',
     'If this is you, press log in.'],
-  whoRedo: ['社員番号を入力し直す', 'Enter a different number'],
+  /* 佐野, 2026/11/24:「社員番号／メールアドレスを入力し直す」。欄が両方を
+     受けるようになったので、戻る釦も両方の名前で呼ぶ。 */
+  whoRedo: ['社員番号／メールアドレスを入力し直す', 'Enter a different number or email'],
+  /* 同:「健康対策委員会 ではなく モラエッグ管理者」。卵の入口では卵の名で
+     呼ぶ——万歩計の画面ではこれまでどおり 健康対策委員会 である。 */
+  eggAdmin: ['モラエッグ管理者', 'Moraegg administrator'],
   trialSignup: ['お試し登録（対象者以外の方）', 'Trial sign-up (non-participants)'],
   trialTitle: ['お試し登録', 'Trial sign-up'],
   trialNote: ['対象者以外の方が、お試しでご利用いただくための登録です。入力された記録は、健康対策推進活動の集計・完歩賞には含まれません。', 'For people outside the official participant list who would like to try the system. Trial records are excluded from the aggregation and the walking bonus.'],
@@ -1322,7 +1327,7 @@ function Login({ onLogin, onEnter, onTrial, lang, setLang, notice, cfg }) {
         {AT_EGG_DOOR && who && (
           <div className="login-who">
             <span>{t('whoName')}</span>
-            <b>{who.user?.name || ''}</b>
+            <b>{who.user?.admin ? t('eggAdmin') : (who.user?.name || '')}</b>
             <p>{t('whoLead')}</p>
           </div>
         )}
