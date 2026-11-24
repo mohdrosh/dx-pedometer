@@ -281,7 +281,14 @@ const STR = {
   password: ['パスワード', 'Password'],
   passwordPh: ['担当者のパスワード', 'Your team password'],
   pwWrong: ['パスワードが違います。', 'That password is not right.'],
-  idOrMail: ['社員番号 または メールアドレス', 'Employee number or email'],
+  /* 佐野, 2026/11/24:「社員番号／メールアドレス と表示してください」。
+     スラッシュ一つ。「または」より短く、欄の上で折り返さない。 */
+  idOrMail: ['社員番号／メールアドレス', 'Employee number / email'],
+  /* 同:「入力欄の下に、次の注記を表示してください」 */
+  mailNote: ['※丹波メンバー／管理者は、メールアドレスを入力してください。',
+    'Tamba members and administrators: please enter your email address.'],
+  /* 携帯で文字を出すための切り替え。下の注記のすぐ隣に置く。 */
+  useMail: ['メールアドレスで入力', 'Enter an email instead'],
   signOutFailed: ['ログアウトできませんでした。通信を確認して、もう一度お試しください。',
     'Could not sign out. Check your connection and try again.'],
 
@@ -1160,6 +1167,9 @@ function Login({ onLogin, onEnter, onTrial, lang, setLang, notice, cfg }) {
      しまうから。サーバに訊いて、要ると返ってきたときにだけ出す。 */
   const [pw, setPw] = useState('');
   const [needPw, setNeedPw] = useState(false);
+  /* 携帯で英字の配列を出すための切り替え。既定はテンキーのままにして、
+     押されたときだけメール向けに変える（下の注記の隣のボタン）。 */
+  const [mailMode, setMailMode] = useState(false);
 
   const say = (code) => t(code === 'too_many' ? 'tooMany'
     : code === 'password_wrong' ? 'pwWrong' : 'notFound');
@@ -1254,12 +1264,19 @@ function Login({ onLogin, onEnter, onTrial, lang, setLang, notice, cfg }) {
         </div>
 
         <label className="fld">
-          <span>{t(needPw || id.includes('@') ? 'idOrMail' : 'employeeId')}</span>
+          <span>{t('idOrMail')}</span>
           <input
             /* An example, not a colleague. This used to be a real employee
                number, displayed to everyone who opened the sign-in page. */
             value={id} autoComplete="off" placeholder="1234567"
-            inputMode={id.includes('@') ? 'email' : 'numeric'}
+            /* 携帯のテンキーには @ も英字もない。「@ が入ったら email に
+               する」では、その最初の一文字が打てないので、メールで入る
+               4名（管理者と丹波の3名）は携帯から永久に入れない。
+
+               既定はテンキーのままにする——600名は7桁の番号を打つので、
+               そちらを一タップ遠ざける理由がない。下の切り替えを押すか、
+               数字でないものが一文字でも入れば、英字の出る配列に変わる。 */
+            inputMode={mailMode || /[^0-9]/.test(id) ? 'email' : 'numeric'}
             disabled={!!who}
             onChange={(e) => {
               setId(e.target.value); setErr('');
@@ -1281,6 +1298,21 @@ function Login({ onLogin, onEnter, onTrial, lang, setLang, notice, cfg }) {
               onKeyDown={(e) => e.key === 'Enter' && go()}
             />
           </label>
+        )}
+        {/* 佐野, 2026/11/24. 欄の下——鍵の欄が出るときはその下でもあり、
+            入口全体についての一文なので、両方の下に置く。 */}
+        {!who && (
+          <p className="muted sm login-note">
+            {t('mailNote')}
+            {!mailMode && !/[^0-9]/.test(id) && (
+              <>
+                {' '}
+                <button type="button" className="linkish" onClick={() => setMailMode(true)}>
+                  {t('useMail')}
+                </button>
+              </>
+            )}
+          </p>
         )}
         {notice === 'expired' && !err && <div className="notice">{t('sessionGone')}</div>}
         {err && <div className="err">{err}</div>}
@@ -4045,6 +4077,13 @@ function Styles() {
 .facts dt{margin:0;color:var(--ink-2)}
 .facts dd{margin:0;font-weight:600;font-variant-numeric:tabular-nums}
 .fld{display:block;margin-bottom:18px}
+/* 入口の注記と、そこに置く「メールアドレスで入力」。文中のボタンなので、
+   ボタンに見えるより文字に見えるほうがよい。 */
+.login-note{margin:-6px 0 16px;line-height:1.6}
+.linkish{display:inline-block;margin-top:4px;background:none;border:0;padding:0;
+  font:inherit;color:var(--brand);text-decoration:underline;cursor:pointer}
+.login-note .linkish{display:block}
+.linkish:hover{opacity:.8}
 .fld>span{display:block;font-size:13px;color:var(--ink-2);margin-bottom:6px;font-weight:500}
 .fld input,.fld select,.filters input,.filters select,.navrow input,.find input{
   width:100%;padding:13px;border:1px solid var(--rule);background:var(--field);
