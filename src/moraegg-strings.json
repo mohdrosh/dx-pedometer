@@ -935,6 +935,10 @@
     "ja": "今週のリクエスト合計",
     "en": "Total requests this week"
   },
+  "eggAdminName": {
+    "ja": "モラエッグ管理者",
+    "en": "Moraegg administrator"
+  },
   "tShipFor": {
     "ja": "{d}発送分",
     "en": "for the {d} delivery"

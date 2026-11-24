@@ -262,7 +262,14 @@ export default function EggTab({
      session is the only thing that knows it — it is never read from a
      request body, and it is not in the portal payload either, which
      carries the week and not the reader. */
-  const me = (user?.name || '').trim();
+  /* 管理者は、卵の画面では卵の名で呼ぶ。佐野, 2026/11/24:「健康対策委員会
+     ではなく モラエッグ管理者」。ログインで名前を確かめる画面は直したが、
+     入ったあとの見出しが万歩計の名のままだった——同じ人の同じ役なのに、
+     入る前と後で違う名前で呼ばれていたことになる。万歩計とマイページでは
+     これまでどおり 健康対策委員会 である。 */
+  const me = user?.admin
+    ? mg('eggAdminName', lang)
+    : (user?.name || '').trim();
 
   return (
     <div className="mg-page">
