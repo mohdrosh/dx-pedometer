@@ -1366,7 +1366,33 @@ function StepsTab({ user, cfg, holidays, y, m, setPeriod, toast }) {
     let live = true;
     setEntry(null);
     wasQualified.current = null;
-    S.get(entryKey(pk, user.id)).then((e) => { if (live) setEntry(e || { steps: {}, submitted: false }); });
+    /* 月を切り替えたら、前の月の控えを捨てる。
+
+       2026/11/23、永田さん:「①11月分提出後に12月分の編集をする際、数字
+       入力項目に入力された瞬間に項目がクローズされる ②以前までに入力して
+       いた歩数データが全て消滅している」。加藤さんからも同じ日に「11月度の
+       実績が今日見るとすべて消えていました」。
+
+       saveDay は latest.current を土台にして次の値を作る。ここで捨てて
+       いなかったので、11月を提出したあと12月の欄に一つ数字を入れると、
+       土台は11月のまま——30日ぶんの歩数も submitted: true も一緒に、12月の
+       記録として書かれる。入力した瞬間に欄が閉じるのはその submitted で
+       あり、逆向きに切り替えれば、まばらな月が満ちた月を上書きする。
+       保存は差分ではなく置き換えなので（DELETE してから入れ直す）、
+       上書きされた月はそこで消える。
+
+       同期的に捨てるのが肝心で、読み込みを待ってからでは、切り替えた
+       直後の一打鍵が古い土台を掴む。保留中の書き込みは、この直後に走る
+       pagehide 側の後始末が正しい月へ書き出している。 */
+    latest.current = null;
+    S.get(entryKey(pk, user.id)).then((e) => {
+      if (!live) return;
+      const got = e || { steps: {}, submitted: false };
+      setEntry(got);
+      /* 読めたものを土台にしておく。null のままだと saveDay が entry に
+         落ちるが、それは一拍遅れることがある。 */
+      latest.current = got;
+    });
     return () => { live = false; };
   }, [pk, user.id]);
 
