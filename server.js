@@ -551,6 +551,41 @@ async function eggTick(now) {
 /** The week as it stands, without changing anything. */
 const weekResult = (ship) => runAllot(ship, { dry: true });
 
+/* ---------------------- 丹波の画面が見ている週 --------------------------
+   openShipMonday が答えるのは「どの週に申請できるか」で、締切を過ぎた
+   瞬間に翌週へ移る。丹波の画面が訊いているのは別の問いである——「いま
+   どの週を確定すればよいか」。それは締切を過ぎた週のほうだ。
+
+   2026/11/24、内田さん:「先週のデータが消えたので、発送手続きが出来ま
+   せん」。9時の締切と同時に画面が翌週へ移ってしまい、確定すべき週が
+   画面から消えていた。発送はその翌日なので、確定できないまま車が出る
+   ことになる。画面の赤い字は「月曜9時の締め切り後に確定してください」
+   と言っているのに、その9時にその週が見えなくなる。
+
+   dueShip は締切当日しか当たらないので、翌日になればまた同じことが
+   起きる。だから日付ではなく状態で選ぶ:直前の週の締切が過ぎていて、
+   まだ最終確定されていなければ、その週を出す。確定が済んでいれば申請
+   を受け付けている週に戻る。遅れて確定する週も、これで画面に残る。 */
+async function shipToConfirm(cfg, holidays, now) {
+  const open = openShipMonday(now.stamp, now.h, cfg, holidays);
+  const first = cfg.egg?.firstShip ? String(cfg.egg.firstShip) : null;
+
+  /* 直前の週。「お休み」の週は、openShipMonday が先へ跨ぐのと同じだけ
+     手前へ跨ぐ。 */
+  let w = shiftDay(open, -7);
+  for (let i = 0; i < 12 && weekPlan(w, cfg).type === 'off'; i += 1) w = shiftDay(w, -7);
+  /* 初回より前の週は存在しない。 */
+  if (first && w < first) return open;
+
+  const due = requestDeadline(w, cfg, holidays);
+  const passed = now.stamp > due.date
+    || (now.stamp === due.date && Number(now.h) >= due.hour);
+  if (!passed) return open;
+
+  const row = await eggWeek(w);
+  return row?.finalAt ? open : w;
+}
+
 /**
  * The letters that go out at 最終確定 (仕様書 4.11).
  *
@@ -1883,7 +1918,7 @@ const server = http.createServer(async (req, res) => {
       const now = tokyoNow();
       const q = url.searchParams.get('ship');
       const ship = /^\d{4}-\d{2}-\d{2}$/.test(String(q || ''))
-        ? String(q) : openShipMonday(now.stamp, now.h, cfg, holidays);
+        ? String(q) : await shipToConfirm(cfg, holidays, now);
 
       const week = await eggWeek(ship);
       const info = weekInfo(ship, cfg, holidays);
