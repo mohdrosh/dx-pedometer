@@ -24,7 +24,7 @@
 
 import crypto from 'node:crypto';
 import pg from 'pg';
-import { OFFICE_MIN_DEFAULT, OFFICE_ADDRESS, EGG_OFFICES } from './egg.js';
+import { OFFICE_MIN_DEFAULT, OFFICE_ADDRESS, EGG_OFFICES, HQ_OFFICE } from './egg.js';
 import { MENU_SEED } from './mypage.js';
 
 const { Pool } = pg;
@@ -485,6 +485,16 @@ export async function initSchema() {
   await pool.query(
     'ALTER TABLE egg_weeks ADD COLUMN IF NOT EXISTS points_before JSONB',
   );
+  /* 次回保証（2026/11/25）。優先ポイントと同じく人が持ち、週をまたいで
+     残る。配分に入れた時点のものを週に控えるのは、再実行が同じ答えを
+     出すためである——走らせるたびに自分の書いた結果を読み直すと、
+     二度目から別の週になる。 */
+  await pool.query(
+    'ALTER TABLE egg_signup ADD COLUMN IF NOT EXISTS guarantee BOOLEAN NOT NULL DEFAULT FALSE',
+  );
+  await pool.query(
+    'ALTER TABLE egg_weeks ADD COLUMN IF NOT EXISTS guarantees_before JSONB',
+  );
 
   /* 本社 → 本社（神戸）, 2026/11/03. 佐野's 文言辞書 names the eight offices,
      and Head Office is 本社（神戸） in it.
@@ -773,6 +783,24 @@ export async function initSchema() {
       [JSON.stringify({ at: Date.now(), rows: u.rowCount })],
     );
     if (u.rowCount) console.log(`  Eggs     : ${u.rowCount} office minimum(s) raised to 4`);
+  }
+
+  /* 2026/11/25 佐野:「本社（神戸）は1パック以上あれば発送します」。11/13 に
+     4 へ上げた本社だけを 1 に戻す。一度かぎりで、その後 事業所の設定 で
+     触られた値は人のものなので動かさない。 */
+  const hqMin = await pool.query("SELECT 1 FROM config WHERE key = 'job:hqMin1125'");
+  if (!hqMin.rowCount) {
+    const u = await pool.query(
+      `UPDATE egg_offices SET min_packs = 1
+        WHERE name = $1 AND min_packs = 4`,
+      [HQ_OFFICE],
+    );
+    await pool.query(
+      `INSERT INTO config (key, value) VALUES ('job:hqMin1125', $1)
+       ON CONFLICT (key) DO NOTHING`,
+      [JSON.stringify({ at: Date.now(), rows: u.rowCount })],
+    );
+    if (u.rowCount) console.log('  Eggs     : 本社（神戸）の最低パック数を1に戻しました');
   }
 
   /* メニュー一覧表の初期値。入っていない id だけを足す——表はこれから
@@ -1660,6 +1688,7 @@ export async function eggMissed(ship) {
 export async function eggWeek(ship) {
   const { rows } = await pool.query(
     `SELECT ship, packs, rule, seed, extra, points_before AS "pointsBefore",
+            guarantees_before AS "guaranteesBefore",
             drawn_at AS "drawnAt", drawn_by AS "drawnBy",
             final_at AS "finalAt", final_by AS "finalBy"
        FROM egg_weeks WHERE ship = $1`,
@@ -1699,22 +1728,28 @@ export async function eggWeeksAll() {
  */
 export async function eggDrawSave(ship, { packs, rule, seed, by, extra = 0 }, allocated, {
   lines = null, points = null, pointsBefore = null,
+  guarantees = null, guaranteesBefore = null,
 } = {}) {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
     await client.query(
-      `INSERT INTO egg_weeks (ship, packs, rule, seed, extra, points_before, drawn_at, drawn_by)
-       VALUES ($1, $2, $3, $4, $5, $6, NOW(), $7)
+      `INSERT INTO egg_weeks (ship, packs, rule, seed, extra, points_before,
+                              guarantees_before, drawn_at, drawn_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), $8)
        ON CONFLICT (ship) DO UPDATE
          SET packs = EXCLUDED.packs, rule = EXCLUDED.rule, seed = EXCLUDED.seed,
              extra = EXCLUDED.extra,
              /* Never overwritten: the first run's input is the week's
                 input, however many times it is replayed. */
              points_before = COALESCE(egg_weeks.points_before, EXCLUDED.points_before),
+             guarantees_before = COALESCE(egg_weeks.guarantees_before,
+                                          EXCLUDED.guarantees_before),
              drawn_at = NOW(), drawn_by = EXCLUDED.drawn_by`,
       [ship, packs, rule, seed, Math.max(0, Number(extra) || 0),
-        pointsBefore ? JSON.stringify(pointsBefore) : null, await whoOrNull(by)],
+        pointsBefore ? JSON.stringify(pointsBefore) : null,
+        guaranteesBefore ? JSON.stringify(guaranteesBefore) : null,
+        await whoOrNull(by)],
     );
     for (const r of allocated) {
       /* at_office carries a value only for somebody moved to 本社. Written
@@ -1764,6 +1799,19 @@ export async function eggDrawSave(ship, { packs, rule, seed, by, extra = 0 }, al
              FROM (SELECT unnest($1::text[]) AS id, unnest($2::int[]) AS p) AS v
             WHERE s.employee_id = v.id`,
           [ids, ids.map((k) => Math.max(0, Number(points[k]) || 0))],
+        );
+      }
+    }
+    /* 次回保証も同じトランザクションで。優先ポイントだけ新しく、保証だけ
+       古いという組み合わせは、どちらか一方が壊れているよりたちが悪い——
+       次の週がその食い違いの上で走る。 */
+    if (guarantees) {
+      const ids = Object.keys(guarantees).filter((k) => guarantees[k] === true);
+      await client.query('UPDATE egg_signup SET guarantee = FALSE WHERE guarantee');
+      if (ids.length) {
+        await client.query(
+          'UPDATE egg_signup SET guarantee = TRUE WHERE employee_id = ANY($1::text[])',
+          [ids],
         );
       }
     }
@@ -1829,7 +1877,9 @@ export async function eggWeekUndo(ship) {
     if (got.length) { await client.query('ROLLBACK'); return 'collected'; }
 
     const { rows: weeks } = await client.query(
-      'SELECT points_before AS "pointsBefore" FROM egg_weeks WHERE ship = $1',
+      `SELECT points_before AS "pointsBefore",
+              guarantees_before AS "guaranteesBefore"
+         FROM egg_weeks WHERE ship = $1`,
       [ship],
     );
     if (!weeks.length) { await client.query('ROLLBACK'); return 'none'; }
@@ -1844,6 +1894,20 @@ export async function eggWeekUndo(ship) {
        the way the draw sets them — everybody to zero, then the snapshot
        written back — so that a point the draw added is taken off again
        rather than left on a row the snapshot has nothing to say about. */
+    /* 次回保証も戻す。配分が付けたものを取り消すのだから、付く前の形に
+       戻さなければ、やり直した週が別の入力で走る。 */
+    const guarBefore = weeks[0].guaranteesBefore;
+    if (guarBefore && typeof guarBefore === 'object') {
+      const keep = Object.keys(guarBefore).filter((k) => guarBefore[k] === true);
+      await client.query('UPDATE egg_signup SET guarantee = FALSE WHERE guarantee');
+      if (keep.length) {
+        await client.query(
+          'UPDATE egg_signup SET guarantee = TRUE WHERE employee_id = ANY($1::text[])',
+          [keep],
+        );
+      }
+    }
+
     const before = weeks[0].pointsBefore;
     if (before && typeof before === 'object') {
       const ids = Object.keys(before);
@@ -1972,6 +2036,27 @@ export async function eggPoints() {
     'SELECT employee_id AS id, points FROM egg_signup WHERE points > 0',
   );
   return Object.fromEntries(rows.map((r) => [String(r.id), Number(r.points) || 0]));
+}
+
+/** 次回保証 as a plain map, the shape the allocation wants. */
+export async function eggGuarantees() {
+  const { rows } = await pool.query(
+    'SELECT employee_id AS id FROM egg_signup WHERE guarantee',
+  );
+  return Object.fromEntries(rows.map((r) => [String(r.id), true]));
+}
+
+/* 優先ポイントと同じ理由でまとめて書く:配分はひとつの判断なので、
+   半分だけ書かれた表を次の週が読むことがあってはならない。 */
+export async function eggGuaranteesSave(guarantees) {
+  const ids = Object.keys(guarantees || {}).filter((k) => guarantees[k] === true);
+  await pool.query('UPDATE egg_signup SET guarantee = FALSE WHERE guarantee');
+  if (!ids.length) return true;
+  await pool.query(
+    'UPDATE egg_signup SET guarantee = TRUE WHERE employee_id = ANY($1::text[])',
+    [ids],
+  );
+  return true;
 }
 
 /* Written back in one statement after a draw rather than a row at a time:

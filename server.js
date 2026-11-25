@@ -80,6 +80,7 @@ const {
   eggWeekUndo,
   eggArrived, eggPickup, eggConsent, eggConsentSave, eggRequestById,
   eggSignup, eggSignupSave, eggSignups, eggPoints, eggPointsSave,
+  eggGuarantees,
   dishFeed, dishPost, dishCreate, dishEdit, dishDelete, dishHide,
   dishPhotoAdd, dishPhotoThumb, dishPhoto, dishPhotoCount,
   dishReact, dishComments, dishCommentAdd, dishCommentDelete, dishCommentHide,
@@ -429,6 +430,8 @@ async function runAllot(ship, { packs = null, by = null, dry = false } = {}) {
      own earlier run has already rewritten. */
   const week = await eggWeek(ship);
   const points = week?.pointsBefore || await eggPoints();
+  /* 次回保証も同じく、その週が最初に決まったときのものを使う。 */
+  const guarantees = week?.guaranteesBefore || await eggGuarantees();
 
   /* What ships is what the shed confirmed, and only then what the
      register adds up to. A dry read of a week already decided must use
@@ -447,6 +450,7 @@ async function runAllot(ship, { packs = null, by = null, dry = false } = {}) {
     harvest,
     minPacks: cfg.egg?.minPacks,
     points,
+    guarantees,
     seed: ship,
     /* An office's own 最低パック数 beats the company's, which is how 本社
        ships whatever it has:「0なら毎週発送」. */
@@ -468,7 +472,13 @@ async function runAllot(ship, { packs = null, by = null, dry = false } = {}) {
       ship,
       { packs: harvest, rule: 'company', seed: ship, by, extra: out.extra },
       full,
-      { lines: out.lines, points: out.points, pointsBefore: points },
+      {
+        lines: out.lines,
+        points: out.points,
+        pointsBefore: points,
+        guarantees: out.guarantees,
+        guaranteesBefore: guarantees,
+      },
     );
   }
 

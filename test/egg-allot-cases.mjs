@@ -168,7 +168,9 @@ const line = (r, office) => r.lines.find((l) => l.office === office);
 {
   /* The draw must never reorder people who are NOT tied. */
   seq = 0;
-  const rows = [req('a', '大阪', 1), req('b', '大阪', 1), req('c', '大阪', 1), req('d', '大阪', 1)];
+  /* 本社で。大阪は4要るので、4申請に2パックの週は手順4が誰にも送らない
+     ——ここで確かめたいのは抽選の順番であって、最低パック数ではない。 */
+  const rows = [req('a', HQ, 1), req('b', HQ, 1), req('c', HQ, 1), req('d', HQ, 1)];
   const r = run({ harvest: 2, requests: rows, points: { a: 5, b: 5, c: 0, d: 0 }, seed: 'x' });
   const winners = r.rows.filter((x) => x.got > 0).map((x) => x.employeeId).sort();
   is('a draw only ever runs inside one point value', winners, ['a', 'b']);
@@ -298,6 +300,150 @@ const HQ_HIGH = { ...OFFICE_MIN_DEFAULT, [HQ]: 3 };
   is('a week with nothing spare still skips 本社',
     out.rows.find((r) => r.id === 'a').got, 0);
   is('and says so', out.lines.find((l) => l.office === HQ).status, 'skip');
+}
+
+/* ========================================================================= */
+/* 2026/11/25（最終版）。赤字の分と、彼女が書いてくれた例。                   */
+/* ========================================================================= */
+
+/* ---- 次回保証：事業所が不成立で見送られた人に付く ----------------------- */
+{
+  seq = 0;
+  const r = run({ harvest: 20, requests: [req('a', '姫路', 1)] });
+  is('届かない事業所は見送り', line(r, '姫路').status, 'skip');
+  is('その人には次回保証が付く', r.guarantees.a, true);
+  is('優先ポイントも1つ上がる', r.points.a, 1);
+}
+{
+  seq = 0;
+  /* 卵が足りなかっただけの人には付けない——事業所は発送されている。 */
+  const r = run({ harvest: 1, requests: [req('a', HQ, 1), req('b', HQ, 1)] });
+  is('本社は1パックから出るので成立する', line(r, HQ).status, 'go');
+  const missed = r.rows.find((x) => x.got === 0).employeeId;
+  is('漏れた人に次回保証は付かない', r.guarantees[missed], undefined);
+  is('優先ポイントだけ上がる', r.points[missed], 1);
+}
+
+/* ---- 次回保証：最低パック数を飛び越える --------------------------------- */
+{
+  seq = 0;
+  const r = run({ harvest: 20, requests: [req('a', '姫路', 1)], guarantees: { a: true } });
+  is('次回保証のある人がいる事業所は対象になる', line(r, '姫路').status, 'kept');
+  is('その人に1パック', got(r).r01, 1);
+  is('受け取ったので次回保証は外れる', r.guarantees.a, undefined);
+  is('優先ポイントも0に戻る', r.points.a, undefined);
+}
+{
+  seq = 0;
+  /* 手順4 でも見送りにしない:仕事用か次回保証のある事業所は残す。 */
+  const r = run({ harvest: 1, requests: [req('a', '姫路', 1)], guarantees: { a: true } });
+  is('1パックでも姫路は見送りにならない', line(r, '姫路').packs, 1);
+  is('見送った事業所はない', r.droppedOffices, []);
+}
+
+/* ---- 彼女の例1：穴埋めできるかどうかで分かれる --------------------------- */
+{
+  seq = 0;
+  /* 姫路でAさんが3パック申請、卵は2。1パック目で姫路は1、残り1で2に届く。 */
+  const r = run({ harvest: 2, requests: [req('a', '姫路', 3)] });
+  is('例1：残りで届くなら2パック目を配って最低数まで埋める', got(r).r01, 2);
+  is('例1：姫路は2パック', line(r, '姫路').packs, 2);
+  is('例1：見送りにはならない', line(r, '姫路').status, 'go');
+  is('例1：次回保証は付かない', r.guarantees.a, undefined);
+}
+{
+  seq = 0;
+  /* 同じ申請で卵が1しかない。埋められないので姫路は見送り、Aさんに次回保証。 */
+  const r = run({ harvest: 1, requests: [req('a', '姫路', 3)] });
+  is('例1：埋められなければ姫路は見送り', line(r, '姫路').packs, 0);
+  is('例1：Aさんは受け取れない', got(r).r01, 0);
+  is('例1：Aさんに次回保証が付く', r.guarantees.a, true);
+  is('例1：そのぶんは本社の余りへ', line(r, HQ).extra, 1);
+}
+
+/* ---- 彼女の例2：翌週、保証があるから成立する ---------------------------- */
+{
+  seq = 0;
+  const r = run({ harvest: 20, requests: [req('a', '姫路', 1)], guarantees: { a: true } });
+  is('例2：次回保証で姫路が成立する', line(r, '姫路').status, 'kept');
+  is('例2：1パックを送る', line(r, '姫路').packs, 1);
+  is('例2：送ったら次回保証は外れる', r.guarantees.a, undefined);
+}
+
+/* ---- 彼女の例3：本社だけ、卵が足りない ---------------------------------- */
+{
+  seq = 0;
+  const r = run({
+    harvest: 4,
+    requests: [req('w', HQ, 2, 'work'), req('a', HQ, 2), req('b', HQ, 2), req('c', HQ, 2)],
+    seed: '2026-12-07',
+  });
+  is('例3：仕事用は申請どおり先に確保', got(r).r01, 2);
+  const firsts = r.rows.filter((x) => x.purpose !== 'work' && x.got > 0);
+  is('例3：残り2パックは私用の1パック目へ1人1パックずつ', firsts.length, 2);
+  ok('例3：2パック目まで回る人はいない', firsts.every((x) => x.got === 1));
+  is('例3：取れ高と発送数が合う', r.shipped, 4);
+}
+
+/* ---- 手順3-5：2パック目以降は1パックずつ回す ---------------------------- */
+{
+  seq = 0;
+  const r = run({ harvest: 4, requests: [req('a', HQ, 3), req('b', HQ, 3)], seed: 'rr' });
+  is('「1人にまとめて配らない」', r.rows.map((x) => x.got).sort(), [2, 2]);
+}
+{
+  seq = 0;
+  const r = run({ harvest: 4, requests: [req('a', HQ, 1), req('b', HQ, 3)], seed: 'rr' });
+  is('欲しい数で止まる', got(r).r01, 1);
+  is('残りは欲しい人へ', got(r).r02, 3);
+}
+
+/* ---- 手順3-1：仕事用だけで足りないとき ---------------------------------- */
+{
+  seq = 0;
+  const r = run({
+    harvest: 3,
+    requests: [req('w1', HQ, 3, 'work'), req('w2', HQ, 3, 'work')],
+    seed: 'w',
+  });
+  const each = r.rows.map((x) => x.got).sort();
+  ok('まず1件1パックずつから', each[0] >= 1, JSON.stringify(each));
+  is('取れ高は使い切る', r.shipped, 3);
+}
+
+/* ---- 手順4：複数が下回ったら、少ないほうから1つずつ --------------------- */
+{
+  seq = 0;
+  /* 大阪も三田も4要る。卵は5——どちらかしか埋まらない。 */
+  const r = run({
+    harvest: 5,
+    requests: [req('a', '大阪', 2), req('b', '大阪', 2), req('c', '三田', 2), req('d', '三田', 2)],
+    seed: 'two',
+  });
+  const live = r.lines.filter((l) => l.packs > 0 && l.office !== HQ);
+  ok('下回った事業所は残らない', live.every((l) => l.packs >= 4),
+    JSON.stringify(live.map((l) => `${l.office}:${l.packs}`)));
+  is('取れ高は余りも入れて合う', r.shipped, 5);
+}
+
+/* ---- 前提：優先ポイントは順番だけ、最低パック数は下げない ---------------- */
+{
+  seq = 0;
+  const r = run({ harvest: 20, requests: [req('a', '姫路', 1)], points: { a: 9 } });
+  is('ポイントがいくらあっても事業所は成立しない', line(r, '姫路').status, 'skip');
+  is('見送られたので次回保証が付く', r.guarantees.a, true);
+}
+
+/* ---- リクエストしなかった人は変わらない --------------------------------- */
+{
+  seq = 0;
+  const r = run({
+    harvest: 20,
+    requests: [req('a', HQ, 1)],
+    points: { z: 3 }, guarantees: { z: true },
+  });
+  is('申請しなかった人のポイントはそのまま', r.points.z, 3);
+  is('申請しなかった人の次回保証もそのまま', r.guarantees.z, true);
 }
 
 console.log(bad ? `\n  ${bad} of ${n} failed\n` : `  ${n} checks — 成立判定, 仕事用, 配分順, 余り, 優先ポイント\n`);

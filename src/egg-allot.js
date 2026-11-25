@@ -94,127 +94,230 @@ function inPointOrder(rows, points, seed) {
  */
 export function allot({
   requests = [], harvest = 0, minPacks = MIN_PACKS, points = {},
-  seed = '', offices = OFFICES, officeMin = {},
+  guarantees = {}, seed = '', offices = OFFICES, officeMin = {},
 } = {}) {
-  const rows = requests
+  const laid = Math.max(0, Math.floor(Number(harvest) || 0));
+  const min = Math.max(1, Math.floor(Number(minPacks) || MIN_PACKS));
+  /* An office may carry a minimum of its own —「0なら毎週発送」— which is
+     how 本社 ships whatever it has. Only a number actually stored counts. */
+  const minFor = (name) => {
+    const own = officeMin?.[name];
+    return own === null || own === undefined || own === '' ? min : Math.max(0, Math.floor(Number(own) || 0));
+  };
+  /* 次回保証（2026/11/25）。事業所が最低パック数に届かなかったために見送り
+     になった人に付き、次にリクエストしたとき、事業所の最低パック数に関係
+     なくその人に1パックを送る。持っているかどうかだけを見る印である。 */
+  const held = (r) => guarantees?.[String(r.employeeId)] === true;
+
+  const base = requests
     .map((r) => ({
       ...r,
       want: Math.max(0, Math.floor(Number(r.packs) || 0)),
       work: r.purpose === 'work',
       office: String(r.office || ''),
-      got: 0,
-      /* Where they will actually collect. Changes only for somebody moved
-         to Head Office when their own office falls short. */
-      at: String(r.office || ''),
-      moved: false,
     }))
     .filter((r) => r.want > 0);
 
-  const laid = Math.max(0, Math.floor(Number(harvest) || 0));
-  const min = Math.max(1, Math.floor(Number(minPacks) || MIN_PACKS));
-  /* An office may carry a minimum of its own —「0なら毎週発送」 — which is
-     how 本社, where the eggs already are, ships whatever it has. Only a
-     number actually stored counts: an office that has never been given
-     one takes the company's. */
-  const minFor = (name) => {
-    const own = officeMin?.[name];
-    return own === null || own === undefined || own === '' ? min : Math.max(0, Math.floor(Number(own) || 0));
+  /* 1パックずつ回す。「1人にまとめて配らない」（手順3-5）。一周して誰にも
+     渡らなくなったら終わり——欲しい数に達した人しか残っていないということ
+     なので、それ以上回しても同じ周を繰り返すだけである。 */
+  const roundRobin = (list, from) => {
+    let n = from;
+    for (let spin = true; n > 0 && spin;) {
+      spin = false;
+      for (const r of list) {
+        if (n <= 0) break;
+        if (r.want > r.got) { r.got += 1; n -= 1; spin = true; }
+      }
+    }
+    return n;
   };
 
-  /* ---- 5 & 6: which offices get a delivery at all ---------------------- */
-  const asked = new Map();
-  for (const name of offices) asked.set(name, { packs: 0, work: 0, rows: [] });
-  for (const r of rows) {
-    if (!asked.has(r.office)) asked.set(r.office, { packs: 0, work: 0, rows: [] });
-    const o = asked.get(r.office);
-    o.packs += r.want;
-    if (r.work) o.work += r.want;
-    o.rows.push(r);
-  }
+  /* 仕事用だけで足りないときの順番。優先ポイントは私用のものなので、
+     ここは同点のひと組として混ぜる（「同じ条件は抽選」手順3-1）。 */
+  const inWorkOrder = (rows) => {
+    const g = [...rows].sort(byId);
+    const rand = rng(`${seed}:work`);
+    for (let i = g.length - 1; i > 0; i -= 1) {
+      const j = Math.floor(rand() * (i + 1));
+      [g[i], g[j]] = [g[j], g[i]];
+    }
+    return g;
+  };
 
-  const state = new Map();
-  for (const [name, o] of asked) {
-    if (o.packs === 0) { state.set(name, 'none'); continue; }
-    if (o.packs >= minFor(name)) { state.set(name, 'go'); continue; }
-    /* 配布ルール 6（2026/11/05）:「仕事用（客先用）の申請は、東京を含む
-       すべての事業所で、1パックから発送できる」. Tokyo's exception is gone
-       because it is no longer an exception — every office works the way
-       Tokyo did, now that all of them ship by courier. An office under
-       its minimum with a business request ships, and 「仕事用で発送が決ま
-       った事業所は、私用の申請も同じ箱で一緒に送る」. */
-    state.set(name, o.work > 0 ? 'work' : 'skip');
-  }
+  /* 手順1〜3 のひと回し。手順4 がもう一つ事業所を見送りにして、やり直しを
+     求めることがある——継ぎ足しではなく、まっさらからもう一度組み直せる
+     ように、丸ごと関数にしてある。`forced` は既に見送りと決まった事業所。 */
+  const round = (forced) => {
+    const rows = base.map((r) => ({ ...r, got: 0, at: r.office, moved: false }));
 
-  const ships = (name) => ['go', 'work'].includes(state.get(name));
+    const tally = (list) => ({
+      packs: list.reduce((a, r) => a + r.want, 0),
+      work: list.reduce((a, r) => a + (r.work ? r.want : 0), 0),
+      held: list.filter((r) => !r.work && held(r)).length,
+    });
 
-  /* ---- people at an office that fell short ----------------------------- */
-  const missedBySkip = new Set();
-  for (const r of rows) {
-    if (ships(r.office)) continue;
-    if (r.hqOk && r.office !== HQ) {
-      /* 「本社受け取りにチェックした人：本社で受け取る分に回す」 */
-      r.at = HQ; r.moved = true;
+    const asked = new Map();
+    for (const name of offices) asked.set(name, tally([]));
+    for (const name of new Set(rows.map((r) => r.office))) {
+      asked.set(name, tally(rows.filter((r) => r.office === name)));
+    }
+
+    /* ---- 手順1 事業所の対象判定 ---------------------------------------- */
+    const decide = (name, o) => {
+      if (forced.has(name)) return 'skip';
+      if (o.packs === 0) return 'none';
+      if (o.packs >= minFor(name)) return 'go';
+      /* 最低パック数に届かなくても送れるのは、「仕事用」と「次回保証」が
+         ある場合だけです（前提, 2026/11/25）。 */
+      if (o.work > 0) return 'work';
+      if (o.held > 0) return 'kept';
+      return 'skip';
+    };
+    const state = new Map();
+    for (const [name, o] of asked) state.set(name, decide(name, o));
+    const ships = (name) => ['go', 'work', 'kept'].includes(state.get(name));
+
+    /* 対象にならなかった事業所の人。「本社で受け取ります」にチェックした人
+       は本社のリクエストとして扱い、していない人は今回は見送り。 */
+    const skipped = new Set();
+    for (const r of rows) {
+      if (ships(r.office)) continue;
+      if (r.hqOk && r.office !== HQ) { r.at = HQ; r.moved = true; } else skipped.add(r.id);
+    }
+
+    /* 本社は、移ってきた人を数に入れてからもう一度判定する——移った人は
+       「本社のリクエストとして扱う」のだから、本社の合計に入る。 */
+    const atHq = () => rows.filter((r) => r.at === HQ && !skipped.has(r.id));
+    if (!forced.has(HQ) && atHq().length) state.set(HQ, decide(HQ, tally(atHq())));
+    /* 本社が成立しなければ、移ってきた人もそこで見送りになる。 */
+    if (!ships(HQ)) {
+      for (const r of rows) {
+        if (r.moved) { skipped.add(r.id); r.at = r.office; r.moved = false; }
+      }
+    }
+
+    const live = rows.filter((r) => !skipped.has(r.id) && ships(r.at));
+    let left = laid;
+
+    /* ---- 手順3-1 仕事用:全員に申請どおり ------------------------------- */
+    const work = inWorkOrder(live.filter((r) => r.work));
+    const wantWork = work.reduce((a, r) => a + r.want, 0);
+    if (wantWork <= left) {
+      for (const r of work) { r.got = r.want; left -= r.want; }
     } else {
-      missedBySkip.add(r.id);
+      /* 仕事用だけで足りないときは、まず1件1パックずつ。 */
+      for (const r of work) { if (left <= 0) break; r.got = 1; left -= 1; }
+      left = roundRobin(work, left);
     }
-  }
 
-  /* Everyone still in the running: at an office that ships, or moved. */
-  const live = rows.filter((r) => !missedBySkip.has(r.id));
+    const personal = inPointOrder(live.filter((r) => !r.work), points, seed);
 
-  /* ---- 7: business first, in full -------------------------------------- */
-  let left = laid;
-  for (const r of live.filter((x) => x.work).sort(byId)) {
-    const give = Math.min(r.want, left);
-    r.got = give; left -= give;
-  }
-
-  /* ---- 7.2: one personal pack each, in priority order ------------------ */
-  const personal = inPointOrder(live.filter((r) => !r.work), points, seed);
-  for (const r of personal) {
-    if (left <= 0) break;
-    r.got = 1; left -= 1;
-  }
-  /* ---- 7.3: second packs onward, same order ---------------------------- */
-  for (const r of personal) {
-    if (left <= 0) break;
-    const more = Math.min(r.want - r.got, left);
-    if (more > 0) { r.got += more; left -= more; }
-  }
-
-  /* ---- 8: whatever is left goes to Head Office ------------------------- */
-  /* Before it is declared 「ご自由にどうぞ」: 本社 is where the spare packs
-     are going, so a box is on its way there whatever its own requests
-     added up to. Refusing somebody at 本社 while sending 33 loose packs
-     into the same room is not what rule 5 is for — the minimum exists so
-     that a van is not sent for two packs, and this van is already going.
-     It can only ever happen when there is surplus, so nobody else is a
-     pack worse off for it. */
-  if (left > 0 && !ships(HQ)) {
-    const atHq = inPointOrder(rows.filter((r) => r.office === HQ), points, seed);
-    let served = 0;
-    for (const r of atHq) {
+    /* ---- 手順3-2 次回保証のある人:1人1パックずつ ----------------------- */
+    for (const r of personal) {
       if (left <= 0) break;
-      const give = Math.min(r.want, left);
-      if (give > 0) { r.got = give; left -= give; served += give; missedBySkip.delete(r.id); }
+      if (r.got > 0 || !held(r)) continue;
+      r.got = 1; left -= 1;
     }
-    /* And the line says 本社 is being delivered to, because it is. */
-    if (served > 0) state.set(HQ, 'go');
+
+    /* ---- 手順3-3 私用の1パック目:1人1パックずつ ------------------------ */
+    for (const r of personal) {
+      if (left <= 0) break;
+      if (r.got > 0) continue;
+      r.got = 1; left -= 1;
+    }
+
+    /* ---- 手順3-4 最低パック数の穴埋め ---------------------------------- */
+    /* 「割り当てが最低パック数に届いていない事業所のうち、残りのパックで
+       最低パック数に届く事業所には、その事業所の人に2パック目以降を配って
+       最低パック数まで埋めます。足りないパック数が少ない事業所から順に」。 */
+    const packsAt = (name) => rows.reduce((a, r) => a + (r.at === name ? r.got : 0), 0);
+    const shortfalls = [...state.keys()]
+      .filter((nm) => ships(nm))
+      .map((nm) => ({ nm, need: minFor(nm) - packsAt(nm) }))
+      .filter((x) => x.need > 0)
+      .sort((a, b) => a.need - b.need || String(a.nm).localeCompare(String(b.nm)));
+    for (const { nm, need } of shortfalls) {
+      if (left <= 0) break;
+      if (need > left) continue;                 /* 残りでは届かない */
+      const there = personal.filter((r) => r.at === nm && r.want > r.got);
+      const room = there.reduce((a, r) => a + (r.want - r.got), 0);
+      /* 届かせられないなら一つも渡さない。半端に配っても手順4で見送りに
+         なるだけで、そのぶんのパックが宙に浮く。 */
+      if (room < need) continue;
+      let give = need;
+      for (const r of there) {
+        while (give > 0 && r.want > r.got) { r.got += 1; give -= 1; left -= 1; }
+        if (give <= 0) break;
+      }
+    }
+
+    /* ---- 手順3-5 私用の2パック目以降:1パックずつ、同じ順番で ----------- */
+    left = roundRobin(personal, left);
+
+    /* ---- 手順5 余りは本社へ -------------------------------------------- */
+    /* 本社は余りの行き先なので、その箱はどのみち本社へ向かう。自分の
+       リクエストを断りながら同じ部屋へ余りを積むのは、最低パック数が
+       言いたいことではない——車を2パックのために出さないための数である。 */
+    if (left > 0 && !ships(HQ)) {
+      const home = inPointOrder(rows.filter((r) => r.office === HQ), points, seed);
+      let served = 0;
+      for (const r of home) {
+        if (left <= 0) break;
+        const give = Math.min(r.want, left);
+        if (give > 0) { r.got = give; left -= give; served += give; skipped.delete(r.id); }
+      }
+      if (served > 0) state.set(HQ, 'go');
+    }
+
+    return { rows, state, asked, skipped, left };
+  };
+
+  /* ---- 手順4 最低パック数の再確認 -------------------------------------- */
+  /* 「配分の結果、最低パック数を下回った事業所は、今回は見送りにします。
+     複数ある場合は、割り当てが最も少ない事業所から1つずつ見送り、そのたびに
+     手順3からやり直します」。ただし仕事用か次回保証のある事業所は見送りに
+     しない（変更, 2026/11/25）。 */
+  const forced = new Set();
+  let out = round(forced);
+  for (let guard = 0; guard <= offices.length + 2; guard += 1) {
+    const packsAt = (name) => out.rows.reduce((a, r) => a + (r.at === name ? r.got : 0), 0);
+    const spared = (name) => out.rows.some(
+      (r) => r.at === name && !out.skipped.has(r.id) && (r.work || held(r)),
+    );
+    const bad = [...out.state.keys()]
+      .filter((nm) => ['go', 'work', 'kept'].includes(out.state.get(nm)))
+      .filter((nm) => !forced.has(nm) && !spared(nm))
+      .map((nm) => ({ nm, packs: packsAt(nm) }))
+      .filter((x) => x.packs < minFor(x.nm))
+      .sort((a, b) => a.packs - b.packs || String(a.nm).localeCompare(String(b.nm)));
+    if (!bad.length) break;
+    forced.add(bad[0].nm);
+    out = round(forced);
   }
 
-  const extra = Math.max(0, left);
+  const { rows, state, asked, skipped } = out;
+  const extra = Math.max(0, out.left);
 
-  /* ---- 9: points ------------------------------------------------------- */
-  const next = { ...points };
+  /* ---- 手順6 優先ポイントと次回保証の更新（私用のみ） ------------------ */
+  const nextPoints = { ...points };
+  const nextGuarantees = { ...guarantees };
   for (const r of rows) {
+    if (r.work) continue;                        /* 仕事用は対象外 */
     const id = String(r.employeeId);
-    const now = Math.max(0, Number(next[id]) || 0);
-    if (r.work) continue;             /* business is never short-changed */
-    /* Back to zero is stored as absent rather than as 0. The map would
-       otherwise accumulate a row per person per week forever, and "no
-       entry means no points" is the same statement in less space. */
-    if (r.got > 0) delete next[id];
-    else next[id] = now + 1;          /* missed, or their office was skipped */
+    const now = Math.max(0, Number(nextPoints[id]) || 0);
+    if (r.got > 0) {
+      /* 0 は行として持たない。「入っていない＝0」は同じことを短く言う。 */
+      delete nextPoints[id];
+      /* 「次回保証で受け取ったら、次回保証は外します」。 */
+      delete nextGuarantees[id];
+      continue;
+    }
+    nextPoints[id] = now + 1;
+    /* 事業所が最低パック数に届かなかったために見送りになった人には次回保証。
+       卵が足りなかっただけの人（事業所は発送された）には付けない——
+       既に持っている人のものは、使えていないのだから残る。 */
+    if (skipped.has(r.id)) nextGuarantees[id] = true;
   }
 
   /* ---- the result table ------------------------------------------------ */
@@ -234,20 +337,26 @@ export function allot({
       requested,
       extra: plus,
       packs: requested + plus,
-      /* 「配分の結果、成立していた事業所が3パックを下回った場合は、管理者が
-         調整する」 — said, not fixed: the rule is a person's call. */
-      /* 「配分の結果、成立していた事業所が3パックを下回った場合は、管理者が
-         調整する」 — still said, still a person's call, and still three
-         rather than the office's own minimum: the rule names the number. */
-      underMin: state.get(name) === 'go' && requested > 0 && requested < Math.min(3, minFor(name) || 3),
+      /* 手順4 はシステムが自動でやるようになった（2026/11/25）ので、この印は
+         もう「人が調整してください」ではない。
+
+         最低パック数を下回ったまま残る事業所は、ふつう仕事用か次回保証が
+         あるために残した事業所であり、それは規則どおりの結果である——毎週
+         赤く出しては、本当に見てほしい週に誰も読まなくなる。だから 'go' の
+         ままで下回っている場合だけを印にする:手順4 が解消しきれなかった
+         ということなので、そのときは人が見るに値する。 */
+      underMin: state.get(name) === 'go'
+        && requested > 0 && requested < minFor(name),
     };
   }).filter((l) => l.asked > 0 || l.packs > 0);
 
   const shipped = lines.reduce((a, l) => a + l.packs, 0);
   return {
     rows, lines, extra, shipped, harvest: laid, minPacks: min,
-    points: next,
-    /* Anything a person has to look at before the van leaves. */
+    points: nextPoints,
+    guarantees: nextGuarantees,
+    /* 自動で見送りにした事業所。画面と手紙が「なぜ」を言えるように。 */
+    droppedOffices: [...forced],
     needsAdmin: lines.some((l) => l.underMin),
   };
 }

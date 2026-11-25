@@ -101,9 +101,14 @@ const DOW = ['日', '月', '火', '水', '木', '金', '土'];
    per office in 事業所の設定, which is where the live number comes from. */
 export const OFFICE_MIN_DEFAULT = {
   /* 2026/11/13 佐野:「最低発送パック数（姫路、京都は2パック、それ以外は
-     4パック）」. 本社 was 1 and 東京 was 2 — both are 4 now, and the two
-     that stay at 2 are the two she names. */
-  [HQ_OFFICE]: 4,
+     4パック）」. 東京 was 2 and is 4 now; the two that stay at 2 are the
+     two she names.
+
+     本社（神戸）は 1 に戻した——2026/11/25「最低パック数:姫路・京都は
+     2パック、それ以外は4パック。本社（神戸）は1パック以上あれば発送し
+     ます」。卵はもともと本社へ向かう:余りの行き先がそこなのだから、
+     本社ぶんの車を出すかどうかという問いが立たない。 */
+  [HQ_OFFICE]: 1,
   姫路: 2,
   京都: 2,
   [TOKYO_OFFICE]: 4,
