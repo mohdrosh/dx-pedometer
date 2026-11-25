@@ -369,7 +369,22 @@ const roster = async () => (await getKey('roster')) || [];
 
 /* ------------------------------- jobs ----------------------------------- */
 async function sendReminders(y, m) {
-  const people = (await roster()).filter((p) => p.active !== false);
+  /* 同意した人だけ。
+
+     2026/11/26 の朝、542通が出るところだった。この仕事は名簿の全員に出して
+     いて、10月はそれで155通——当時の名簿がそれだけだったからで、絞って
+     いたのではない。11月に社員リストを取り込んで名簿が607名になった瞬間、
+     同じ一行が3.5倍の宛先を指すようになっていた。
+
+     文面は「万歩計実績表が、現在未提出となっています」である。申し込んで
+     いない人に届けば、何のことか分からない。督促であって、勧誘ではない。
+
+     自動提出（autoSubmit）も同意した人だけを見ているので、こちらを揃える
+     と「督促される人」と「自動で提出される人」が同じ集合になる。督促され
+     たのに自動提出されない人も、その逆もいない。 */
+  const all = (await roster()).filter((p) => p.active !== false);
+  const people = all.filter((p) => p.consent);
+  const skipped = all.length - people.length;
   const sent = [];
   for (const p of people) {
     const e = await getKey(`st:${periodKey(y, m)}:${p.id}`);
@@ -384,7 +399,8 @@ async function sendReminders(y, m) {
     const s = summaryMail({ y, m, reminded: sent, kind: 'reminder' });
     await send(ADMIN_EMAIL, s.subject, s.body).catch(() => {});
   }
-  console.log(`reminders: ${sent.length} sent for ${y}/${m}`);
+  console.log(`reminders: ${sent.length} sent for ${y}/${m}`
+    + ` (${skipped} not signed up, skipped)`);
   return sent;
 }
 
