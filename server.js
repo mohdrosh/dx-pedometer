@@ -173,7 +173,14 @@ const eggMailer = DRY_RUN || !process.env.EGG_SMTP_USER ? null
 
 async function send(to, subject, text, from = MAIL_FROM) {
   if (!to) return false;
-  if (DRY_RUN) { console.log(`[DRY RUN] would send to ${to} from ${from} — ${subject}`); return true; }
+  if (DRY_RUN) {
+    /* 本文も出す。件名だけでは、宛先が正しいことしか確かめられない——
+       確認コードのように本文が用件そのものである手紙は、dry run で読めな
+       ければ、SMTP を立てるまで一度も確かめられないことになる。 */
+    console.log(`[DRY RUN] would send to ${to} from ${from} — ${subject}`);
+    console.log(String(text).split('\n').map((l) => `  | ${l}`).join('\n'));
+    return true;
+  }
   /* Its own connection for モラエッグ's letters when there is one; the
      shared one otherwise. */
   const via = from === EGG_MAIL_FROM && eggMailer ? eggMailer : mailer;

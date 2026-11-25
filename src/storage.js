@@ -246,6 +246,28 @@ export async function apiLogin(id, password) {
   return { error: r.body.error || 'not_found' };
 }
 
+/* ---------------------- パスワードの設定・再設定 ------------------------- */
+/* 2026/11/25 佐野:「社員番号だけではパスワードを設定できないようにする。
+   初回は社員番号→登録された会社メールに確認コード→コード入力→パスワード
+   設定。忘れた場合も同じ流れ」。
+
+   どちらも、その番号が在籍しているかどうかは返ってこない——サーバが
+   答えないので、画面も答えようがない。送れたかどうかではなく、受け付けた
+   とだけ伝える。 */
+export async function apiPasswordStart(id) {
+  const r = await post('/api/password/start', { id });
+  if (r.status === 200) return { ok: true };
+  if (r.status === 429) return { error: 'too_many' };
+  return { error: r.body.error || 'failed' };
+}
+
+export async function apiPasswordSet(id, code, password) {
+  const r = await post('/api/password/set', { id, code, password });
+  if (r.status === 200) return { ok: true };
+  if (r.status === 429) return { error: 'too_many' };
+  return { error: r.body.error || 'failed' };
+}
+
 /** The answer to the consent screen shown once after a first sign-in. */
 export async function apiConsent(agree) {
   try {

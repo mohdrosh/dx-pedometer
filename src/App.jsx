@@ -15,7 +15,7 @@ import { maintenanceState, windowText } from './maintenance.js';
 import {
   S, registerTrial, saveFeedback, fetchFeedback,
   IS_LOCAL, fetchBootstrap, apiLogin, apiLogout, apiMe, apiSaveMe, apiConsent, setLeaving,
-  onSessionLost, apiRoot,
+  onSessionLost, apiRoot, apiPasswordStart, apiPasswordSet,
 } from './storage';
 import { DEFAULT_REGIONS, DEFAULT_CFG, ROSTER_SEED, orderRegions } from './defaults';
 import emailjs from '@emailjs/browser';
@@ -289,6 +289,27 @@ const STR = {
     'Tamba members and administrators: please enter your email address.'],
   /* 携帯で文字を出すための切り替え。下の注記のすぐ隣に置く。 */
   useMail: ['メールアドレスで入力', 'Enter an email instead'],
+
+  /* パスワードの設定・再設定（佐野, 2026/11/25）。 */
+  pwSetupLink: ['はじめての方・パスワードを忘れた方', 'First time here, or forgot your password'],
+  pwSetupTitle: ['パスワードの設定', 'Set your password'],
+  pwSetupLead: ['社員番号を入力してください。会社に登録されているメールアドレスに、確認コードをお送りします。',
+    'Enter your employee number. We will send a verification code to the address the company has on file for you.'],
+  pwSendCode: ['確認コードを送る', 'Send the code'],
+  /* 送れたかどうかは言わない——在籍しているかどうかを教えないため。 */
+  pwSentLead: ['確認コードをお送りしました。メールが届かない場合は、社員番号をご確認のうえ、もう一度お試しください。',
+    'If that number is registered, a code is on its way. If nothing arrives, check the number and try again.'],
+  pwCode: ['確認コード（6桁）', 'Verification code (6 digits)'],
+  pwNew: ['新しいパスワード', 'New password'],
+  pwNewAgain: ['もう一度', 'Once more'],
+  pwSetBtn: ['設定する', 'Set it'],
+  pwDone: ['パスワードを設定しました。ログインしてください。', 'Password set. Please sign in.'],
+  pwBadCode: ['確認コードが違うか、期限が切れています。', 'That code is wrong, or it has expired.'],
+  pwTooShort: ['パスワードは8文字以上にしてください。', 'Use at least 8 characters.'],
+  pwMismatch: ['2つのパスワードが一致しません。', 'The two do not match.'],
+  pwLocked: ['パスワードを続けて間違えたため、しばらくログインできません。時間をおいてからお試しください。',
+    'Too many wrong passwords. Sign-in is paused for a while — please try again later.'],
+  pwBack: ['ログインに戻る', 'Back to sign in'],
   signOutFailed: ['ログアウトできませんでした。通信を確認して、もう一度お試しください。',
     'Could not sign out. Check your connection and try again.'],
 
@@ -1176,8 +1197,54 @@ function Login({ onLogin, onEnter, onTrial, lang, setLang, notice, cfg }) {
      押されたときだけメール向けに変える（下の注記の隣のボタン）。 */
   const [mailMode, setMailMode] = useState(false);
 
+  /* パスワードの設定・再設定（佐野, 2026/11/25）。'' のあいだはふつうの
+     ログイン画面で、'ask' で番号を訊き、'code' でコードと新しいパスワードを
+     受け取り、'done' で戻る。初回も忘れたときも同じ道を通る——どちらも
+     「このアドレスの持ち主である」ことを確かめたいだけなので、分ける理由が
+     ない。 */
+  const [setup, setSetup] = useState('');
+  const [sCode, setSCode] = useState('');
+  const [sPw, setSPw] = useState('');
+  const [sPw2, setSPw2] = useState('');
+  const [sErr, setSErr] = useState('');
+
+  const setupReset = (to = '') => {
+    setSetup(to); setSCode(''); setSPw(''); setSPw2(''); setSErr('');
+  };
+
+  const sendCode = async () => {
+    const v = id.trim();
+    if (!v || busy) return;
+    setBusy(true);
+    const r = await apiPasswordStart(v);
+    setBusy(false);
+    /* 429 以外は、在籍していてもしていなくても ok で返る。だから画面も
+       「送りました」ではなく「登録されていれば送りました」と言う。 */
+    if (r?.error) { setSErr(t(r.error === 'too_many' ? 'tooMany' : 'notFound')); return; }
+    setSErr(''); setSetup('code');
+  };
+
+  const applyCode = async () => {
+    if (busy) return;
+    const v = id.trim();
+    if (sPw.length < 8) { setSErr(t('pwTooShort')); return; }
+    if (sPw !== sPw2) { setSErr(t('pwMismatch')); return; }
+    setBusy(true);
+    const r = await apiPasswordSet(v, sCode.trim(), sPw);
+    setBusy(false);
+    if (r?.error) {
+      setSErr(t(r.error === 'too_many' ? 'tooMany'
+        : r.error === 'password_short' ? 'pwTooShort' : 'pwBadCode'));
+      return;
+    }
+    setupReset('done');
+    /* 設定できたので、ログインの欄は鍵つきとして開けておく。 */
+    setNeedPw(true); setPw(''); setErr('');
+  };
+
   const say = (code) => t(code === 'too_many' ? 'tooMany'
-    : code === 'password_wrong' ? 'pwWrong' : 'notFound');
+    : code === 'password_wrong' ? 'pwWrong'
+      : code === 'locked' ? 'pwLocked' : 'notFound');
 
   const check = async () => {
     const v = id.trim();
@@ -1268,6 +1335,79 @@ function Login({ onLogin, onEnter, onTrial, lang, setLang, notice, cfg }) {
           <h1>{t(AT_EGG_DOOR ? 'eggDoorTitle' : AT_MYPAGE_DOOR ? 'mypageTitle' : 'mainTitle')}</h1>
         </div>
 
+        {/* パスワードの設定・再設定（佐野, 2026/11/25）。ふだんのログイン欄の
+            代わりに出す——同じ画面に二組の番号欄と二つのボタンが並ぶと、
+            どちらを押しているのか本人にも分からなくなる。 */}
+        {setup === 'ask' && (
+          <div className="login-setup">
+            <div className="sechead"><span>{t('pwSetupTitle')}</span></div>
+            <p className="muted sm">{t('pwSetupLead')}</p>
+            <label className="fld">
+              <span>{t('employeeId')}</span>
+              <input
+                value={id} autoComplete="off" placeholder="1234567" inputMode="numeric"
+                onChange={(e) => { setId(e.target.value); setSErr(''); }}
+                onKeyDown={(e) => e.key === 'Enter' && sendCode()}
+              />
+            </label>
+            {sErr && <div className="err">{sErr}</div>}
+            <button className="btn primary big" disabled={busy} onClick={sendCode}>
+              {t('pwSendCode')}
+            </button>
+            <button type="button" className="linkish" onClick={() => setupReset('')}>
+              {t('pwBack')}
+            </button>
+          </div>
+        )}
+
+        {setup === 'code' && (
+          <div className="login-setup">
+            <div className="sechead"><span>{t('pwSetupTitle')}</span></div>
+            <p className="muted sm">{t('pwSentLead')}</p>
+            <label className="fld">
+              <span>{t('pwCode')}</span>
+              <input
+                value={sCode} autoComplete="one-time-code" inputMode="numeric"
+                maxLength={6} placeholder="000000"
+                onChange={(e) => { setSCode(e.target.value); setSErr(''); }}
+              />
+            </label>
+            <label className="fld">
+              <span>{t('pwNew')}</span>
+              <input
+                type="password" value={sPw} autoComplete="new-password"
+                onChange={(e) => { setSPw(e.target.value); setSErr(''); }}
+              />
+            </label>
+            <label className="fld">
+              <span>{t('pwNewAgain')}</span>
+              <input
+                type="password" value={sPw2} autoComplete="new-password"
+                onChange={(e) => { setSPw2(e.target.value); setSErr(''); }}
+                onKeyDown={(e) => e.key === 'Enter' && applyCode()}
+              />
+            </label>
+            {sErr && <div className="err">{sErr}</div>}
+            <button className="btn primary big" disabled={busy} onClick={applyCode}>
+              {t('pwSetBtn')}
+            </button>
+            <button type="button" className="linkish" onClick={() => setupReset('')}>
+              {t('pwBack')}
+            </button>
+          </div>
+        )}
+
+        {setup === 'done' && (
+          <div className="login-setup">
+            <p className="notice">{t('pwDone')}</p>
+            <button type="button" className="linkish" onClick={() => setupReset('')}>
+              {t('pwBack')}
+            </button>
+          </div>
+        )}
+
+        {!setup && (
+        <>
         <label className="fld">
           <span>{t('idOrMail')}</span>
           <input
@@ -1346,6 +1486,20 @@ function Login({ onLogin, onEnter, onTrial, lang, setLang, notice, cfg }) {
             egg door. 2026/11/11. */}
         {!AT_EGG_DOOR && (
           <button className="btn trial-cta" onClick={onTrial}>{t('trialSignup')}</button>
+        )}
+        {/* はじめての方と、忘れた方。同じ道を通る——どちらも「このアドレス
+            の持ち主である」ことを確かめたいだけなので、分ける理由がない。
+
+            どの入口にも出す。マイページの入口は、未ログインだと卵の入口へ
+            回されるので（/mypage → /egg）、卵の扉に出さなければ、佐野さんの
+            言う「マイページの入口で社員番号＋パスワード」をいちばん必要と
+            する人の画面にだけ無いことになる。アドレスで入る管理者と丹波の
+            3名には関係のない行だが、押さなければ何も起きない。 */}
+        <button type="button" className="linkish login-setup-link"
+          onClick={() => setupReset('ask')}>
+          {t('pwSetupLink')}
+        </button>
+        </>
         )}
 
         {/* 健康対策委員会 under the company name, likewise: the committee
@@ -4085,6 +4239,13 @@ function Styles() {
 /* 入口の注記と、そこに置く「メールアドレスで入力」。文中のボタンなので、
    ボタンに見えるより文字に見えるほうがよい。 */
 .login-note{margin:-6px 0 16px;line-height:1.6}
+/* パスワードの設定・再設定。ふだんのログインと同じ幅・同じ間で、別の用事を
+   している画面だと分かるだけの見出しを付ける。 */
+.login-setup .sechead{margin:0 0 6px}
+.login-setup > p.muted{margin:0 0 16px;line-height:1.6}
+.login-setup .btn.primary{margin-top:4px;width:100%}
+.login-setup .linkish{margin-top:14px;text-align:center;width:100%}
+.login-setup-link{margin-top:18px;text-align:center;width:100%}
 .linkish{display:inline-block;margin-top:4px;background:none;border:0;padding:0;
   font:inherit;color:var(--brand);text-decoration:underline;cursor:pointer}
 .login-note .linkish{display:block}
