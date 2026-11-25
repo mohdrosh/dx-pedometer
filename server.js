@@ -1032,8 +1032,19 @@ const server = http.createServer(async (req, res) => {
             return sendJson(res, 401, { error: 'locked', until: lock.lockUntil });
           }
         }
-        /* 回数は人ごとに数える。管理者は行を持たないので、その鍵の名前で。 */
-        if (rateLimited(`pw:${isAdmin ? 'admin' : person.id}`, 5, 60_000)) {
+        /* 回数は人ごとに数える。管理者は行を持たないので、その鍵の名前で。
+
+           budget は PW_TRIES より多くしておく。同じ 5 にすると、5回目の
+           間違いがここで 429 になって、下の pwFail まで届かない——錠が
+           下りる回数に永久に達しないので、「一定回数間違えたら一時的に
+           ロック」（佐野, 2026/11/25）が効かなくなる。毎分の制限は一分で
+           明けるから、それでは 4回/分 をいつまでも試せてしまう。
+
+           だから先に錠が下りるようにして、こちらはその先の濫用だけを
+           受け持つ。管理者は行を持たず錠も無いので、こちらが唯一の壁で
+           あり、PW_TRIES とは関係なく 5回/分 のままにする。 */
+        const budget = isAdmin ? 5 : PW_TRIES + 2;
+        if (rateLimited(`pw:${isAdmin ? 'admin' : person.id}`, budget, 60_000)) {
           return sendJson(res, 429, { error: 'too_many' });
         }
         if (!await checkPassword(pw, want)) {
