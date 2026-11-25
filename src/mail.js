@@ -110,6 +110,37 @@ Please submit even if you did not reach 5,000 steps on every day — the record 
 }
 
 /** Summary sent to 健康対策委員会 after each automatic run. */
+/**
+ * 本人確認コードの手紙（2026/11/25 佐野）。
+ *
+ * 番号と名前は書かない。宛先の持ち主が本人であることを確かめている最中
+ * なので、まだ誰あての手紙とも言えない——間違った番号で頼まれていたら、
+ * 名前を書いた時点で、頼んだ人に他人の名前を教えることになる。
+ *
+ * 心当たりがないときの一文を入れておく。誰かが番号を取り違えただけの
+ * ことも、そうでないこともあり、受け取った人にはどちらか分からない。
+ */
+export function codeMail({ code = '', minutes = 15 } = {}) {
+  return {
+    subject: '【万歩計実績表】パスワード設定の確認コード',
+    body: [
+      'お疲れさまです。',
+      '',
+      'パスワードの設定（または再設定）の確認コードをお送りします。',
+      '',
+      `　確認コード：${code}`,
+      '',
+      `このコードは${minutes}分で使えなくなります。画面に入力して、`,
+      '続けてパスワードを設定してください。',
+      '',
+      'このメールに心当たりがない場合は、何もせずに破棄してください。',
+      'コードを入力しなければ、パスワードは変わりません。',
+      '',
+      '健康対策委員会 / Health Promotion Committee',
+    ].join('\n'),
+  };
+}
+
 export function summaryMail(o) {
   const { y, m, reminded = [], autoSubmitted = [], kind } = o;
   const list = (arr) => (arr.length ? arr.map((p) => `  ・${p.id} ${p.name}`).join('\n') : '  （なし / none）');

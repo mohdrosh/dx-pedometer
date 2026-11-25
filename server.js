@@ -28,7 +28,9 @@ if (fs.existsSync('.env.local')) dotenv.config({ path: '.env.local' });
 else if (fs.existsSync('.env')) dotenv.config();
 
 const nodemailer = (await import('nodemailer')).default;
-import { reminderMail, summaryMail, reminderRecipients, companyEmail } from './src/mail.js';
+import {
+  reminderMail, summaryMail, reminderRecipients, companyEmail, codeMail,
+} from './src/mail.js';
 import { PUBLIC_HOLIDAYS } from './src/holidays.js';
 import { buildTimesheet, timesheetFilename } from './src/kintai-xlsx.js';
 import { noticesFor, buildTodoke, todokeFilename } from './src/todoke.js';
@@ -74,6 +76,9 @@ const {
   eggVote, eggMyVote, eggRows, eggAudience,
   eggOfficeRows, eggOfficeSave, eggOfficeDelete, eggContactFor, menuRows,
   employeeByEmail, passwordFor, checkPassword, adminPassword, eggWeeksAll,
+  hashPassword, setPassword,
+  loginCodeSet, loginCodeGet, loginCodeTry, loginCodeClear, loginCodesPurge,
+  pwLock, pwFail, pwOk,
   eggHarvest, eggHarvestBump, eggHarvestSet,
   eggRequestSave, eggRequestDrop, eggMyRequest, eggMyRequests,
   eggWeekRequests, eggMissed, eggWeek, eggDrawSave, eggWeekOffices, eggWeekFinalise,
@@ -128,6 +133,14 @@ const EGG_ADMIN_EMAIL = process.env.EGG_ADMIN_EMAIL || 'admin_egg@morabu.com';
 const DRY_RUN = process.env.MAIL_DRY_RUN === '1' || !process.env.SMTP_HOST;
 const SERVE_STATIC = fs.existsSync(DIST);
 const SESSION_DAYS = Number(process.env.SESSION_DAYS || 7);
+/* 本人確認コードと錠の数字（2026/11/25）。「一定回数」「一時的に」の中身は
+   ここで決める——規則の文言は回数を言っていないので、変えたくなったときに
+   探さずに済むところに置く。 */
+const CODE_MINUTES = Number(process.env.CODE_MINUTES || 15);
+const CODE_TRIES = Number(process.env.CODE_TRIES || 5);
+const PW_TRIES = Number(process.env.PW_TRIES || 5);
+const LOCK_MINUTES = Number(process.env.LOCK_MINUTES || 15);
+const PW_MIN = Number(process.env.PW_MIN || 8);
 const COOKIE = 'dxsid';
 
 /* ------------------------------- mail ----------------------------------- */
@@ -976,13 +989,33 @@ const server = http.createServer(async (req, res) => {
       if (want) {
         const pw = String(b?.password || '');
         if (!pw) return sendJson(res, 401, { error: 'password_required' });
+        /* 「一定回数間違えたら一時的にロック」（佐野, 2026/11/25）。数える
+           場所は行なので、再起動でも数は消えない。管理者は行を持たない
+           ので、そちらは下の毎分の制限だけが壁である。
+
+           毎分の制限より先に見る。どちらも拒むのは同じだが、錠が下りて
+           いる人に「回数が多すぎます」と答えると、待てば入れるのか、
+           何かが起きているのか、本人には分からない。 */
+        if (!isAdmin) {
+          const lock = await pwLock(person.id);
+          if (lock.locked) {
+            return sendJson(res, 401, { error: 'locked', until: lock.lockUntil });
+          }
+        }
         /* 回数は人ごとに数える。管理者は行を持たないので、その鍵の名前で。 */
         if (rateLimited(`pw:${isAdmin ? 'admin' : person.id}`, 5, 60_000)) {
           return sendJson(res, 429, { error: 'too_many' });
         }
         if (!await checkPassword(pw, want)) {
+          if (!isAdmin) {
+            const after = await pwFail(person.id, PW_TRIES, LOCK_MINUTES);
+            if (after.locked) {
+              return sendJson(res, 401, { error: 'locked', until: after.lockUntil });
+            }
+          }
           return sendJson(res, 401, { error: 'password_wrong' });
         }
+        if (!isAdmin) await pwOk(person.id);
       }
 
       const sid = crypto.randomBytes(32).toString('hex');
@@ -991,6 +1024,65 @@ const server = http.createServer(async (req, res) => {
         ? { admin: true, id, name: '健康対策委員会' }
         : { admin: false, ...(await getEmployee(person.id)) };
       return sendJson(res, 200, { user }, cookieHeader(sid, SESSION_DAYS * 86400));
+    }
+
+    /* ------------------ パスワードの設定・再設定（本人確認） -------------
+       佐野, 2026/11/25:「社員番号だけではパスワードを設定できないように
+       する。初回は社員番号→登録された会社メールに確認コード→コード入力
+       →パスワード設定。忘れた場合も同じ流れで再設定」。
+
+       どちらの経路も、その社員番号が在籍しているかどうかを決して答えない。
+       番号は7桁で、社内では配られているものなので、総当たりで在籍者名簿を
+       作れてしまっては、鍵を付けた意味がない。だから「送れたかどうか」では
+       なく「受け付けた」とだけ返す。 */
+    if (url.pathname === '/api/password/start' && req.method === 'POST') {
+      /* 受け付けの速さは、宛先の持ち主にとっての迷惑の量でもある——
+         他人の番号で何度も頼めば、その人の受信箱が鳴り続ける。 */
+      if (rateLimited(`pwstart:${ip}`, 5, 60_000)) return sendJson(res, 429, { error: 'too_many' });
+      const b = await readBody(req).catch(() => null);
+      const id = String(b?.id || '').trim();
+      if (!id) return sendJson(res, 400, { error: 'id_required' });
+      if (rateLimited(`pwstart:id:${id}`, 3, 600_000)) {
+        return sendJson(res, 200, { ok: true });
+      }
+
+      const person = await getEmployee(id);
+      const to = person ? companyEmail(person.email) : '';
+      if (person && to) {
+        /* 6桁。短いぶん、期限と試行回数で守る。 */
+        const code = String(crypto.randomInt(0, 1_000_000)).padStart(6, '0');
+        await loginCodeSet(id, await hashPassword(code), CODE_MINUTES, to);
+        const m = codeMail({ code, minutes: CODE_MINUTES });
+        await send(to, m.subject, m.body).catch(() => {});
+      }
+      /* 居ても居なくても、宛先があってもなくても、同じ答え。 */
+      return sendJson(res, 200, { ok: true });
+    }
+
+    if (url.pathname === '/api/password/set' && req.method === 'POST') {
+      if (rateLimited(`pwset:${ip}`, 10, 60_000)) return sendJson(res, 429, { error: 'too_many' });
+      const b = await readBody(req).catch(() => null);
+      const id = String(b?.id || '').trim();
+      const code = String(b?.code || '').trim();
+      const pw = String(b?.password || '');
+      if (!id || !code) return sendJson(res, 400, { error: 'code_required' });
+      if (pw.length < PW_MIN) return sendJson(res, 400, { error: 'password_short' });
+
+      const person = await getEmployee(id);
+      const row = person ? await loginCodeGet(id) : null;
+      /* コードが無い・切れた・番号が違う——どれも同じ答えにする。
+         違いを答えれば、それ自体が番号の当たり外れを教えることになる。 */
+      if (!row) return sendJson(res, 401, { error: 'code_bad' });
+      if (!await checkPassword(code, row.codeHash)) {
+        await loginCodeTry(id, CODE_TRIES);
+        return sendJson(res, 401, { error: 'code_bad' });
+      }
+
+      await setPassword(id, await hashPassword(pw));
+      await loginCodeClear(id);
+      /* 設定できたのだから、それまでの間違いも錠も意味を失う。 */
+      await pwOk(id);
+      return sendJson(res, 200, { ok: true });
     }
 
     /* --------------------- everything below needs a session -------------- */
@@ -2762,6 +2854,9 @@ initSchema()
     setInterval(() => {
       tick().catch(console.error);
       purgeSessions().catch(console.error);
+      /* 期限切れの確認コードも片づける。使えないものを残しておく理由は
+         なく、ハッシュとはいえ置いたままにするものでもない。 */
+      loginCodesPurge().catch(console.error);
     }, 15 * 60 * 1000);
     tick().catch(console.error);
   })

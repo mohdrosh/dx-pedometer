@@ -78,6 +78,26 @@ export async function initSchema() {
       value JSONB NOT NULL
     );
 
+    /* 本人確認の確認コード（2026/11/25 佐野）。
+
+       「社員番号だけではパスワードを設定できないようにする」——はじめて
+       設定するときも、忘れて作り直すときも、会社に登録されたメールに
+       届いたコードを通る。番号は社外に出ないという前提の情報でしかなく、
+       それだけで鍵を作れるなら、鍵がない状態とさほど変わらない。
+
+       1人1行。新しく頼めば前のコードは置き換わる——発行のたびに行が
+       積もると、古いコードがいつまでも通ってしまう。コードは平文では
+       持たない:短い数字なので、万一この表を読まれたら総当たりは一瞬
+       だが、ハッシュなら少なくとも読んだだけでは使えない。 */
+    CREATE TABLE IF NOT EXISTS login_codes (
+      employee_id TEXT PRIMARY KEY REFERENCES employees(id) ON DELETE CASCADE,
+      code_hash   TEXT NOT NULL,
+      expires_at  TIMESTAMPTZ NOT NULL,
+      tries       INTEGER NOT NULL DEFAULT 0,
+      sent_to     TEXT,
+      created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
     CREATE TABLE IF NOT EXISTS feedback (
       id         SERIAL PRIMARY KEY,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -552,6 +572,15 @@ export async function initSchema() {
      from the clock. */
   await pool.query(
     'ALTER TABLE egg_weeks ADD COLUMN IF NOT EXISTS final_at TIMESTAMPTZ',
+  );
+  /* 「一定回数パスワードを間違えたら、一時的にアカウントをロックする」
+     （佐野, 2026/11/25）。数える場所は行であって、プロセスの記憶ではない
+     ——再起動で数が消えるなら、試し続ける側には何の壁にもならない。 */
+  await pool.query(
+    'ALTER TABLE employees ADD COLUMN IF NOT EXISTS pw_tries INTEGER NOT NULL DEFAULT 0',
+  );
+  await pool.query(
+    'ALTER TABLE employees ADD COLUMN IF NOT EXISTS lock_until TIMESTAMPTZ',
   );
   await pool.query(
     `ALTER TABLE egg_weeks ADD COLUMN IF NOT EXISTS final_by TEXT
@@ -1156,6 +1185,97 @@ export async function adminPassword() {
 
 export async function setAdminPassword(hash) {
   await setKey('adminPass', { hash, at: Date.now() });
+  return true;
+}
+
+/* ------------------------- 本人確認コードと錠 --------------------------- */
+
+/** その人のコードを一つだけ持つ。前のものは置き換える。 */
+export async function loginCodeSet(employeeId, hash, minutes, sentTo) {
+  await pool.query(
+    `INSERT INTO login_codes (employee_id, code_hash, expires_at, tries, sent_to, created_at)
+     VALUES ($1, $2, NOW() + ($3 || ' minutes')::interval, 0, $4, NOW())
+     ON CONFLICT (employee_id) DO UPDATE
+       SET code_hash = EXCLUDED.code_hash, expires_at = EXCLUDED.expires_at,
+           tries = 0, sent_to = EXCLUDED.sent_to, created_at = NOW()`,
+    [String(employeeId), hash, String(Math.max(1, Math.floor(minutes))), sentTo || null],
+  );
+  return true;
+}
+
+/** まだ生きているコードだけを返す。期限切れは無いのと同じ。 */
+export async function loginCodeGet(employeeId) {
+  const { rows } = await pool.query(
+    `SELECT code_hash AS "codeHash", tries, sent_to AS "sentTo"
+       FROM login_codes WHERE employee_id = $1 AND expires_at > NOW()`,
+    [String(employeeId)],
+  );
+  return rows[0] || null;
+}
+
+/** 間違えた回数。数え切ったコードは、期限より先に死ぬ。 */
+export async function loginCodeTry(employeeId, max) {
+  const { rows } = await pool.query(
+    'UPDATE login_codes SET tries = tries + 1 WHERE employee_id = $1 RETURNING tries',
+    [String(employeeId)],
+  );
+  const tries = Number(rows[0]?.tries) || 0;
+  if (tries >= max) await loginCodeClear(employeeId);
+  return tries;
+}
+
+export async function loginCodeClear(employeeId) {
+  await pool.query('DELETE FROM login_codes WHERE employee_id = $1', [String(employeeId)]);
+  return true;
+}
+
+/** 期限切れを片づける。起動のたびに一度で足りる。 */
+export async function loginCodesPurge() {
+  await pool.query('DELETE FROM login_codes WHERE expires_at <= NOW()');
+  return true;
+}
+
+/** いま錠が下りているか。下りていれば、いつ開くか。 */
+export async function pwLock(employeeId) {
+  const { rows } = await pool.query(
+    `SELECT pw_tries AS tries, lock_until AS "lockUntil"
+       FROM employees WHERE id = $1`,
+    [String(employeeId)],
+  );
+  const r = rows[0];
+  if (!r) return { tries: 0, lockUntil: null, locked: false };
+  const locked = !!r.lockUntil && new Date(r.lockUntil).getTime() > Date.now();
+  return { tries: Number(r.tries) || 0, lockUntil: r.lockUntil, locked };
+}
+
+/** 間違えた。数え切ったら錠を下ろし、数は0に戻す——次の錠までの数え直し。 */
+export async function pwFail(employeeId, max, minutes) {
+  const { rows } = await pool.query(
+    /* 一つの UPDATE で同じ列に二度代入はできないので、どちらの CASE も
+       古い pw_tries を読む形にしてある（右辺は更新前の行で評価される）。 */
+    `UPDATE employees
+        SET lock_until = CASE WHEN pw_tries + 1 >= $2
+                              THEN NOW() + ($3 || ' minutes')::interval
+                              ELSE lock_until END,
+            pw_tries   = CASE WHEN pw_tries + 1 >= $2 THEN 0 ELSE pw_tries + 1 END
+      WHERE id = $1
+      RETURNING pw_tries AS tries, lock_until AS "lockUntil"`,
+    [String(employeeId), Math.max(1, Math.floor(max)), String(Math.max(1, Math.floor(minutes)))],
+  );
+  const r = rows[0] || {};
+  return {
+    tries: Number(r.tries) || 0,
+    lockUntil: r.lockUntil || null,
+    locked: !!r.lockUntil && new Date(r.lockUntil).getTime() > Date.now(),
+  };
+}
+
+/** 入れた。数も錠も消す。 */
+export async function pwOk(employeeId) {
+  await pool.query(
+    'UPDATE employees SET pw_tries = 0, lock_until = NULL WHERE id = $1',
+    [String(employeeId)],
+  );
   return true;
 }
 
