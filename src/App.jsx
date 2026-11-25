@@ -296,6 +296,9 @@ const STR = {
   pwSetupLead: ['社員番号を入力してください。会社に登録されているメールアドレスに、確認コードをお送りします。',
     'Enter your employee number. We will send a verification code to the address the company has on file for you.'],
   pwSendCode: ['確認コードを送る', 'Send the code'],
+  /* 鍵が要る状態になったあと、まだ設定していない人が入ろうとしたとき。 */
+  pwMustSet: ['パスワードの設定が必要です。社員番号を入力して、確認コードをお受け取りください。',
+    'You need to set a password first. Enter your employee number and we will send you a code.'],
   /* 送れたかどうかは言わない——在籍しているかどうかを教えないため。 */
   pwSentLead: ['確認コードをお送りしました。メールが届かない場合は、社員番号をご確認のうえ、もう一度お試しください。',
     'If that number is registered, a code is on its way. If nothing arrives, check the number and try again.'],
@@ -1207,9 +1210,13 @@ function Login({ onLogin, onEnter, onTrial, lang, setLang, notice, cfg }) {
   const [sPw, setSPw] = useState('');
   const [sPw2, setSPw2] = useState('');
   const [sErr, setSErr] = useState('');
+  /* ログインから送り込まれたときだけ立つ。自分でリンクを押した人には
+     「設定が必要です」と言う理由がないので、そのときは出さない。 */
+  const [sMust, setSMust] = useState(false);
 
-  const setupReset = (to = '') => {
+  const setupReset = (to = '', must = false) => {
     setSetup(to); setSCode(''); setSPw(''); setSPw2(''); setSErr('');
+    setSMust(must);
   };
 
   const sendCode = async () => {
@@ -1253,6 +1260,9 @@ function Login({ onLogin, onEnter, onTrial, lang, setLang, notice, cfg }) {
     const r = await onLogin(v, { apply: false, password: pw });
     setBusy(false);
     if (r?.error === 'password_required') { setNeedPw(true); setErr(''); return; }
+    /* 鍵が要る状態で、まだ設定していない人。名前もセッションも渡さずに、
+       そのまま設定の画面へ送る——番号はもう打ってあるので持っていく。 */
+    if (r?.error === 'password_setup') { setupReset('ask', true); return; }
     if (r?.error) {
       /* 鍵つきだと分かったあとは、欄を出したままにする——間違えた人に
          もう一度打たせるのであって、最初からやり直させるのではない。 */
@@ -1278,6 +1288,9 @@ function Login({ onLogin, onEnter, onTrial, lang, setLang, notice, cfg }) {
     const r = await onLogin(v, { password: pw });
     setBusy(false);
     if (r?.error === 'password_required') { setNeedPw(true); setErr(''); return; }
+    /* 鍵が要る状態で、まだ設定していない人。名前もセッションも渡さずに、
+       そのまま設定の画面へ送る——番号はもう打ってあるので持っていく。 */
+    if (r?.error === 'password_setup') { setupReset('ask', true); return; }
     if (r?.error) { setErr(say(r.error)); if (r.error === 'password_wrong') setPw(''); }
   };
 
@@ -1341,6 +1354,7 @@ function Login({ onLogin, onEnter, onTrial, lang, setLang, notice, cfg }) {
         {setup === 'ask' && (
           <div className="login-setup">
             <div className="sechead"><span>{t('pwSetupTitle')}</span></div>
+            {sMust && <p className="notice">{t('pwMustSet')}</p>}
             <p className="muted sm">{t('pwSetupLead')}</p>
             <label className="fld">
               <span>{t('employeeId')}</span>

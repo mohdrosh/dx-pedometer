@@ -988,6 +988,29 @@ const server = http.createServer(async (req, res) => {
       const want = isAdmin ? await adminPassword() : await passwordFor(person.id);
       if (byMail && !want) return sendJson(res, 401, { error: 'not_found' });
 
+      /* 全社で鍵を要る状態にする切り替え（cfg.pwRequired）。
+
+         佐野, 2026/11/25:「マイページの入口で『社員番号＋パスワード』に
+         する。ログインするまでは氏名などの個人情報を表示しない」。これを
+         その日のうちに全員へ掛けると、600名が一斉に設定の列に並ぶことに
+         なり、会社に諮る前に入口が閉まる。だから機械は先に用意しておいて、
+         掛けるかどうかは別の日に決められるようにする——
+         tools/pw-required.mjs で入り切りする。
+
+         切れているあいだは、鍵を設定した人にだけ鍵が要る（下の want）。
+         入れたあとは、設定していない人は入れず、設定の画面へ送られる。
+
+         管理者はこの切り替えの外に置く。あちらの鍵は employees の行では
+         なく config にあって、tools/admin-pass.mjs が持っているので、
+         ここで二重に掛けると外し方が二つになる。
+
+         返すのは password_setup——まだ名前も、セッションも渡さない。在籍
+         していない番号には上で not_found を返しているので、ここで区別が
+         増えるわけではない。 */
+      if (!isAdmin && !want && cfg.pwRequired === true) {
+        return sendJson(res, 401, { error: 'password_setup' });
+      }
+
       /* パスワードを持っている人は、どの入口から来ても必ず要る。持っていない
          人——いまのところ丹波の3名以外の全員——はこれまでどおり素通りする。
 
