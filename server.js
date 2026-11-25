@@ -1965,6 +1965,11 @@ const server = http.createServer(async (req, res) => {
         open: requestsOpen(ship, now.stamp, now.h, cfg, holidays),
         harvested,
         drawn: !!week?.drawnAt,
+        /* 押した時刻そのもの。佐野, 2026/11/25:「今は確定を押すと『9:00に
+           確定済み』と出ますが、実際に丹波担当が確定ボタンを押した時刻を
+           表示してください」。9:00 は締切の時刻であって、誰かが押した時刻
+           ではない——12時までに押せばよいのだから、ふつう一致しない。 */
+        drawnAt: week?.drawnAt || null,
         final: !!week?.finalAt,
         packs: week?.packs ?? null,
         /* The week as it stands. Once it has been run, that is what was

@@ -53,6 +53,49 @@ export const EGG_OFFICES = [
    two different questions — where can eggs go, and what did people say. */
 export const SURVEY_OFFICES = [...EGG_OFFICES.slice(0, 6), '新長田', ...EGG_OFFICES.slice(6)];
 
+/**
+ * 丹波の取れ高の欄を組む。土曜と日曜はひとつにまとめる。
+ *
+ * 佐野, 2026/11/25:「丹波は週末が休みで、月曜にまとめて入力します。今は
+ * 土曜と日曜が別の欄になっていますが、『土日』の1つの欄にしてください」。
+ *
+ * まとめた欄の数は土曜の日付に入れ、日曜は0にする（`mate` がその日曜）。
+ * 週の合計は締切から締切までを足すので、どちらの日付に入れても同じ数に
+ * なる——分けて書かせる理由が、週末に誰も鶏舎に居ないのに二つあることだけ
+ * だった。
+ *
+ * ただし土日のどちらかが今日である週は分けたままにする。今日の欄は画面の
+ * 上の大きな箱と同じ日付を指しているので、まとめると同じ日に二つの箱が
+ * 向くことになる——以前この画面にあった不具合そのものである。
+ *
+ * days: [{ iso, packs, has }] を日付順に。label は呼ぶ側が渡す（訳語は
+ * 画面のもので、ここは日付の勘定だけを引き受ける）。
+ */
+export function harvestCells(days = [], todayIso = '', satSun = '土日') {
+  const dowOf = (iso) => new Date(`${iso}T00:00:00Z`).getUTCDay();
+  const weekendIsToday = days.some(
+    (x) => x.iso === todayIso && [0, 6].includes(dowOf(x.iso)),
+  );
+  const out = [];
+  for (let i = 0; i < days.length; i += 1) {
+    const x = days[i];
+    const next = days[i + 1];
+    const pair = !weekendIsToday && dowOf(x.iso) === 6 && next && dowOf(next.iso) === 0;
+    if (!pair) { out.push({ ...x, label: DOW[dowOf(x.iso)] }); continue; }
+    out.push({
+      iso: x.iso,
+      mate: next.iso,
+      packs: (x.packs || 0) + (next.packs || 0),
+      has: !!x.has || !!next.has,
+      label: satSun,
+    });
+    i += 1;
+  }
+  return out;
+}
+
+const DOW = ['日', '月', '火', '水', '木', '金', '土'];
+
 /* 仕様書 4.10「最低パック数の初期値：本社 1、姫路・京都 2、東京・大阪・三田・
    尼崎技術研修所 4」. A starting point only — every one of them is editable
    per office in 事業所の設定, which is where the live number comes from. */

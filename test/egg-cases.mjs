@@ -8,6 +8,7 @@ import {
   EGG_TERMS_JA, REASON_MAX,
   cleanVote, eggWindow, eggOpen, eggOffices, tally,
   cleanRequest, eggMaxPacks, eggTerms, consentOk, requestTotals, SURVEY_OFFICES,
+  harvestCells,
 } from '../src/egg.js';
 
 let n = 0;
@@ -346,6 +347,61 @@ is('nobody asked', requestTotals([]).packs, 0);
 is('nothing at all is nothing', requestTotals(null).people, 0);
 is('a row with no packs is not a person waiting',
   requestTotals([{ employeeId: 'e1', office: '大阪', packs: 0, purpose: 'private' }]).people, 0);
+
+/* ------------------- 取れ高の欄:土日はひとつ ------------------------ */
+/* 佐野, 2026/11/25:「丹波は週末が休みで、月曜にまとめて入力します。『土日』
+   の1つの欄にしてください」。数は土曜に入り、日曜は0にする相手として
+   mate に控える。週の合計は締切から締切までを足すので、どちらの日付に
+   入れても同じ数になる。 */
+{
+  /* 2026/11/24(火) 〜 11/30(月)。土は 11/28、日は 11/29。 */
+  const week = [
+    { iso: '2026-11-24', packs: 5, has: true },
+    { iso: '2026-11-25', packs: 6, has: true },
+    { iso: '2026-11-26', packs: 0, has: false },
+    { iso: '2026-11-27', packs: 0, has: false },
+    { iso: '2026-11-28', packs: 3, has: true },
+    { iso: '2026-11-29', packs: 4, has: true },
+    { iso: '2026-11-30', packs: 0, has: false },
+  ];
+  const cells = harvestCells(week, '2026-11-25', '土日');
+  is('七日が六欄になる', cells.length, 6);
+  is('並びはそのまま、土日だけひとつ',
+    cells.map((c) => c.label), ['火', '水', '木', '金', '土日', '月']);
+  const sat = cells[4];
+  is('まとめた欄の数は土日の合計', sat.packs, 7);
+  is('書き込む先は土曜', sat.iso, '2026-11-28');
+  is('0にする相手は日曜', sat.mate, '2026-11-29');
+  is('ほかの欄に mate はない', cells.filter((c) => c.mate).length, 1);
+
+  /* 片方しか入っていない週でも、入っている扱いにする——欄を空で出すと、
+     土曜に3パックあったことが画面から消える。 */
+  const half = harvestCells(
+    week.map((d) => (d.iso === '2026-11-29' ? { ...d, packs: 0, has: false } : d)),
+    '2026-11-25', '土日',
+  );
+  is('片方だけでも入力済みとして出す', [half[4].packs, half[4].has], [3, true]);
+
+  /* どちらも空の週は空のまま。0 は数えた人がいるという意味で、
+     まだ誰も数えていないのとは違う。 */
+  const none = harvestCells(
+    week.map((d) => (['2026-11-28', '2026-11-29'].includes(d.iso)
+      ? { ...d, packs: 0, has: false } : d)),
+    '2026-11-25', '土日',
+  );
+  is('両方とも空なら空のまま', [none[4].packs, none[4].has], [0, false]);
+
+  /* 土日のどちらかが今日なら分けたまま:今日の欄は上の大きな箱と同じ日付を
+     指しているので、まとめると同じ日に二つの箱が向く。 */
+  is('今日が土曜なら分けたまま',
+    harvestCells(week, '2026-11-28', '土日').map((c) => c.label),
+    ['火', '水', '木', '金', '土', '日', '月']);
+  is('今日が日曜でも分けたまま',
+    harvestCells(week, '2026-11-29', '土日').length, 7);
+
+  is('空の週でも落ちない', harvestCells([], '2026-11-25', '土日'), []);
+  is('引数なしでも落ちない', harvestCells(), []);
+}
 
 if (fails.length) {
   console.error(`\n  ${fails.length} of ${n} failed:\n`);

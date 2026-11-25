@@ -88,8 +88,8 @@
     "en": "Packs available to ship"
   },
   "shipConfirmed": {
-    "ja": "9:00に確定済み",
-    "en": "Confirmed at 9:00"
+    "ja": "{t}に確定済み",
+    "en": "Confirmed at {t}"
   },
   "shipStep2": {
     "ja": "振り分け結果を確認して、最終確定してください（12時まで）",
@@ -730,6 +730,14 @@
   "r4": {
     "ja": "卵が足りないときは、仕事用を優先し、次に前回受け取れなかった人から配ります。",
     "en": "If there aren’t enough eggs, business requests come first, then people who missed out last time."
+  },
+  "r5": {
+    "ja": "三田・京都で受け取る方へ：受け取りに来る時間が17時45分を過ぎる場合は、必ず事前に事業所へ電話でご連絡ください（定時後は事業所に人がいないことがあるため）。",
+    "en": "For Sanda and Kyoto: if you will arrive after 5:45 PM, please telephone the office beforehand — there may be nobody there after hours."
+  },
+  "satSun": {
+    "ja": "土日",
+    "en": "Sat–Sun"
   },
   "pickup": {
     "ja": "受取場所",

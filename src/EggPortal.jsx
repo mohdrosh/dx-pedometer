@@ -21,7 +21,7 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { S, apiRoot } from './storage';
-import { EGG_TERMS_JA, HQ_OFFICE, TOKYO_OFFICE } from './egg.js';
+import { EGG_TERMS_JA, HQ_OFFICE, TOKYO_OFFICE, harvestCells } from './egg.js';
 import { mg, packs, art, ART_V } from './moraegg-text.js';
 import {
   mondayOf, shiftDay, shipDay, deadlineDay, arrivalDay, weekPlan,
@@ -367,6 +367,18 @@ const L = {
 
 const DOW_JA = ['日', '月', '火', '水', '木', '金', '土'];
 const dow = (iso) => new Date(`${iso}T00:00:00Z`).getUTCDay();
+/* 押した時刻を 9:35 の形で。東京の時計で読む——サーバは東京、ブラウザは
+   その端末の時計なので、そのまま出すと押した本人と読む人で別の時刻が
+   出かねない。時刻がないうちは空で返し、呼ぶ側が出し分ける。 */
+const hhmmTokyo = (at) => {
+  if (!at) return '';
+  const d = new Date(at);
+  if (Number.isNaN(d.getTime())) return '';
+  return new Intl.DateTimeFormat('ja-JP', {
+    timeZone: 'Asia/Tokyo', hour: 'numeric', minute: '2-digit', hour12: false,
+  }).format(d);
+};
+
 /* 11月25日（水）— her form when the date is inside a sentence, as
    against the 11/25（水） the cards and tables use. */
 const mdLong = (iso, lang) => {
@@ -1315,7 +1327,7 @@ export default function EggPortal({ d, reload: load, lang, toast, screen = 'all'
               {/* Two rules to a row from 760px: four of them are a card
                   two lines deep rather than a column of four. */}
               <ul className="eg-rules eg-r2">
-                {['r1', 'r2', 'r3', 'r4'].map((k) => <li key={k}>{mgs(k)}</li>)}
+                {['r1', 'r2', 'r3', 'r4', 'r5'].map((k) => <li key={k}>{mgs(k)}</li>)}
               </ul>
             </div>
           </>
@@ -1573,7 +1585,11 @@ function EggShip({ lang, toast, t, onDone }) {
         {/* 9:00 に確定済み — the allocation the system made at the
             deadline off the register, which is why the box already has a
             number in it. */}
-        {d.drawn && <p className="eg-ship-ok">{mgs('shipConfirmed')}</p>}
+        {d.drawn && (
+          <p className="eg-ship-ok">
+            {mgs('shipConfirmed', { t: hhmmTokyo(d.drawnAt) })}
+          </p>
+        )}
         <button
           className="btn primary" disabled={busy || d.final}
           onClick={() => post('/draw', { ship: d.ship, packs: n })}
@@ -1755,6 +1771,11 @@ export function EggFarm({ lang, toast }) {
     }
   }
 
+  /* 土日はひとつの欄に（佐野, 2026/11/25）。勘定は src/egg.js の
+     harvestCells に出してある——月曜にまとめて入力する人の手に渡る前に、
+     テストで確かめられるように。 */
+  const cells = harvestCells(days, todayIso, mg('satSun', lang));
+
   /* Typing no longer saves.
 
      Every box used to write to the register the moment it lost focus, so
@@ -1785,7 +1806,14 @@ export function EggFarm({ lang, toast }) {
          the last answer in would win. */
       // eslint-disable-next-line no-await-in-loop
       const ok = await save(toN(edits[x.iso]), x.iso === todayIso ? null : x.iso);
-      if (ok) done.push(x.iso);
+      if (!ok) continue;
+      done.push(x.iso);
+      /* 土日をまとめた欄は、数を土曜に入れて日曜を0にする。両方に残すと
+         週の合計が二重に数えられる。 */
+      if (x.mate) {
+        // eslint-disable-next-line no-await-in-loop
+        await save(0, x.mate);
+      }
     }
     /* Only what the register took is cleared. A day it refused keeps the
        number in its box, so the person can see what did not go in rather
@@ -1873,12 +1901,12 @@ export function EggFarm({ lang, toast }) {
               the week is decided they all lock: the allocation was worked
               out from these numbers. */}
           <ol className="eg-wkdays">
-            {days.map((x) => (
+            {cells.map((x) => (
               <li
                 key={x.iso}
                 className={`${x.iso === todayIso ? 'on' : ''}${x.iso > todayIso ? ' soon' : ''}`}
               >
-                <em>{DOW_JA[dow(x.iso)]}</em>
+                <em>{x.label}</em>
                 {x.iso === todayIso
                   ? <b className="eg-wkd-v">{draftOf(x.iso, x.packs, x.has) || '0'}</b>
                   : packBox(x.iso, x.packs, false, x.has)}
@@ -1889,8 +1917,8 @@ export function EggFarm({ lang, toast }) {
           <div className="eg-acts">
             <button
               type="button" className="btn primary"
-              disabled={busy || locked || !changed(days)}
-              onClick={() => saveDays(days)}
+              disabled={busy || locked || !changed(cells)}
+              onClick={() => saveDays(cells)}
             >{t('save')}</button>
           </div>
           {locked && <p className="muted sm">{t('fixShut')}</p>}
