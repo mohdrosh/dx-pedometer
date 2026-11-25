@@ -45,6 +45,10 @@ function askHidden(q) {
     const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
     const out = process.stdout;
     const onData = (ch) => {
+      /* 端末でないとき（パイプで流し込まれたときなど）は clearLine が無い。
+         伏せ字にできないだけなので、黙って素通りさせる——ここで落ちると、
+         設定そのものができない。 */
+      if (!out.isTTY || !out.clearLine) return;
       if (['\n', '\r', '\u0004'].includes(String(ch))) out.write('\n');
       else { out.clearLine(0); out.cursorTo(0); out.write(`${q}${'*'.repeat(rl.line.length)}`); }
     };
