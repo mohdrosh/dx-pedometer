@@ -307,6 +307,12 @@ const STR = {
   pwSetupLead: ['社員番号を入力してください。会社に登録されているメールアドレスに、確認コードをお送りします。',
     'Enter your employee number. We will send a verification code to the address the company has on file for you.'],
   pwSendCode: ['確認コードを送る', 'Send the code'],
+  /* 持ち場ちがい。どちらへ行けばよいかまで書かないと、本人は同じ入口で
+     打ち直すだけになる。 */
+  doorNotEgg: ['この管理者はモラエッグの担当ではありません。万歩計のページからお入りください。',
+    'This administrator does not look after Moraegg. Please sign in from the pedometer page.'],
+  doorNotSteps: ['この管理者は万歩計の担当ではありません。モラエッグのページからお入りください。',
+    'This administrator does not look after the pedometer. Please sign in from the Moraegg page.'],
   /* 鍵が要る状態になったあと、まだ設定していない人が入ろうとしたとき。 */
   pwMustSet: ['パスワードの設定が必要です。社員番号を入力して、確認コードをお受け取りください。',
     'You need to set a password first. Enter your employee number and we will send you a code.'],
@@ -1210,6 +1216,8 @@ function Login({ onLogin, onEnter, onTrial, lang, setLang, notice, cfg }) {
   /* 携帯で英字の配列を出すための切り替え。既定はテンキーのままにして、
      押されたときだけメール向けに変える（下の注記の隣のボタン）。 */
   const [mailMode, setMailMode] = useState(false);
+  /* 「メールアドレスで入力」を押したとき、欄に入り直させるために持つ。 */
+  const idRef = React.useRef(null);
 
   /* パスワードの設定・再設定（佐野, 2026/11/25）。'' のあいだはふつうの
      ログイン画面で、'ask' で番号を訊き、'code' でコードと新しいパスワードを
@@ -1262,7 +1270,9 @@ function Login({ onLogin, onEnter, onTrial, lang, setLang, notice, cfg }) {
 
   const say = (code) => t(code === 'too_many' ? 'tooMany'
     : code === 'password_wrong' ? 'pwWrong'
-      : code === 'locked' ? 'pwLocked' : 'notFound');
+      : code === 'locked' ? 'pwLocked'
+        : code === 'wrong_door' ? (AT_EGG_DOOR ? 'doorNotEgg' : 'doorNotSteps')
+          : 'notFound');
 
   const check = async () => {
     const v = id.trim();
@@ -1436,6 +1446,7 @@ function Login({ onLogin, onEnter, onTrial, lang, setLang, notice, cfg }) {
         <label className="fld">
           <span>{t('idOrMail')}</span>
           <input
+            ref={idRef}
             /* An example, not a colleague. This used to be a real employee
                number, displayed to everyone who opened the sign-in page. */
             value={id} autoComplete="off" placeholder="1234567"
@@ -1477,7 +1488,21 @@ function Login({ onLogin, onEnter, onTrial, lang, setLang, notice, cfg }) {
             {!mailMode && !/[^0-9]/.test(id) && (
               <>
                 {' '}
-                <button type="button" className="linkish" onClick={() => setMailMode(true)}>
+                <button
+                  type="button" className="linkish"
+                  onClick={() => {
+                    setMailMode(true);
+                    /* inputMode を変えただけでは、すでに出ている画面上の
+                       キーボードは変わらない——iOS も Android も、欄に入り
+                       直したときにしか読み直さない。押しても数字のままに
+                       見えるので、こちらで入り直させる。 */
+                    const el = idRef.current;
+                    if (el) {
+                      el.blur();
+                      setTimeout(() => { try { el.focus(); } catch { /* 画面が消えていれば何もしない */ } }, 0);
+                    }
+                  }}
+                >
                   {t('useMail')}
                 </button>
               </>
@@ -3799,7 +3824,7 @@ export default function App() {
       const u = admin ? { admin: true, id, name: '健康対策委員会' } : { admin: false, ...p };
       return apply ? enter({ user: u }) : { user: u };
     }
-    const r = await apiLogin(id, password);
+    const r = await apiLogin(id, password, AT_EGG_DOOR ? 'egg' : 'steps');
     if (r.error) return r;
     return apply ? enter(r) : r;
   }, [enter]);

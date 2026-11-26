@@ -1054,6 +1054,17 @@ const server = http.createServer(async (req, res) => {
       };
       const adminScope = isAdmin ? scopeOf(id) : null;
 
+      /* 入口が持ち場と合っているか。合っていないなら、入れてから中身を
+         403 にするのではなく、ここで断る——入れたのに何も見えない画面は、
+         本人には故障と区別がつかない。
+
+         鍵を見る前に断るので、どちらの入口でも総当たりの手間は変わらない。 */
+      const at = String(b?.at || '');
+      if (isAdmin && (at === 'egg' || at === 'steps')
+          && adminScope !== 'both' && adminScope !== at) {
+        return sendJson(res, 401, { error: 'wrong_door', scope: adminScope });
+      }
+
       const want = isAdmin ? await adminPassword(id) : await passwordFor(person.id);
       if (byMail && !want) return sendJson(res, 401, { error: 'not_found' });
 

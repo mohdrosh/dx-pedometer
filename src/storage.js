@@ -239,8 +239,17 @@ export async function fetchBootstrap() {
   } catch { return null; }
 }
 
-export async function apiLogin(id, password) {
-  const r = await post('/api/login', { id, ...(password ? { password } : {}) });
+/**
+ * at … どちらの入口から来たか（'egg' | 'steps'）。
+ *
+ * 管理者には持ち場があるので、入口そのものが合っているかをサーバに見て
+ * もらう。合っていないまま通すと、入れたのに中身が 403 になる画面を見せる
+ * ことになり、本人には何が起きたのか分からない。
+ */
+export async function apiLogin(id, password, at = null) {
+  const r = await post('/api/login', {
+    id, ...(password ? { password } : {}), ...(at ? { at } : {}),
+  });
   if (r.status === 200) return { user: r.body.user };
   if (r.status === 429) return { error: 'too_many' };
   return { error: r.body.error || 'not_found' };
