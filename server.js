@@ -286,7 +286,14 @@ const clientIp = (req) =>
    claims. */
 function mayTouchKey(sess, key, write) {
   if (!sess) return false;
-  if (sess.isAdmin) return true;
+  if (sess.isAdmin) {
+    /* たまごの管理者に渡すのは cfg だけ。kv は歩数も名簿も運賃表も同じ
+       一本道を通るので、ここを開けると持ち場を分けた意味がなくなる。
+       cfg そのものも、書き込みは egg の枝だけに絞ってある（下の
+       mergeCfgForScope）。 */
+    if (sess.adminScope === 'egg') return key === 'cfg';
+    return true;
+  }
   /* st: steps, kt: timesheet, tr: travel — each is one person's own month,
      and the id in the key has to be theirs. */
   const m = /^(?:st|kt|tr):([^:]+):(.+)$/.exec(key);
@@ -301,6 +308,39 @@ function mayTouchKey(sess, key, write) {
      /api/fare/table and is told about those. */
   if (key === 'fares') return false;
   return false;
+}
+
+/**
+ * 持ち場にあわせて、書いてよいところだけを採る。
+ *
+ * たまごの管理画面は cfg をまるごと書き直す（{...cfg, egg: {...}}）ので、
+ * そのまま通すと adminIds も threshold も相手の手に渡る。画面はいまの値を
+ * 書き戻しているだけだが、API は何でも受け取れてしまうので、サーバ側で
+ * 枝を選び直す。
+ *
+ * egg   … egg の枝だけ採り、ほかは保存されているものを残す
+ * steps … egg の枝だけ残し、ほかは受け取ったものを採る
+ * both  … そのまま
+ */
+function mergeCfgForScope(stored, incoming, scope) {
+  const was = stored && typeof stored === 'object' ? stored : {};
+  const now = incoming && typeof incoming === 'object' ? incoming : {};
+  const base = scope === 'egg' ? { ...was, egg: now.egg }
+    : scope === 'steps' ? { ...now, egg: was.egg }
+      : { ...now };
+
+  /* 誰が管理者で、どの持ち場か——書いてなければ、消さずに残す。
+
+     画面は cfg をまるごと送り直す。その中に adminScopes が入っていない
+     版の画面（古いタブ、別の経路）から一度保存されただけで、全員の持ち場
+     が消えて both に戻ってしまう。黙って鍵が外れるので、気づけない。
+
+     「送られてこなかった」は「消してよい」ではない。consciously 消すには
+     tools/admin-pass.mjs を使う。 */
+  for (const k of ['adminIds', 'adminScopes']) {
+    if (now[k] === undefined) { if (was[k] !== undefined) base[k] = was[k]; }
+  }
+  return base;
 }
 
 /* adminIds decides who is an administrator, so it never leaves the server for
@@ -1001,7 +1041,20 @@ const server = http.createServer(async (req, res) => {
 
          返すのは not_found——「その人は居るが、この入口は使えない」と
          答えると、アドレスを打っただけの相手に在籍を教えることになる。 */
-      const want = isAdmin ? await adminPassword() : await passwordFor(person.id);
+      /* 管理者の持ち場（佐野, 2026/11/26:「万歩計の管理者であって、たまごは
+         関係ない。アドレスもパスワードも別にしたほうがよい」）。
+
+         cfg.adminScopes に id ごとに 'steps' / 'egg' / 'both' を置く。書いて
+         なければ both——これまで入れていた人が、設定を書き足すまでのあいだ
+         締め出されないように。 */
+      const scopeOf = (who) => {
+        const map = cfg.adminScopes || {};
+        const v = String(map[String(who).toLowerCase()] || map[who] || 'both');
+        return ['steps', 'egg', 'both'].includes(v) ? v : 'both';
+      };
+      const adminScope = isAdmin ? scopeOf(id) : null;
+
+      const want = isAdmin ? await adminPassword(id) : await passwordFor(person.id);
       if (byMail && !want) return sendJson(res, 401, { error: 'not_found' });
 
       /* 全社で鍵を要る状態にする切り替え（cfg.pwRequired）。
@@ -1060,7 +1113,11 @@ const server = http.createServer(async (req, res) => {
            受け持つ。管理者は行を持たず錠も無いので、こちらが唯一の壁で
            あり、PW_TRIES とは関係なく 5回/分 のままにする。 */
         const budget = isAdmin ? 5 : PW_TRIES + 2;
-        if (rateLimited(`pw:${isAdmin ? 'admin' : person.id}`, budget, 60_000)) {
+        /* 管理者も一人ずつ数える。'admin' ひとつで数えていたので、片方が
+           打ち間違えるともう片方まで待たされた——持ち場を分けて別々の人が
+           使うようになった以上、数も別でなければならない。 */
+        const bucket = isAdmin ? `admin:${String(id).toLowerCase()}` : person.id;
+        if (rateLimited(`pw:${bucket}`, budget, 60_000)) {
           return sendJson(res, 429, { error: 'too_many' });
         }
         if (!await checkPassword(pw, want)) {
@@ -1076,9 +1133,9 @@ const server = http.createServer(async (req, res) => {
       }
 
       const sid = crypto.randomBytes(32).toString('hex');
-      await createSession(sid, isAdmin ? null : person.id, isAdmin, SESSION_DAYS);
+      await createSession(sid, isAdmin ? null : person.id, isAdmin, SESSION_DAYS, adminScope);
       const user = isAdmin
-        ? { admin: true, id, name: '健康対策委員会' }
+        ? { admin: true, id, name: '健康対策委員会', scope: adminScope }
         : { admin: false, ...(await getEmployee(person.id)) };
       return sendJson(res, 200, { user }, cookieHeader(sid, SESSION_DAYS * 86400));
     }
@@ -1150,6 +1207,29 @@ const server = http.createServer(async (req, res) => {
       return sendJson(res, 200, { ok: true }, cookieHeader('', 0));
     }
 
+    /* ------------------------- 管理者の持ち場 ---------------------------
+       佐野, 2026/11/26:「万歩計の管理者であって、たまごは関係ない。
+       アドレスもパスワードも別にしたほうがよい」。
+
+       画面を隠すだけでは分けたことにならない——住所も歩数も API で取れて
+       しまうので、入口のここで断る。路線ごとに書き足すのではなく一箇所に
+       するのは、あとで足した route がうっかり素通りするのを防ぐため。
+
+       both（既定）はこれまでどおり両方。 */
+    if (sess?.isAdmin && sess.adminScope && sess.adminScope !== 'both') {
+      const p = url.pathname;
+      const eggSide = p.startsWith('/api/egg/');
+      /* 万歩計側の持ち物。kv は歩数も名簿も運賃表も通る一本道なので、
+         たまごの管理者には cfg 以外を渡さない（cfg は下で egg の枝だけに
+         絞る）。 */
+      const stepsSide = p === '/api/kv/list' || p.startsWith('/api/jobs/')
+        || p === '/api/mypage' || p === '/api/uploads'
+        || (p === '/api/kv' && url.searchParams.get('key') !== 'cfg'
+            && req.method !== 'PUT');
+      if (sess.adminScope === 'steps' && eggSide) return deny(res, 403);
+      if (sess.adminScope === 'egg' && stepsSide) return deny(res, 403);
+    }
+
     /* Trial self-registration, open to anyone with the link. */
     if (url.pathname === '/api/register' && req.method === 'POST') {
       if (rateLimited(`reg:${ip}`, 5, 3600_000)) return sendJson(res, 429, { error: 'too_many' });
@@ -1166,7 +1246,7 @@ const server = http.createServer(async (req, res) => {
       if (!sess) return deny(res);
       if (req.method === 'GET') {
         const user = sess.isAdmin
-          ? { admin: true, id: 'admin', name: '健康対策委員会' }
+          ? { admin: true, id: 'admin', name: '健康対策委員会', scope: sess.adminScope || 'both' }
           : { admin: false, ...(await getEmployee(sess.employeeId)) };
         /* Whether the fare lookup is available at all, so the screen can
            offer it or keep quiet rather than show a button that 503s. */
@@ -2738,7 +2818,11 @@ const server = http.createServer(async (req, res) => {
             return sendJson(res, 400, { error: 'fare_not_verified' });
           }
         }
-        await setKey(body.key, body.value);
+        let toWrite = body.value;
+        if (body.key === 'cfg' && sess.isAdmin) {
+          toWrite = mergeCfgForScope(await getKey('cfg'), body.value, sess.adminScope || 'both');
+        }
+        await setKey(body.key, toWrite);
         return sendJson(res, 200, { key: body.key, ok: true });
       }
       if (req.method === 'DELETE') {

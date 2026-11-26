@@ -46,6 +46,17 @@ const MODULES = [
   { id: 'egg', ja: '卵', en: 'Eggs' },
 ];
 
+/* どの入口を出すか——管理者の持ち場による（佐野, 2026/11/26）。
+
+   画面を隠すのは親切であって、鍵ではない。断るのはサーバのほうで、ここは
+   「押しても断られるボタン」を出さないためだけにある。 */
+function adminModules(user) {
+  const all = MODULES.map((x) => x.id);
+  if (user?.scope === 'egg') return all.filter((id) => id === 'egg');
+  if (user?.scope === 'steps') return all.filter((id) => id !== 'egg');
+  return all;
+}
+
 /* Whether a module is open to this person. 万歩計 is the system itself and
    is always on. The rest open either for everybody, from 設定, or for one
    person, from their record — which is how the thirteen IIT members get
@@ -4128,7 +4139,7 @@ export default function App() {
         {/* One row, in the order this person's workspace puts it. 個人情報 is
             a tab like the others rather than a button bolted on the end. */}
         <nav className="nav">
-          {(user.admin ? MODULES.map((x) => x.id) : navFor(me)).map((id) => {
+          {(user.admin ? adminModules(user) : navFor(me)).map((id) => {
             if (id === 'personal') {
               if (user.admin) return null;
               return (

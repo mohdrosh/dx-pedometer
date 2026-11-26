@@ -271,6 +271,7 @@ export async function initSchema() {
 
        中身は scrypt のハッシュであって、パスワードそのものは入らない。 */
     ALTER TABLE employees ADD COLUMN IF NOT EXISTS pass_hash TEXT;
+    ALTER TABLE sessions  ADD COLUMN IF NOT EXISTS admin_scope TEXT;
     ALTER TABLE employees ADD COLUMN IF NOT EXISTS staff_kind TEXT;
     /* 外勤（IIT 請負・待機）の13名。名簿がまだ届いていないので誰にも立って
        いない。立つまでこの区分は外勤（一般）と同じものを見る。 */
@@ -1178,14 +1179,33 @@ export async function passwordFor(employeeId) {
 
    置かれていなければ、これまでどおり素通りする。そうしておかないと、
    配った瞬間に本人が入れなくなる。鍵は配ったあとに設定する。 */
-export async function adminPassword() {
+/**
+ * 管理者の鍵。
+ *
+ * who を渡せばその人のぶん、渡さなければ全員で分けていた一つのほう。
+ * 一人ぶんが置かれていなければ、共通のものに落ちる——分ける作業の途中で
+ * 誰も閉め出されないように。
+ */
+export async function adminPassword(who = null) {
+  if (who) {
+    const one = await getKey(`adminPass:${String(who).toLowerCase()}`);
+    if (one && typeof one.hash === 'string') return one.hash;
+  }
   const row = await getKey('adminPass');
   return row && typeof row.hash === 'string' ? row.hash : null;
 }
 
-export async function setAdminPassword(hash) {
-  await setKey('adminPass', { hash, at: Date.now() });
+/** who を渡せばその人だけの鍵、渡さなければ共通の鍵を置く。 */
+export async function setAdminPassword(hash, who = null) {
+  const key = who ? `adminPass:${String(who).toLowerCase()}` : 'adminPass';
+  await setKey(key, { hash, at: Date.now() });
   return true;
+}
+
+/** その人だけの鍵が置かれているか（共通のものには落ちない）。 */
+export async function adminHasOwnPassword(who) {
+  const one = await getKey(`adminPass:${String(who).toLowerCase()}`);
+  return !!(one && typeof one.hash === 'string');
 }
 
 /* ------------------------- 本人確認コードと錠 --------------------------- */
@@ -1312,22 +1332,30 @@ export async function employeeByEmail(email) {
 /* A session is the only thing that says who a request is from. The browser
    holds nothing but an opaque id in an httpOnly cookie. */
 
-export async function createSession(sid, employeeId, isAdmin, days) {
+export async function createSession(sid, employeeId, isAdmin, days, adminScope = null) {
   await pool.query(
-    `INSERT INTO sessions (sid, employee_id, is_admin, expires_at)
-     VALUES ($1,$2,$3, NOW() + ($4 || ' days')::interval)`,
-    [sid, employeeId, !!isAdmin, String(days)],
+    `INSERT INTO sessions (sid, employee_id, is_admin, admin_scope, expires_at)
+     VALUES ($1,$2,$3,$4, NOW() + ($5 || ' days')::interval)`,
+    [sid, employeeId, !!isAdmin, isAdmin ? (adminScope || 'both') : null, String(days)],
   );
 }
 
 export async function getSession(sid) {
   if (!sid) return null;
   const { rows } = await pool.query(
-    'SELECT sid, employee_id, is_admin FROM sessions WHERE sid = $1 AND expires_at > NOW()',
+    `SELECT sid, employee_id, is_admin, admin_scope
+       FROM sessions WHERE sid = $1 AND expires_at > NOW()`,
     [sid],
   );
   if (!rows.length) return null;
-  return { sid: rows[0].sid, employeeId: rows[0].employee_id, isAdmin: rows[0].is_admin };
+  return {
+    sid: rows[0].sid,
+    employeeId: rows[0].employee_id,
+    isAdmin: rows[0].is_admin,
+    /* 古いセッションには列が無い。管理者として入った人の扉を、配った
+       あとで狭めると締め出すことになるので、既定は both にする。 */
+    adminScope: rows[0].is_admin ? (rows[0].admin_scope || 'both') : null,
+  };
 }
 
 export async function deleteSession(sid) {
