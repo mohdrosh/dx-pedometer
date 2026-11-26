@@ -2507,8 +2507,26 @@ function AdminTab({ cfg, setCfg, roster, setRoster, y, m, setPeriod, toast, holi
 
   /* Trial sign-ups are excluded from every real figure: the counts, the bonus
      list, the Excel export and the reminder list. They are managed on the
-     対象者 tab, where they can be shown with a filter. */
-  const people = roster.filter((p) => p.active !== false && !p.trial);
+     対象者 tab, where they can be shown with a filter.
+
+     ------------------------------------------------------------------
+     万歩計に申し込んだ人だけ（佐野, 2026/11/26）
+
+       「万歩計の実績表（Excel）に、モラエッグの登録者が入ってしまって
+         います。万歩計に登録している人だけにしてください」
+
+     名簿そのものは会社の社員リストで、11月に取り込んで607名になった。
+     実績表はその名簿をそのまま並べていたので、申し込んでいない人——
+     モラエッグだけの人も、どちらも使っていない人も——が載っていた。
+
+     consent が万歩計の申し込みである。自動提出も督促もこれを見ている
+     ので、実績表も揃える。
+
+     ただし「その期に記録のある人」は、いま consent が外れていても残す。
+     参加していた月の実績表から、あとで取り消したというだけで人が消えて
+     しまうと、配った紙と数が合わなくなる。過去は過去のまま。 */
+  const people = roster.filter((p) => p.active !== false && !p.trial
+    && (p.consent || !!(entries || {})[p.id]));
   const trialCount = roster.filter((p) => p.trial).length;
   const calc = (p) => {
     const e = (entries || {})[p.id];
