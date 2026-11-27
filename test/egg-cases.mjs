@@ -8,7 +8,7 @@ import {
   EGG_TERMS_JA, REASON_MAX,
   cleanVote, eggWindow, eggOpen, eggOffices, tally,
   cleanRequest, eggMaxPacks, eggTerms, consentOk, requestTotals, SURVEY_OFFICES,
-  harvestCells,
+  harvestCells, eggPrivMax, eggMaxFor,
 } from '../src/egg.js';
 
 let n = 0;
@@ -249,8 +249,9 @@ is('2パック以上は理由必須',
   ok({ office: '大阪', packs: 2, purpose: 'work' }), { ok: false, error: 'reason' });
 
 is('and with a reason it goes through',
-  ok({ office: '大阪', packs: 2, purpose: 'work', reason: 'お客様へお渡しするため' }),
-  { ok: true, value: { office: '大阪', packs: 2, purpose: 'work', reason: 'お客様へお渡しするため' } });
+  ok({ office: '大阪', packs: 2, purpose: 'work', reason: 'お客様へお渡しするため', recipient: '○○商事' }),
+  { ok: true,
+    value: { office: '大阪', packs: 2, purpose: 'work', reason: 'お客様へお渡しするため', recipient: '○○商事' } });
 
 is('a reason of spaces is no reason',
   ok({ office: '大阪', packs: 3, purpose: 'work', reason: '   ' }), { ok: false, error: 'reason' });
@@ -278,20 +279,25 @@ is('nothing at all is refused rather than crashing', cleanRequest(null), { ok: f
 /* About 21 packs are laid in a week, so one person asking for 500 is a
    typo or a joke and either way must not reach the draw. */
 is('more than anyone could collect is refused',
-  ok({ office: '大阪', packs: 500, purpose: 'work', reason: 'x' }), { ok: false, error: 'tooMany' });
+  ok({ office: '大阪', packs: 500, purpose: 'work', reason: 'x', recipient: '○○商事' }), { ok: false, error: 'tooMany' });
 is('the cap is 10 by default', eggMaxPacks(null), 10);
 is('設定 can raise it', eggMaxPacks({ egg: { maxPacks: 20 } }), 20);
 is('but not to nonsense', eggMaxPacks({ egg: { maxPacks: 0 } }), 10);
 is('and the cap is enforced against the configured value',
-  ok({ office: '大阪', packs: 15, purpose: 'work', reason: 'x' }, { egg: { maxPacks: 20 } }).ok, true);
+  ok({ office: '大阪', packs: 15, purpose: 'work', reason: 'x', recipient: '○○商事' }, { egg: { maxPacks: 20 } }).ok, true);
 
 is('a very long reason is cut rather than refused',
-  ok({ office: '大阪', packs: 2, purpose: 'work', reason: 'あ'.repeat(600) }).value.reason.length, REASON_MAX);
+  ok({ office: '大阪', packs: 2, purpose: 'work', reason: 'あ'.repeat(600), recipient: '○○商事' }).value.reason.length, REASON_MAX);
 is('newlines in a reason are collapsed',
-  ok({ office: '大阪', packs: 2, purpose: 'work', reason: 'お客様\n\n用' }).value.reason, 'お客様 用');
+  ok({ office: '大阪', packs: 2, purpose: 'work', reason: 'お客様\n\n用', recipient: '○○商事' }).value.reason, 'お客様 用');
 
+/* 仕事用には配布先が要る（佐野, 2026/11/27）ので、その用途に必要なものを
+   入れたうえで、どの用途も頼めることを見る。 */
 is('every purpose the screen offers can be requested',
-  EGG_PURPOSES.every((p) => ok({ office: '大阪', packs: 1, purpose: p.id }).ok), true);
+  EGG_PURPOSES.every((p) => ok({
+    office: '大阪', packs: 1, purpose: p.id,
+    ...(p.id === 'work' ? { recipient: '○○商事' } : {}),
+  }).ok), true);
 
 /* ------------------------------ 同意 ------------------------------------- */
 
@@ -401,6 +407,56 @@ is('a row with no packs is not a person waiting',
 
   is('空の週でも落ちない', harvestCells([], '2026-11-25', '土日'), []);
   is('引数なしでも落ちない', harvestCells(), []);
+}
+
+/* ---------------------------------------------------------------------------
+   私用1パックまで、と 仕事用の配布先（佐野, 2026/11/27）
+--------------------------------------------------------------------------- */
+{
+  const OF = ['本社（神戸）'];
+  const base = { office: '本社（神戸）', purpose: 'private', packs: 1 };
+  const capped = { egg: { privMax: 1 } };
+
+  is('設定が無ければ上限なし', eggPrivMax(null), null);
+  is('privMax を読む', eggPrivMax(capped), 1);
+  is('0 は上限として採らない', eggPrivMax({ egg: { privMax: 0 } }), null);
+  is('文字は上限として採らない', eggPrivMax({ egg: { privMax: 'いち' } }), null);
+
+  is('私用の上限は privMax', eggMaxFor(capped, 'private'), 1);
+  is('仕事用は privMax の外', eggMaxFor(capped, 'work'), eggMaxPacks(capped));
+  is('privMax が無ければ私用も maxPacks', eggMaxFor(null, 'private'), eggMaxPacks(null));
+  is('privMax は maxPacks を超えない',
+    eggMaxFor({ egg: { privMax: 99, maxPacks: 3 } }, 'private'), 3);
+
+  is('私用1パックは通る', cleanRequest(base, OF, capped).ok, true);
+  is('私用2パックは断る',
+    [cleanRequest({ ...base, packs: 2, reason: 'x' }, OF, capped).ok,
+      cleanRequest({ ...base, packs: 2, reason: 'x' }, OF, capped).error],
+    [false, 'privMax']);
+  is('上限が無ければ私用2パックも通る',
+    cleanRequest({ ...base, packs: 2, reason: 'お客様用' }, OF, null).ok, true);
+
+  /* 仕事用は上限の外。佐野:「仕事用は今のまま」。 */
+  const work = { ...base, purpose: 'work', packs: 2, reason: 'お客様用', recipient: '○○株式会社' };
+  is('仕事用2パックは上限があっても通る', cleanRequest(work, OF, capped).ok, true);
+
+  /* 配布先 */
+  is('仕事用に配布先が無ければ断る',
+    [cleanRequest({ ...work, recipient: '' }, OF, capped).ok,
+      cleanRequest({ ...work, recipient: '' }, OF, capped).error],
+    [false, 'recipient']);
+  is('空白だけの配布先も断る',
+    cleanRequest({ ...work, recipient: '　 ' }, OF, capped).error, 'recipient');
+  is('私用に配布先は要らない', cleanRequest(base, OF, capped).ok, true);
+  is('配布先は value に入る',
+    cleanRequest(work, OF, capped).value.recipient, '○○株式会社');
+  is('配布先の前後の空白は落とす',
+    cleanRequest({ ...work, recipient: '  ○○商事  ' }, OF, capped).value.recipient, '○○商事');
+  is('配布先は長すぎれば切る',
+    cleanRequest({ ...work, recipient: 'あ'.repeat(400) }, OF, capped).value.recipient.length,
+    REASON_MAX);
+  is('私用に配布先を送っても持たない',
+    cleanRequest({ ...base, recipient: '要らない' }, OF, capped).value.recipient, '要らない');
 }
 
 if (fails.length) {

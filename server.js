@@ -45,7 +45,7 @@ import { xlsxToPdf, pdfReady } from './src/topdf.js';
 import { buildSheet } from './src/egg-sheet.js';
 import {
   cleanVote, eggOpen, eggWindow, eggOffices, tally, EGG_RULES, EGG_NAMES,
-  cleanRequest, eggMaxPacks, eggTerms, consentOk, requestTotals,
+  cleanRequest, eggMaxPacks, eggPrivMax, eggTerms, consentOk, requestTotals,
   EGG_PURPOSES, EGG_OFFICES, HQ_OFFICE, TOKYO_OFFICE,
 } from './src/egg.js';
 import { CATEGORIES, boxesFor, groupOf } from './src/mypage.js';
@@ -1373,8 +1373,19 @@ const server = http.createServer(async (req, res) => {
        ------------------------------------------------------------------ */
 
     /** A request with the one status every screen should print for it. */
-    const withStatus = (row, todayIso, holidays, final = true) => (
-      row ? { ...row, status: statusOf(row, todayIso, holidays, final) } : null
+    const withStatus = (row, todayIso, holidays, final = true, cfgNow = null) => (
+      row ? {
+        ...row,
+        status: statusOf(row, todayIso, holidays, final),
+        /* その週の受け取り期限。先週ぶんの受け取りカード（佐野,
+           2026/11/27）が「○月○日までに」と言うのに要る。週ごとに
+           祝日で動くので、画面で数えさせずにここで出す。
+
+           cfg を引数で受け取るのは、ここが route の外だから——中の cfg は
+           見えない。渡し忘れると weekPlan の指定した受取日ではなく既定の
+           金曜になるので、既定に落ちたことが分かるように null を渡さない。 */
+        by: pickupDeadline(row.ship, holidays, cfgNow),
+      } : null
     );
 
     /** Who the caller is, worked out from the session alone. */
@@ -1563,13 +1574,18 @@ const server = http.createServer(async (req, res) => {
            list beside this one carries this week's request counts and is
            active offices only — this is the roster, which a person
            registering needs whole. */
-        officeRows: offices.map((o) => ({ name: o.name, address: o.address || '' })),
+        officeRows: offices.map((o) => ({
+          name: o.name, address: o.address || '', phone: o.phone || '',
+        })),
         open: requestsOpen(ship, now.stamp, now.h, cfg, holidays),
         /* Each office carries the minimum that makes a run to it worth
            making, and how many packs have been asked for so far — the two
            numbers the 「今週タマゴが届きます！」 verdict is made of. */
         offices: offices.map((o) => ({
           name: o.name, address: o.address || '',
+          /* 2026/11/27 佐野:「マイ設定の受取場所に電話番号を」。住所と
+             同じ並びの公開情報で、個人のものではない。 */
+          phone: o.phone || '',
           note: o.note || '', minPacks: o.minPacks || 0,
           asked: requests.filter((r) => r.office === o.name)
             .reduce((a, r) => a + (r.packs || 0), 0),
@@ -1585,6 +1601,9 @@ const server = http.createServer(async (req, res) => {
         })),
         purposes: EGG_PURPOSES,
         maxPacks: eggMaxPacks(cfg),
+        /* 私用の上限。画面は ＋ をここで止め、断り書きもこれが置かれて
+           いるときだけ出す（佐野, 2026/11/27「当面の間」）。 */
+        privMax: eggPrivMax(cfg),
         terms: eggTerms(cfg),
         consented: consentOk(consent, cfg),
         consentAt: consent?.agreedAt || null,
@@ -1592,11 +1611,11 @@ const server = http.createServer(async (req, res) => {
            The status is worked out here rather than in each screen, so the
            participant, the office contact and any export can never disagree
            about whether a pack has expired. */
-        mine: withStatus(await eggMyRequest(sess.employeeId, ship), now.stamp, holidays, finalised),
+        mine: withStatus(await eggMyRequest(sess.employeeId, ship), now.stamp, holidays, finalised, cfg),
         /* Older weeks in the history were confirmed long ago; only the
            open one can be mid-check. */
         history: (who.admin ? [] : await eggMyRequests(sess.employeeId, 8))
-          .map((r) => withStatus(r, now.stamp, holidays, r.ship !== ship || finalised)),
+          .map((r) => withStatus(r, now.stamp, holidays, r.ship !== ship || finalised, cfg)),
         /* 「申請の合計数は目的別の内訳も含めて確認できる」 — counts, open to
            everyone, and no names in them. */
         totals: requestTotals(requests, offices.map((o) => o.name)),
@@ -2231,6 +2250,26 @@ const server = http.createServer(async (req, res) => {
         result: week?.drawnAt ? await weekResult(ship)
           : await runAllot(ship, { dry: true }),
         preview: !week?.drawnAt,
+        /* 今回ご希望に届かなかった方（佐野, 2026/11/27）。
+
+           result からは作らない——あれは runAllot の dry、つまり「いま
+           配り直したらこうなる」であって、実際に渡った数ではない。渡った
+           数は egg_requests.got に書いてある。確定したあとで希望や在庫が
+           動けば、再計算と実績はずれる。彼女が見たいのは実績のほう。
+
+           確定前は got が全員 null なので、出さない——全員が「0パック」と
+           並ぶ表になる。 */
+        missed: week?.drawnAt
+          ? (await eggWeekRequests(ship))
+            .filter((r) => Number(r.got ?? 0) < Number(r.packs ?? 0))
+            .map((r) => ({
+              id: r.id,
+              name: r.name,
+              office: r.collectAt || r.office,
+              packs: Number(r.packs ?? 0),
+              got: Number(r.got ?? 0),
+            }))
+          : null,
       });
     }
 

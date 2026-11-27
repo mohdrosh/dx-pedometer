@@ -131,6 +131,10 @@ const L = {
   reason: ['理由', 'Reason'],
   reasonNeeded: ['2パック以上は理由をご記入ください', 'Two or more packs need a reason'],
   reasonPh: ['例：お客様へお渡しするため', 'e.g. to give to a customer'],
+  /* 配布先（佐野, 2026/11/27）。理由とは別の問いで、渡す相手そのもの。 */
+  to: ['配布先', 'Who they are for'],
+  toPh: ['例：お渡しする会社名', 'e.g. the name of the company you will give them to'],
+  toNeeded: ['配布先を入力してください。', 'Please enter who they are for.'],
   send: ['申請する', 'Request'],
   update: ['申請を変更する', 'Change my request'],
   cancel: ['申請を取り消す', 'Cancel my request'],
@@ -881,7 +885,7 @@ export default function EggPortal({ d, reload: load, lang, toast, screen = 'all'
   const img = art;
 
   const [busy, setBusy] = useState(false);
-  const [form, setForm] = useState({ office: '', packs: 1, purpose: 'private', reason: '' });
+  const [form, setForm] = useState({ office: '', packs: 1, purpose: 'private', reason: '', recipient: '' });
   const [editing, setEditing] = useState(false);
 
   const api = useCallback(async (path, method = 'GET', body) => {
@@ -904,6 +908,7 @@ export default function EggPortal({ d, reload: load, lang, toast, screen = 'all'
       setForm({
         office: d.mine.office, packs: d.mine.packs,
         purpose: d.mine.purpose, reason: d.mine.reason || '',
+        recipient: d.mine.recipient || '',
       });
     } else if (d.offices?.length) {
       setForm((f) => (f.office ? f : { ...f, office: d.offices[0].name }));
@@ -925,7 +930,9 @@ export default function EggPortal({ d, reload: load, lang, toast, screen = 'all'
     const j = await api('/request', 'PUT', form);
     setBusy(false);
     if (!j.ok) {
-      toast?.(j.error === 'bad_reason' ? t('reasonBad') : t('failed'));
+      toast?.(j.error === 'bad_reason' ? t('reasonBad')
+        : j.error === 'bad_recipient' ? t('toNeeded')
+          : j.error === 'bad_privMax' ? mgs('privCap') : t('failed'));
       return;
     }
     setEditing(false);
@@ -950,6 +957,28 @@ export default function EggPortal({ d, reload: load, lang, toast, screen = 'all'
 
   const showForm = d.open && (!mine || editing);
   const needReason = form.packs >= 2 && !form.reason.trim();
+  /* 私用の上限（佐野, 2026/11/27「当面の間、私用は1人1パックまで」）。
+     サーバが決めた数をそのまま使う——画面に書き写すと、設定で戻したとき
+     に片方だけ古いままになる。 */
+  const privMax = Number.isInteger(d.privMax) ? d.privMax : null;
+  const capFor = (purpose) => (purpose === 'private' && privMax !== null
+    ? Math.min(d.maxPacks, privMax) : d.maxPacks);
+  const myCap = capFor(form.purpose);
+  /* 仕事用には配布先が要る。 */
+  const needRecipient = form.purpose === 'work' && !String(form.recipient || '').trim();
+  const cannotSend = needReason || needRecipient;
+
+  /* 先週ぶんの受け取り（佐野, 2026/11/27）。
+
+     受付が次の週へ進むと、画面は新しい週の申請だけを出すようになる。
+     前の週で当たった人の「受け取りました」は、その週のカードごと消えて
+     いた——ボタンを外したのではなく、ボタンの載っていた紙が無くなって
+     いた。別のカードとして出す。
+
+     history はサーバが status と受取期限をつけて返しているので、ここで
+     日付を数え直さない。 */
+  const pending = (d.history || []).find((r) => String(r.ship) < String(d.week?.ship || '')
+    && r.status === 'confirmed' && !r.pickedUpAt);
 
   /* Before the day requests open, nothing about this week has happened
      yet: no request can exist, so no office can have missed its line. */
@@ -977,6 +1006,43 @@ export default function EggPortal({ d, reload: load, lang, toast, screen = 'all'
             which made four stacked announcements of which three were about
             somewhere the reader is not going. The 事務所対決 beside this
             says how all of them are doing; this says how YOURS is. */}
+        {/* 先週ぶんの受け取り（佐野, 2026/11/27）。新しい申請より上に置く
+            ——取りに行くほうが先に起きることなので。 */}
+        {onRequest && pending && (
+          <div className="card eg-pending">
+            <div className="eg-pending-h">{mgs('pendTitle')}</div>
+            <p className="eg-pending-by">
+              {mgs('pendBy', { d: mdLong(pending.by, lang) })}
+            </p>
+            <p className="muted sm">
+              {pending.atOffice || pending.office}　/　{pending.got}
+              {lang === 'ja' ? 'パック' : ' pack(s)'}
+            </p>
+            <div className="eg-acts">
+              <button
+                className="btn primary" disabled={busy}
+                onClick={async () => {
+                  setBusy(true);
+                  await api('/pickup', 'POST', { id: pending.id });
+                  setBusy(false); load();
+                }}
+              >{t('collect')}</button>
+            </div>
+            <div className="eg-pending-note">
+              <b>{mgs('pendCareTitle')}</b>
+              <ul>
+                <li>{mgs('pendCare1')}</li>
+                <li>{mgs('pendCare2')}</li>
+              </ul>
+              <div className="eg-pending-tel">
+                <span>{mgs('pendContact')}</span>
+                <span>{mgs('pendMail')}</span>
+                <span>{mgs('pendPhone')}</span>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* 受付中: which delivery these requests are for — the first
             line of the column, because it is what the site is doing
             today. 佐野, 2026/11/11. */}
@@ -1143,8 +1209,8 @@ export default function EggPortal({ d, reload: load, lang, toast, screen = 'all'
                     <b>{form.packs}</b>
                     <button
                       type="button" className="btn" aria-label="+"
-                      disabled={form.packs >= d.maxPacks}
-                      onClick={() => setForm({ ...form, packs: Math.min(d.maxPacks, form.packs + 1) })}
+                      disabled={form.packs >= myCap}
+                      onClick={() => setForm({ ...form, packs: Math.min(myCap, form.packs + 1) })}
                     >＋</button>
                   </div>
                 </div>
@@ -1155,7 +1221,13 @@ export default function EggPortal({ d, reload: load, lang, toast, screen = 'all'
                       <button
                         key={p.id} type="button"
                         className={`eg-opt${form.purpose === p.id ? ' on' : ''}`}
-                        onClick={() => setForm({ ...form, purpose: p.id })}
+                        /* 用途を変えたら数も入れ直す。私用に戻した人が
+                           2パックのまま送信を押して、サーバにだけ断られる
+                           のを避ける。 */
+                        onClick={() => setForm({
+                          ...form, purpose: p.id,
+                          packs: Math.min(form.packs, capFor(p.id)),
+                        })}
                       >{lang === 'ja' ? p.ja : p.en}</button>
                     ))}
                   </div>
@@ -1189,22 +1261,33 @@ export default function EggPortal({ d, reload: load, lang, toast, screen = 'all'
                 </label>
               )}
 
-              {/* 配布ルール 6.1（2026/11/05）:「1パックでも発送できますが、
-                  できるだけ2パック以上でお願いします」 — at every office now,
-                  not only 東京, and shown while the choice is being made
-                  rather than after it. */}
+              {/* 配布先（佐野, 2026/11/27）:「仕事用には配布先の入力を必須に」。
+                  理由（なぜ要るか）とは別で、こちらは渡す先そのもの。箱に
+                  入れる紙にも出るので、当日その場で分かる。
+
+                  ここにあった「1パックでも発送できますが、できるだけ2パック
+                  以上でお願いします」（配布ルール 6.1, 2026/11/05）は、同じ
+                  日に取り下げられたので外した。 */}
               {form.purpose === 'work' && (
-                <p className="eg-tokyo-note">{mgs('workNote')}</p>
+                <label className="fld"><span>{t('to')}</span>
+                  <input
+                    value={form.recipient} maxLength={300} placeholder={t('toPh')}
+                    onChange={(e) => setForm({ ...form, recipient: e.target.value })}
+                  />
+                </label>
               )}
 
               <div className="eg-acts">
                 <button
-                  className="btn primary" disabled={busy || needReason}
+                  className="btn primary" disabled={busy || cannotSend}
                   onClick={sendRequest}
                 >{busy ? t('sending') : mine ? t('update') : t('send')}</button>
                 {mine && <button className="btn ghost" disabled={busy} onClick={dropRequest}>{t('cancel')}</button>}
               </div>
               {needReason && <p className="eg-warn sm">{t('reasonNeeded')}</p>}
+              {needRecipient && <p className="eg-warn sm">{t('toNeeded')}</p>}
+              {/* 佐野, 2026/11/27。上限が置かれているあいだだけ出す。 */}
+              {privMax !== null && <p className="eg-cap">{mgs('privCap')}</p>}
               <p className="muted sm">{t('canChange')}</p>
             </div>
           </>
@@ -1396,6 +1479,7 @@ export default function EggPortal({ d, reload: load, lang, toast, screen = 'all'
    somebody has to stop and compare before pressing either. */
 function WeekResult({
   r, lang, t, ship, final = true, withNames = false, pdf = true, title = null,
+  missed = null,
 }) {
   const mgs = (k, vars) => mg(k, lang, vars);
   if (!r?.lines?.length) return null;
@@ -1446,6 +1530,52 @@ function WeekResult({
             back, and 優先ポイント itself is unaffected — it is added by
             the allocation, not by this sentence. */}
       </div>
+
+      {/* 今回受け取れなかった方（佐野, 2026/11/27）:「希望に届かなかった人の
+          一覧を、受け取りリストと同じように事業所ごとに」。
+
+          0パックの人だけでなく、頼んだ数に届かなかった人も入れる——今週は
+          前者が1名、後者が5名で、彼女が見たいのは後者のほうだった。
+
+          全員に行き渡った週は出さない。毎週「0名」と出る欄は、そのうち
+          誰も読まなくなる（resMiss を外したときと同じ理由）。 */}
+      {withNames && (() => {
+        const short = missed || [];
+        if (!short.length) return null;
+        const byOffice = new Map();
+        for (const x of short) {
+          const k = x.collectAt || x.atOffice || x.office;
+          if (!byOffice.has(k)) byOffice.set(k, []);
+          byOffice.get(k).push(x);
+        }
+        return (
+          <>
+            <div className="sechead">
+              <span>{mgs('missTitle')}</span>
+              <span className="muted sm">{short.length} {t('people')}</span>
+            </div>
+            <div className="card eg-miss">
+              {[...byOffice.entries()].sort((a, b) => (a[0] < b[0] ? -1 : 1)).map(([off, rows]) => (
+                <div key={off} className="eg-miss-o">
+                  <b>{off}</b>
+                  <ul>
+                    {rows.map((x) => (
+                      <li key={x.id || `${off}-${x.name}`}>
+                        <span>{x.name}</span>
+                        <em className={Number(x.got ?? 0) === 0 ? 'zero' : undefined}>
+                          {mgs('missRow', {
+                            a: String(x.packs ?? 0), b: String(x.got ?? 0),
+                          })}
+                        </em>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          </>
+        );
+      })()}
 
       {withNames && !!r.list?.length && (
         <>
@@ -1676,6 +1806,7 @@ function EggShip({ lang, toast, t, onDone }) {
           <WeekResult
             r={d.result} lang={lang} t={t} ship={d.ship}
             final={d.final} withNames pdf={false} title={mgs('s3Title')}
+            missed={d.missed}
           />
         </div>
       )}
@@ -2239,11 +2370,24 @@ export function EggAdmin({ lang, toast, cfg = {}, setCfg, onDone, today = null }
   /* 発送した週。古い分の紙を出すためだけに持つ。 */
   const [weeks, setWeeks] = useState([]);
 
+  /* 今回ご希望に届かなかった方（佐野, 2026/11/27）。
+
+     最初 WeekResult の中に置いたが、あれが出るのは EggShip——丹波の画面で
+     あって、管理者には見えない（管理者は丹波ではない）。彼女が見たいのは
+     管理の画面なので、ここで取る。 */
+  const [missed, setMissed] = useState(null);
+
   const load = useCallback(async () => {
     const res = await fetch(`${apiRoot()}/egg/offices`, { credentials: 'same-origin' });
     if (res.ok) setOffices((await res.json()).offices || []);
     const w = await fetch(`${apiRoot()}/egg/weeks`, { credentials: 'same-origin' });
     if (w.ok) setWeeks((await w.json()).weeks || []);
+    /* ship を渡さなければ、サーバが「確定の済んだ直近の週」を選ぶ。 */
+    const sp = await fetch(`${apiRoot()}/egg/ship`, { credentials: 'same-origin' });
+    if (sp.ok) {
+      const j = await sp.json();
+      setMissed(j.missed ? { ship: j.ship, rows: j.missed } : null);
+    }
   }, []);
   useEffect(() => { load(); }, [load]);
 
@@ -2328,6 +2472,39 @@ export function EggAdmin({ lang, toast, cfg = {}, setCfg, onDone, today = null }
   return (
     <div className="eg-adm">
      <div className="eg-adm-l">
+      {/* 今回ご希望に届かなかった方（佐野, 2026/11/27）:「受け取りリストと
+          同じように事業所ごとに」。0パックの人だけでなく、頼んだ数に届か
+          なかった人も——今週は前者が1名、後者が5名で、見たいのは後者。
+
+          全員に行き渡った週は出さない。毎週「0名」と出る欄は、そのうち
+          誰も読まなくなる。 */}
+      {!!missed?.rows?.length && (
+        <>
+          <div className="sechead">
+            <span>{mg('missTitle', lang)}</span>
+            <span className="muted sm">{missed.rows.length} {t('people')}</span>
+          </div>
+          <div className="card eg-miss">
+            <p className="muted sm">{md(missed.ship, lang)}</p>
+            {[...new Set(missed.rows.map((x) => x.office))].sort().map((off) => (
+              <div key={off} className="eg-miss-o">
+                <b>{off}</b>
+                <ul>
+                  {missed.rows.filter((x) => x.office === off).map((x) => (
+                    <li key={x.id}>
+                      <span>{x.name}</span>
+                      <em className={x.got === 0 ? 'zero' : undefined}>
+                        {mg('missRow', lang, { a: String(x.packs), b: String(x.got) })}
+                      </em>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+
       {/* 事業所の設定 — 仕様書 4.10. One card per office rather than a row
           in a table: there are seven of them, each has four things to
           set, and a row that fits all four on a laptop is unreadable on

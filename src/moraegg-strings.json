@@ -1014,5 +1014,49 @@
   "remainPct": {
     "ja": "残り{n}%",
     "en": "{n}% left"
+  },
+  "privCap": {
+    "ja": "リクエストが多いため、当面の間、私用は1人1パックまでとさせていただきます。",
+    "en": "Because requests are high, personal use is limited to one pack per person for the time being."
+  },
+  "pendTitle": {
+    "ja": "先週ぶんの卵をお受け取りください",
+    "en": "You have eggs waiting from last week"
+  },
+  "pendBy": {
+    "ja": "{d}までに受け取りをお願いします。",
+    "en": "Please collect them by {d}."
+  },
+  "pendCareTitle": {
+    "ja": "【注意】",
+    "en": "Please note"
+  },
+  "pendCare1": {
+    "ja": "今週中の受け取りが難しい方は、事前にご連絡ください。",
+    "en": "If you cannot collect them this week, please let us know in advance."
+  },
+  "pendCare2": {
+    "ja": "三田・京都で受け取る方で、受け取りに来る時間が17時45分を過ぎる場合は、事前にご連絡ください。",
+    "en": "If you collect at Sanda or Kyoto after 17:45, please let us know in advance."
+  },
+  "pendContact": {
+    "ja": "連絡先",
+    "en": "Contact"
+  },
+  "pendMail": {
+    "ja": "メール：admin_egg@morabu.com",
+    "en": "Email: admin_egg@morabu.com"
+  },
+  "pendPhone": {
+    "ja": "電話：078-335-7391（本社）",
+    "en": "Phone: 078-335-7391 (Head Office)"
+  },
+  "missTitle": {
+    "ja": "今回ご希望に届かなかった方",
+    "en": "Did not get what they asked for"
+  },
+  "missRow": {
+    "ja": "希望 {a} → {b}パック",
+    "en": "asked {a} → got {b}"
   }
 }

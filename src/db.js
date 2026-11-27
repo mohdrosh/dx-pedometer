@@ -272,6 +272,8 @@ export async function initSchema() {
        中身は scrypt のハッシュであって、パスワードそのものは入らない。 */
     ALTER TABLE employees ADD COLUMN IF NOT EXISTS pass_hash TEXT;
     ALTER TABLE sessions  ADD COLUMN IF NOT EXISTS admin_scope TEXT;
+    ALTER TABLE egg_requests ADD COLUMN IF NOT EXISTS recipient TEXT;
+    ALTER TABLE egg_offices  ADD COLUMN IF NOT EXISTS phone TEXT;
     ALTER TABLE employees ADD COLUMN IF NOT EXISTS staff_kind TEXT;
     /* 外勤（IIT 請負・待機）の13名。名簿がまだ届いていないので誰にも立って
        いない。立つまでこの区分は外勤（一般）と同じものを見る。 */
@@ -831,6 +833,65 @@ export async function initSchema() {
       [JSON.stringify({ at: Date.now(), rows: u.rowCount })],
     );
     if (u.rowCount) console.log('  Eggs     : 本社（神戸）の最低パック数を1に戻しました');
+  }
+
+  /* 2026/11/27 佐野:「マイ設定の受取場所に、電話番号を載せてください」。
+
+     一度かぎり。空いている事業所にだけ入れる——入れたあとで 設定 から
+     直した番号は人のものなので、起動のたびに書き戻さない（最低パック数
+     と同じ理由）。名簿に無い名前は黙って飛ばす。 */
+  const phones = await pool.query("SELECT 1 FROM config WHERE key = 'job:officePhones1127'");
+  if (!phones.rowCount) {
+    const list = [
+      ['本社（神戸）', '078-335-7391'],
+      ['東京', '03-6259-1621'],
+      ['大阪', '06-6341-8237'],
+      ['三田', '079-553-8785'],
+      ['姫路', '079-226-8655'],
+      ['京都', '075-255-1005'],
+      ['尼崎技術研修所', '06-6499-1377'],
+    ];
+    let put = 0;
+    for (const [name, tel] of list) {
+      const u = await pool.query(
+        `UPDATE egg_offices SET phone = $2
+          WHERE name = $1 AND COALESCE(phone, '') = ''`,
+        [name, tel],
+      );
+      put += u.rowCount;
+    }
+    await pool.query(
+      `INSERT INTO config (key, value) VALUES ('job:officePhones1127', $1)
+       ON CONFLICT (key) DO NOTHING`,
+      [JSON.stringify({ at: Date.now(), rows: put })],
+    );
+    if (put) console.log(`  Eggs     : ${put} office phone number(s) filled in`);
+  }
+
+  /* 2026/11/27 佐野:「リクエストが多いため、当面の間、私用は1人1パック
+     までとさせていただきます」。
+
+     一度かぎりで入れる。「当面の間」なので、戻すのは人の判断——戻したあと
+     に起動のたび書き戻しては、戻せなくなる。外すときは
+
+       node tools/egg-priv-cap.mjs --off
+
+     で、同じ道具で掛け直せる。 */
+  const privCap = await pool.query("SELECT 1 FROM config WHERE key = 'job:privCap1127'");
+  if (!privCap.rowCount) {
+    const row = await pool.query("SELECT value FROM config WHERE key = 'cfg'");
+    const now = row.rows[0]?.value || {};
+    await pool.query(
+      `INSERT INTO config (key, value) VALUES ('cfg', $1)
+       ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value`,
+      [JSON.stringify({ ...now, egg: { ...(now.egg || {}), privMax: 1 } })],
+    );
+    await pool.query(
+      `INSERT INTO config (key, value) VALUES ('job:privCap1127', $1)
+       ON CONFLICT (key) DO NOTHING`,
+      [JSON.stringify({ at: Date.now() })],
+    );
+    console.log('  Eggs     : 私用は1人1パックまで（--off で戻せます）');
   }
 
   /* メニュー一覧表の初期値。入っていない id だけを足す——表はこれから
@@ -1575,7 +1636,7 @@ export async function eggOfficeRows(activeOnly = false) {
        contact existed, and is a person's details travelling for no
        reason now that one does not. The columns stay in the table; they
        just stop leaving it. */
-    `SELECT o.name, o.address, o.note, o.active, o.min_packs AS "minPacks",
+    `SELECT o.name, o.address, o.phone, o.note, o.active, o.min_packs AS "minPacks",
             o.arrive_days AS "arriveDays"
        FROM egg_offices o
       ${activeOnly ? 'WHERE o.active' : ''}
@@ -1613,6 +1674,7 @@ export async function eggOfficeSave(patch = {}) {
   const vals = [name];
   const put = (col, v) => { vals.push(v); sets.push(`${col} = $${vals.length}`); };
   if ('address' in patch) put('address', patch.address || null);
+  if ('phone' in patch) put('phone', String(patch.phone || '').trim() || null);
   if ('contactId' in patch) put('contact_id', patch.contactId || null);
   if ('contactMail' in patch) put('contact_mail', patch.contactMail || null);
   if ('note' in patch) put('note', patch.note || null);
@@ -1729,16 +1791,20 @@ export async function eggHarvestSet(day, packs, employeeId) {
    and a draw that re-runs orders ties the same way both times. */
 const reqId = (ship, employeeId) => `${ship}:${employeeId}`;
 
-export async function eggRequestSave(employeeId, ship, { office, packs, purpose, reason, hqOk }) {
+export async function eggRequestSave(
+  employeeId, ship, { office, packs, purpose, reason, recipient, hqOk },
+) {
   await pool.query(
-    `INSERT INTO egg_requests (id, employee_id, ship, office, packs, purpose, reason, hq_ok)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+    `INSERT INTO egg_requests
+       (id, employee_id, ship, office, packs, purpose, reason, recipient, hq_ok)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
      ON CONFLICT (id) DO UPDATE
        SET office = EXCLUDED.office, packs = EXCLUDED.packs,
            purpose = EXCLUDED.purpose, reason = EXCLUDED.reason,
+           recipient = EXCLUDED.recipient,
            hq_ok = EXCLUDED.hq_ok, updated_at = NOW()`,
     [reqId(ship, employeeId), String(employeeId), ship, office, packs, purpose,
-      reason || null, !!hqOk],
+      reason || null, recipient || null, !!hqOk],
   );
   return true;
 }
@@ -1755,7 +1821,7 @@ export async function eggRequestDrop(employeeId, ship) {
 /** This person's own request for a week, and nobody else's. */
 export async function eggMyRequest(employeeId, ship) {
   const { rows } = await pool.query(
-    `SELECT id, ship, office, packs, purpose, reason, got, hq_ok AS "hqOk",
+    `SELECT id, ship, office, packs, purpose, reason, recipient, got, hq_ok AS "hqOk",
             at_office AS "atOffice",
             drawn_at AS "drawnAt", picked_up_at AS "pickedUpAt"
        FROM egg_requests WHERE employee_id = $1 AND ship = $2`,
@@ -1768,7 +1834,7 @@ export async function eggMyRequest(employeeId, ship) {
 /** This person's own history, newest week first. */
 export async function eggMyRequests(employeeId, limit = 12) {
   const { rows } = await pool.query(
-    `SELECT ship, office, packs, purpose, got, at_office AS "atOffice",
+    `SELECT id, ship, office, packs, purpose, got, at_office AS "atOffice",
             drawn_at AS "drawnAt", picked_up_at AS "pickedUpAt"
        FROM egg_requests WHERE employee_id = $1 ORDER BY ship DESC LIMIT $2`,
     [String(employeeId), Math.min(60, Math.max(1, limit))],
@@ -1785,7 +1851,8 @@ export async function eggMyRequests(employeeId, limit = 12) {
 export async function eggWeekRequests(ship, office = null) {
   const { rows } = await pool.query(
     `SELECT r.id, r.employee_id AS "employeeId", e.name, r.office, r.packs,
-            r.purpose, r.reason, r.created_at AS "at", r.got, r.hq_ok AS "hqOk",
+            r.purpose, r.reason, r.recipient, r.created_at AS "at", r.got,
+            r.hq_ok AS "hqOk",
             r.at_office AS "atOffice", COALESCE(r.at_office, r.office) AS "collectAt",
             r.drawn_at AS "drawnAt", r.picked_up_at AS "pickedUpAt"
        FROM egg_requests r

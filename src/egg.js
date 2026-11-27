@@ -345,6 +345,30 @@ export function eggMaxPacks(cfg) {
 }
 
 /**
+ * 私用の上限（佐野, 2026/11/27）。
+ *
+ *   「リクエストが多いため、当面の間、私用は1人1パックまでと
+ *     させていただきます」
+ *
+ * 「当面の間」なので、数を書き込まずに 設定 に置く。戻すときに人の手で
+ * 直せるようにしておかないと、戻す日が来るたびに配り直しになる。
+ *
+ * 置いていなければ上限なし——これまでどおり maxPacks まで。
+ */
+export function eggPrivMax(cfg) {
+  const n = Number(cfg?.egg?.privMax);
+  return Number.isInteger(n) && n >= 1 && n <= 99 ? n : null;
+}
+
+/** その用途でいくつまで頼めるか。 */
+export function eggMaxFor(cfg, purpose) {
+  const all = eggMaxPacks(cfg);
+  if (purpose !== 'private') return all;
+  const cap = eggPrivMax(cfg);
+  return cap === null ? all : Math.min(all, cap);
+}
+
+/**
  * 5.2 申請. The one shape a request may take, or an error code saying why not.
  *
  * Returns {ok:true, value} or {ok:false, error} rather than null, because
@@ -365,12 +389,29 @@ export function cleanRequest(v, offices = EGG_OFFICES, cfg = null) {
   const purpose = String(v?.purpose ?? '').trim();
   if (!EGG_PURPOSE_IDS.includes(purpose)) return { ok: false, error: 'purpose' };
 
+  /* 私用の上限。超えていたら黙って1に直すのではなく断る——頼んだ数と
+     届いた数が違うのに誰も何も言わないのが、いちばん困る。 */
+  if (packs > eggMaxFor(cfg, purpose)) return { ok: false, error: 'privMax' };
+
   const reason = String(v?.reason ?? '').replace(/\s+/g, ' ').trim().slice(0, REASON_MAX);
   /* 「2パック以上の場合は理由を必須とする」. One pack is the ordinary case and
      asking why would only be in the way. */
   if (packs >= 2 && !reason) return { ok: false, error: 'reason' };
 
-  return { ok: true, value: { office, packs, purpose, ...(reason ? { reason } : {}) } };
+  /* 配布先（佐野, 2026/11/27）:「仕事用には配布先の入力を必須に」。
+     理由（なぜ要るか）とは別の問いで、こちらは渡す先そのもの。箱に入れる
+     紙にも出すので、空のまま通すと当日わからなくなる。 */
+  const recipient = String(v?.recipient ?? '').replace(/\s+/g, ' ').trim().slice(0, REASON_MAX);
+  if (purpose === 'work' && !recipient) return { ok: false, error: 'recipient' };
+
+  return {
+    ok: true,
+    value: {
+      office, packs, purpose,
+      ...(reason ? { reason } : {}),
+      ...(recipient ? { recipient } : {}),
+    },
+  };
 }
 
 /* ------------------------------ the totals ------------------------------- */

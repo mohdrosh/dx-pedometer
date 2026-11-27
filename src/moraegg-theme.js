@@ -618,7 +618,29 @@ export const MG_CSS = `
 }
 .mg .pill.ok{background:var(--mg-leaf);color:#fff}
 .mg .pill.warn{background:var(--mg-sun);color:var(--mg-navy)}
+/* 先週ぶんの受け取り（佐野, 2026/11/27）。新しい申請の上に出るので、
+   申請カードと取り違えられないよう色を分ける。 */
+.mg .eg-pending{border:2px solid #7FB8E8;background:#F2F8FE}
+.mg .eg-pending-h{font-weight:800;color:#13306b;font-size:15px;margin-bottom:4px}
+.mg .eg-pending-by{font-weight:700;color:#B3261E;margin:2px 0 6px}
+.mg .eg-pending-note{margin-top:12px;padding-top:10px;border-top:1px solid #D4E6F7;
+  font-size:12.5px;line-height:1.8;color:#3b4760}
+.mg .eg-pending-note ul{margin:4px 0 8px;padding-left:1.1em}
+.mg .eg-pending-tel{display:flex;flex-direction:column}
+.mg .eg-opt-tel{display:block;font-size:11.5px;opacity:.75;margin-top:1px}
+.mg .eg-miss-o{margin-bottom:10px}
+.mg .eg-miss-o>b{display:block;color:#13306b;font-size:13.5px;margin-bottom:3px}
+.mg .eg-miss-o ul{margin:0;padding:0;list-style:none}
+.mg .eg-miss-o li{display:flex;justify-content:space-between;gap:10px;
+  padding:4px 0;border-bottom:1px solid #eef1f7;font-size:13.5px}
+.mg .eg-miss-o em{font-style:normal;opacity:.75;font-size:12.5px}
+.mg .eg-miss-o em.zero{color:#B3261E;opacity:1;font-weight:700}
 .mg .eg-warn{color:#B3261E;font-weight:700}
+/* 私用の上限のお知らせ（佐野, 2026/11/27「赤など目立つ色で」）。締切の
+   一文のすぐ上に置くので、枠で囲って読み飛ばされないようにする。 */
+.mg .eg-cap{margin:10px 0 2px;padding:9px 11px;border-radius:9px;
+  background:#FDECEA;border:1px solid #F3C0BA;color:#B3261E;
+  font-weight:700;font-size:13px;line-height:1.6}
 
 /* ------------------------------ the pictures ---------------------------- */
 /* Shown whole, never cropped: each one carries its own words and its own

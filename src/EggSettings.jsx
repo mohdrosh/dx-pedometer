@@ -36,6 +36,10 @@ export default function EggSettings({ d, reload, lang, toast, img }) {
   if (!s) return null;
   /* Same second line as the sign-up: 「事業所名の下に、所在地を小さく表示」. */
   const where = new Map((d?.officeRows || []).map((o) => [o.name, o.address || '']));
+  /* 2026/11/27 佐野:「マイ設定の受取場所に、電話番号を載せてください」。
+     住所の下にもう一行。受け取りが遅くなるときに掛ける先なので、選ぶ
+     ところと同じ場所にある必要がある。 */
+  const tel = new Map((d?.officeRows || []).map((o) => [o.name, o.phone || '']));
   const offices = officeList(lang);
   const dirty = office !== s.office
     || (priv || '') !== (s.privateMail || '')
@@ -109,6 +113,7 @@ export default function EggSettings({ d, reload, lang, toast, img }) {
             >
               {o.label}
               {where.get(o.name) && <small className="eg-opt-loc">{where.get(o.name)}</small>}
+              {tel.get(o.name) && <small className="eg-opt-tel">TEL {tel.get(o.name)}</small>}
             </button>
           ))}
         </div>
